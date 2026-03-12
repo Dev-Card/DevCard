@@ -15,7 +15,7 @@ Thank you for your interest in contributing to DevCard! This guide will help you
 
 ```bash
 # 1. Fork and clone the repo
-git clone https://github.com/<your-username>/devcard.git
+git clone https://github.com/Dev-Card/DevCard.git
 cd devcard
 
 # 2. Install dependencies

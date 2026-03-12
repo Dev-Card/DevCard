@@ -2,6 +2,11 @@
   <h1 align="center">DevCard</h1>
   <p align="center"><strong>One Tap. Every Profile. Every Platform.</strong></p>
   <p align="center">Open Source Developer Profile Exchange Platform</p>
+  <p align="center">
+    <a href="https://github.com/Dev-Card/DevCard">
+      <img src="https://img.shields.io/badge/GitHub-Dev--Card%2FDevCard-blue?logo=github&style=flat-square" alt="GitHub Repo" />
+    </a>
+  </p>
 </p>
 
 <p align="center">
@@ -33,6 +38,8 @@ Each exchange is manual, error-prone, and slow. DevCard fixes this.
 - 🔗 **Universal Profile Aggregation** — GitHub, LinkedIn, Twitter/X, GitLab, Devfolio, and 10+ more platforms
 - 📱 **QR Code Sharing** — Show your QR, they scan, done
 - ⚡ **One-Screen Multi-Platform Connect** — Follow on GitHub, Connect on LinkedIn, all from one card
+- 📈 **Advanced Analytics** — Track who viewed your card, when, and from where (Web, QR, App)
+- 🔌 **Per-Platform OAuth Integrations** — Securely connect accounts for "Silent Follows"
 - 🎯 **Context Cards** — Different cards for different situations (Professional, Hackathon, Community)
 - 🌐 **Web Backup** — Receivers don't need the app — works in any browser
 - 🔒 **Privacy-First** — No tracking, no data selling, your data stays yours
