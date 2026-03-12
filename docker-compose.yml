@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: devcard-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: devcard
+      POSTGRES_PASSWORD: devcard
+      POSTGRES_DB: devcard
+    volumes:
+      - devcard-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U devcard']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: devcard-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - devcard-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  devcard-pgdata:
+  devcard-redis:

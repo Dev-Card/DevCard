@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  username    String   @unique
+  displayName String   @map("display_name")
+  bio         String?
+  pronouns    String?
+  role        String?
+  company     String?
+  avatarUrl   String?  @map("avatar_url")
+  accentColor String   @default("#6366f1") @map("accent_color")
+  provider    String
+  providerId  String   @map("provider_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  platformLinks PlatformLink[]
+  cards         Card[]
+  oauthTokens   OAuthToken[]
+
+  @@unique([provider, providerId])
+  @@map("users")
+}
+
+model PlatformLink {
+  id           String     @id @default(uuid())
+  userId       String     @map("user_id")
+  platform     String
+  username     String
+  url          String
+  displayOrder Int        @default(0) @map("display_order")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardLinks CardLink[]
+
+  @@map("platform_links")
+}
+
+model Card {
+  id        String     @id @default(uuid())
+  userId    String     @map("user_id")
+  title     String
+  isDefault Boolean    @default(false) @map("is_default")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardLinks CardLink[]
+
+  @@map("cards")
+}
+
+model CardLink {
+  id             String @id @default(uuid())
+  cardId         String @map("card_id")
+  platformLinkId String @map("platform_link_id")
+  displayOrder   Int    @default(0) @map("display_order")
+
+  card         Card         @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  platformLink PlatformLink @relation(fields: [platformLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, platformLinkId])
+  @@map("card_links")
+}
+
+model OAuthToken {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  platform     String
+  accessToken  String    @map("access_token")
+  refreshToken String?   @map("refresh_token")
+  scopes       String
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@map("oauth_tokens")
+}

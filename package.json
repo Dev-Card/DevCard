@@ -1,0 +1,25 @@
+{
+  "name": "devcard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One Tap. Every Profile. Every Platform. Open Source Developer Profile Exchange Platform.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev:backend": "pnpm --filter @devcard/backend dev",
+    "dev:mobile": "pnpm --filter @devcard/mobile start",
+    "dev:web": "pnpm --filter @devcard/web dev",
+    "build:backend": "pnpm --filter @devcard/backend build",
+    "build:web": "pnpm --filter @devcard/web build",
+    "test": "pnpm -r test",
+    "test:backend": "pnpm --filter @devcard/backend test",
+    "lint": "pnpm -r lint",
+    "db:migrate": "pnpm --filter @devcard/backend db:migrate",
+    "db:seed": "pnpm --filter @devcard/backend db:seed",
+    "db:studio": "pnpm --filter @devcard/backend db:studio"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be"
+}
