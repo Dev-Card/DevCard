@@ -51,6 +51,8 @@ export async function profileRoutes(app: FastifyInstance) {
     }
 
     // Check username uniqueness if changing
+    // Note: For production, consider adding a timestamp/version field to handle
+    // race conditions where two users might try to claim the same username simultaneously.
     if (parsed.data.username) {
       const existing = await app.prisma.user.findFirst({
         where: {
