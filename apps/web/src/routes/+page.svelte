@@ -1,3 +1,25 @@
+<script>
+  import { onMount } from 'svelte';
+
+  let theme = 'light';
+
+  onMount(() => {
+    const saved = localStorage.getItem('devcard-theme');
+    if (saved) {
+      theme = saved;
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      theme = 'dark';
+    }
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  });
+
+  function toggleTheme() {
+    theme = theme === 'light' ? 'dark' : 'light';
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('devcard-theme', theme);
+  }
+</script>
+
 <svelte:head>
   <title>DevCard — One Tap. Every Profile. Every Platform.</title>
   <meta
@@ -8,6 +30,14 @@
 
 <main class="landing">
   <section class="hero">
+    <button
+      id="theme-toggle"
+      class="theme-toggle"
+      on:click={toggleTheme}
+      aria-label="Toggle theme"
+    >
+      {theme === 'light' ? '🌙' : '☀️'}
+    </button>
     <div class="logo">⚡</div>
     <h1>DevCard</h1>
     <p class="tagline">One Tap. Every Profile. Every Platform.</p>
@@ -92,10 +122,46 @@
 </main>
 
 <style>
+  /* ── Theme toggle button ────────────────────────────────────────── */
+  .theme-toggle {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background 0.3s ease,
+      border-color 0.3s ease,
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    line-height: 1;
+  }
+
+  .theme-toggle:hover {
+    transform: scale(1.12) rotate(15deg);
+    border-color: var(--primary);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+  }
+
+  .theme-toggle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+  }
+
   .landing {
     max-width: 960px;
     margin: 0 auto;
     padding: 2rem;
+    position: relative;
   }
 
   .hero {
