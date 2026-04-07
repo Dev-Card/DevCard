@@ -118,6 +118,61 @@ DevCard uses a three-layer follow engine:
 | WebView Connect | In-app WebView interaction | LinkedIn, Twitter/X |
 | Profile Link | Opens profile in browser | GitLab, Devfolio, others |
 
+## API Endpoints
+
+The API provides the following endpoints (defined by the `cardRoutes` function in `apps/backend/src/routes/cards.ts`):
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| **GET** | `/` | List all cards for the authenticated user |
+| **POST** | `/` | Create a new card (first card is auto-set as default) |
+| **PUT** | `/:id` | Update a card's title and/or links |
+| **DELETE** | `/:id` | Delete a card |
+| **PUT** | `/:id/default` | Set a card as the default card |
+
+### **POST /** - Create a New Card (Example)
+
+**Request:**
+```json
+POST /cards HTTP/1.1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "title": "New Card",
+  "linkIds": [
+    "223e4567-e89b-12d3-a456-426614174000",
+    "323e4567-e89b-12d3-a456-426614174000"
+  ]
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": "623e4567-e89b-12d3-a456-426614174000",
+  "title": "New Card",
+  "isDefault": false,
+  "links": [
+    {
+      "id": "223e4567-e89b-12d3-a456-426614174000",
+      "platform": "github",
+      "username": "john-doe",
+      "url": "https://github.com/john-doe"
+    },
+    {
+      "id": "323e4567-e89b-12d3-a456-426614174000",
+      "platform": "twitter",
+      "username": "johndoe",
+      "url": "https://twitter.com/johndoe"
+    }
+  ]
+}
+```
+**Field constraints:**
+- `title`: String, 1-100 characters (required)
+- `linkIds`: Array of UUID strings (required, can be empty array)
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions, coding standards, and PR process.
