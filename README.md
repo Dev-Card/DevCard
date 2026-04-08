@@ -245,6 +245,7 @@ The following error cases are implemented:
 | Scenario | Status | Response |
 |----------|--------|----------|
 | **Create/Update Card** | 400 | `{ error: 'Validation failed', details: parsed.error.flatten() }` — when title or linkIds don't meet constraints |
+| **Create/Update Card** | 409 | `{ error: 'Username already taken'}` — when a user with the same username exists |
 | **Update Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
 | **Delete Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
 | **Set Default Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
