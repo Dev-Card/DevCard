@@ -255,6 +255,23 @@ The following error cases are implemented:
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions, coding standards, and PR process.
 
+## Good First Issues
+
+New to open source? We've got you covered! Check out our [Good First Issues](https://github.com/Dev-Card/DevCard/issues?q=is%3Aopen+label%3A%22good+first+issue%22) — these are specially curated issues that are:
+
+- Well-documented with clear acceptance criteria
+- Limited in scope (perfect for a first contribution)
+- Mentored by maintainers
+
+### How to Claim an Issue
+
+1. Browse the [Good First Issues list](https://github.com/Dev-Card/DevCard/issues?q=is%3Aopen+label%3A%22good+first+issue%22)
+2. Comment on the issue you'd like to work on (e.g., "I'd like to take this on!")
+3. Wait for a maintainer to assign it to you
+4. Fork the repo, make your changes, and open a PR
+
+That's it! We're here to help you succeed.
+
 ## License
 
 DevCard is licensed under the [Apache License 2.0](./LICENSE).
