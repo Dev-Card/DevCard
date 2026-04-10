@@ -37,6 +37,34 @@ pnpm dev:backend    # Backend API on :3000
 pnpm dev:mobile     # React Native app
 ```
 
+### Running Tests
+
+This project uses `pnpm` to run tests across different parts of the codebase.
+
+#### Run all tests
+To execute all available tests:
+```bash
+pnpm -r test
+```
+
+#### apps/backend
+The backend uses Vitest:
+```bash
+pnpm --filter @devcard/backend test
+pnpm --filter @devcard/backend test:watch
+```
+#### apps/mobile
+The mobile app uses Jest:
+```bash
+pnpm --filter @devcard/mobile test
+```
+#### apps/web
+Currently, the web app does not define a test script.
+
+#### packages/shared
+The shared package does not include test scripts. It only provides linting and type checking.
+
+
 ## Project Structure
 
 ```
