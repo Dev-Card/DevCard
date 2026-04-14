@@ -1,0 +1,83 @@
+name: Issue Commands
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  issue_commands:
+    runs-on: ubuntu-latest
+    if: github.event.issue.pull_request == null && (startsWith(github.event.comment.body, '/assign') || startsWith(github.event.comment.body, '/unassign'))
+    steps:
+      - name: Handle Issue Commands
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const commenter = context.payload.comment.user.login;
+            const issueNumber = context.payload.issue.number;
+            const body = context.payload.comment.body.trim();
+
+            if (body === '/assign') {
+              try {
+                // Check if already assigned
+                const { data: issue } = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber
+                });
+
+                if (issue.assignees.some(assignee => assignee.login === commenter)) {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: `@${commenter}, you are already assigned to this issue!`
+                  });
+                  return;
+                }
+
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  assignees: [commenter]
+                });
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `Sure thing, @${commenter}! You've been assigned to this issue. Happy coding! 🚀`
+                });
+
+                console.log(`Successfully assigned ${commenter} to issue #${issueNumber}`);
+              } catch (error) {
+                console.error(`Failed to assign ${commenter}: ${error.message}`);
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `Oops, @${commenter}! I couldn't assign you to this issue. You might need to be a collaborator or have the necessary permissions.`
+                });
+              }
+            } else if (body === '/unassign') {
+              try {
+                await github.rest.issues.removeAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  assignees: [commenter]
+                });
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `@${commenter}, you have been unassigned from this issue.`
+                });
+
+                console.log(`Successfully unassigned ${commenter} from issue #${issueNumber}`);
+              } catch (error) {
+                console.error(`Failed to unassign ${commenter}: ${error.message}`);
+              }
+            }
