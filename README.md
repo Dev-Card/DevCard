@@ -253,7 +253,7 @@ The following error cases are implemented:
 
 ## Good First Issues
 
-New to open source? We've got you covered! Check out our [Good First Issues](https://github.com/Dev-Card/DevCard/issues?q=is%3Aopen+label%3A%22good-first-issue%22) — these are specially curated issues that are:
+New to open source? We've got you covered! Check out our [Good First Issues](https://github.com/Dev-Card/DevCard/issues?q=is%3Aopen+label%3A%22good-first-issue%22), these are specially curated issues that are:
 
 - Well-documented with clear acceptance criteria
 - Limited in scope (perfect for a first contribution)
