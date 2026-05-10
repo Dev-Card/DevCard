@@ -274,3 +274,8 @@ export function getDeepLinkUrl(platformId: string, username: string): string | n
   if (!platform?.deepLinkPattern) return null;
   return platform.deepLinkPattern.replace(/{username}/g, username);
 }
+
+/** Returns true if the given id corresponds to a registered platform */
+export function isSupportedPlatform(id: string): boolean {
+  return PLATFORMS[id] !== undefined;
+}
