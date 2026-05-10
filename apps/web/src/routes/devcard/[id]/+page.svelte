@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { PLATFORMS } from '@devcard/shared';
 
 	let { data } = $props();
@@ -37,9 +38,11 @@
 				showToast('Failed to copy. Please copy manually.');
 			}
 		} else {
-			window.open(link.url, '_blank');
+			window.open(link.url, '_blank', 'noopener,noreferrer');
 		}
 	}
+
+	onDestroy(() => { if (toastTimer) clearTimeout(toastTimer); });
 </script>
 
 <svelte:head>
@@ -123,11 +126,8 @@
 	</div>
 </div>
 
-<!-- Accessible live region for copy feedback -->
-<div aria-live="polite" aria-atomic="true" class="sr-only">{toastMessage}</div>
-
 {#if toastMessage}
-	<div class="toast" role="status">{toastMessage}</div>
+	<div class="toast" role="status" aria-live="polite" aria-atomic="true">{toastMessage}</div>
 {/if}
 
 <style>
@@ -381,15 +381,5 @@
 		pointer-events: none;
 	}
 
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
-	}
+
 </style>
