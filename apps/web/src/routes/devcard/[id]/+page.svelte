@@ -1,6 +1,11 @@
 <script lang="ts">
+	import { PLATFORMS } from '@devcard/shared';
+
 	let { data } = $props();
 	const card = $derived(data.card);
+
+	let toastMessage = $state('');
+	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function getPlatformColor(platform: string) {
 		const colors: Record<string, string> = {
@@ -10,13 +15,30 @@
 			instagram: '#E4405F',
 			youtube: '#FF0000',
 			devto: '#0A0A0A',
-			hashnode: '#2962FF'
+			hashnode: '#2962FF',
+			discord: '#5865F2',
 		};
 		return colors[platform.toLowerCase()] || '#6366F1';
 	}
 
-	function handlePlatformClick(link: any) {
-		window.open(link.url, '_blank');
+	function showToast(message: string) {
+		toastMessage = message;
+		if (toastTimer) clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => { toastMessage = ''; }, 3000);
+	}
+
+	async function handlePlatformClick(link: any) {
+		const platform = PLATFORMS[link.platform];
+		if (platform?.followStrategy === 'copy') {
+			try {
+				await navigator.clipboard.writeText(link.username);
+				showToast('Copied to clipboard!');
+			} catch {
+				showToast('Failed to copy. Please copy manually.');
+			}
+		} else {
+			window.open(link.url, '_blank');
+		}
 	}
 </script>
 
@@ -100,6 +122,13 @@
 		</footer>
 	</div>
 </div>
+
+<!-- Accessible live region for copy feedback -->
+<div aria-live="polite" aria-atomic="true" class="sr-only">{toastMessage}</div>
+
+{#if toastMessage}
+	<div class="toast" role="status">{toastMessage}</div>
+{/if}
 
 <style>
 	:global(body) {
@@ -333,5 +362,34 @@
 		color: #6366F1;
 		text-decoration: none;
 		font-weight: 600;
+	}
+
+	.toast {
+		position: fixed;
+		bottom: 1.5rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: #1e293b;
+		color: #f8fafc;
+		border: 1px solid #334155;
+		border-radius: 8px;
+		padding: 0.625rem 1.25rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+		z-index: 1000;
+		pointer-events: none;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 </style>

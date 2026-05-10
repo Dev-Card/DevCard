@@ -12,6 +12,24 @@
     leetcode: '#FFA116', hackerrank: '#00EA64', discord: '#5865F2',
     telegram: '#26A5E4', email: '#EA4335', portfolio: '#6366F1', custom: '#8B5CF6',
   };
+
+  let toastMessage = $state('');
+  let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function showToast(message: string) {
+    toastMessage = message;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastMessage = ''; }, 3000);
+  }
+
+  async function handleCopy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard!');
+    } catch {
+      showToast('Failed to copy. Please copy manually.');
+    }
+  }
 </script>
 
 <svelte:head>
@@ -66,21 +84,39 @@
         {#each profile.links as link}
           {@const platform = PLATFORMS[link.platform]}
           {@const color = platformColors[link.platform] || '#6366f1'}
-          <a
-            href={link.url || getProfileUrl(link.platform, link.username)}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="platform-tile"
-          >
-            <div class="tile-icon" style="background: {color}">
-              {platform?.name.charAt(0) || '?'}
-            </div>
-            <div class="tile-info">
-              <span class="tile-name">{platform?.name || link.platform}</span>
-              <span class="tile-username">{link.username}</span>
-            </div>
-            <span class="tile-arrow">→</span>
-          </a>
+          {@const isCopy = platform?.followStrategy === 'copy'}
+          {#if isCopy}
+            <button
+              class="platform-tile"
+              onclick={() => handleCopy(link.username)}
+              aria-label="Copy {platform?.name || link.platform} username to clipboard"
+            >
+              <div class="tile-icon" style="background: {color}">
+                {platform?.name.charAt(0) || '?'}
+              </div>
+              <div class="tile-info">
+                <span class="tile-name">{platform?.name || link.platform}</span>
+                <span class="tile-username">{link.username}</span>
+              </div>
+              <span class="tile-arrow">⎘</span>
+            </button>
+          {:else}
+            <a
+              href={link.url || getProfileUrl(link.platform, link.username)}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="platform-tile"
+            >
+              <div class="tile-icon" style="background: {color}">
+                {platform?.name.charAt(0) || '?'}
+              </div>
+              <div class="tile-info">
+                <span class="tile-name">{platform?.name || link.platform}</span>
+                <span class="tile-username">{link.username}</span>
+              </div>
+              <span class="tile-arrow">→</span>
+            </a>
+          {/if}
         {/each}
       </div>
     </div>
@@ -95,6 +131,13 @@
       Powered by <a href="/">DevCard</a> — Open Source Developer Profiles
     </footer>
   </main>
+
+  <!-- Accessible live region for copy feedback -->
+  <div aria-live="polite" aria-atomic="true" class="sr-only">{toastMessage}</div>
+
+  {#if toastMessage}
+    <div class="toast" role="status">{toastMessage}</div>
+  {/if}
 {/if}
 
 <style>
@@ -301,5 +344,46 @@
   @media (max-width: 500px) {
     .profile-page { padding: 1rem 0.75rem; }
     .display-name { font-size: 1.5rem; }
+  }
+
+  /* Copy button — matches anchor tile styles */
+  button.platform-tile {
+    background: none;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    width: 100%;
+  }
+
+  /* Toast notification */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    pointer-events: none;
+  }
+
+  /* Visually hidden but available to screen readers */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 </style>
