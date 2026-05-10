@@ -1,12 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { buildApp } from '../app.js';
 
 describe('request logging middleware', () => {
-  it('logs method and url for each incoming request', async () => {
-    const app = await buildApp();
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  afterEach(async () => {
+    await app?.close();
+  });
+
+  it('logs method and path (without query string) for each request', async () => {
+    app = await buildApp();
     const logSpy = vi.spyOn(app.log, 'info');
 
-    await app.inject({ method: 'GET', url: '/health' });
+    await app.inject({ method: 'GET', url: '/health?foo=bar' });
 
     const calls = logSpy.mock.calls.map((c) => c[0]);
     const loggedRequest = calls.find(
@@ -15,8 +21,21 @@ describe('request logging middleware', () => {
     expect(loggedRequest).toBeDefined();
   });
 
+  it('does not log query string parameters', async () => {
+    app = await buildApp();
+    const logSpy = vi.spyOn(app.log, 'info');
+
+    await app.inject({ method: 'GET', url: '/health?secret=token123' });
+
+    const calls = logSpy.mock.calls.map((c) => c[0]);
+    const leaked = calls.find(
+      (c: any) => typeof c === 'object' && typeof c?.url === 'string' && c.url.includes('secret')
+    );
+    expect(leaked).toBeUndefined();
+  });
+
   it('returns 200 for health check (existing behavior unchanged)', async () => {
-    const app = await buildApp();
+    app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);

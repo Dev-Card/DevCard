@@ -69,7 +69,8 @@ export async function buildApp() {
 
   // ─── Request Logger ───
   app.addHook('onRequest', async (request) => {
-    app.log.info({ method: request.method, url: request.url }, 'incoming request');
+    const path = request.url.split('?')[0];
+    app.log.info({ method: request.method, url: path }, 'incoming request');
   });
 
   // ─── Routes ───
