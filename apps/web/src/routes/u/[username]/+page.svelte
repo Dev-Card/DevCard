@@ -4,6 +4,9 @@
   let { data } = $props();
   const profile = data.profile;
   const error = data.error;
+  let copyFeedback = $state<'' | 'success' | 'error'>('');
+  let copyMessage = $state('');
+  let copyFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const platformColors: Record<string, string> = {
     github: '#181717', linkedin: '#0A66C2', twitter: '#000000',
@@ -12,26 +15,52 @@
     leetcode: '#FFA116', hackerrank: '#00EA64', discord: '#5865F2',
     telegram: '#26A5E4', email: '#EA4335', portfolio: '#6366F1', custom: '#8B5CF6',
   };
+
+  function showCopyFeedback(state: 'success' | 'error', message: string) {
+    copyFeedback = state;
+    copyMessage = message;
+    if (copyFeedbackTimeout) {
+      clearTimeout(copyFeedbackTimeout);
+    }
+    copyFeedbackTimeout = setTimeout(() => {
+      copyFeedback = '';
+      copyMessage = '';
+      copyFeedbackTimeout = null;
+    }, 2400);
+  }
+
+  async function copyProfileUrl() {
+    if (!navigator.clipboard?.writeText) {
+      showCopyFeedback('error', 'Clipboard API is unavailable in this browser');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showCopyFeedback('success', 'Profile link copied');
+    } catch {
+      showCopyFeedback('error', 'Failed to copy profile link');
+    }
+  }
 </script>
 
 <svelte:head>
   {#if profile}
-    <title>{profile.displayName} — DevCard</title>
+    <title>{profile.displayName} вЂ” DevCard</title>
     <meta name="description" content="{profile.bio || `${profile.displayName}'s developer profiles`}" />
-    <meta property="og:title" content="{profile.displayName} — DevCard" />
+    <meta property="og:title" content="{profile.displayName} вЂ” DevCard" />
     <meta property="og:description" content="{profile.bio || 'Developer profile card'}" />
   {:else}
-    <title>User Not Found — DevCard</title>
+    <title>User Not Found вЂ” DevCard</title>
   {/if}
 </svelte:head>
 
 {#if error || !profile}
   <main class="error-page">
     <div class="error-content">
-      <div class="error-emoji">😕</div>
+      <div class="error-emoji">рџ•</div>
       <h1>User Not Found</h1>
       <p>This DevCard doesn't exist or has been removed.</p>
-      <a href="/" class="home-link">← Back to DevCard</a>
+      <a href="/" class="home-link">в†ђ Back to DevCard</a>
     </div>
   </main>
 {:else}
@@ -79,7 +108,7 @@
               <span class="tile-name">{platform?.name || link.platform}</span>
               <span class="tile-username">{link.username}</span>
             </div>
-            <span class="tile-arrow">→</span>
+            <span class="tile-arrow">в†’</span>
           </a>
         {/each}
       </div>
@@ -88,11 +117,25 @@
     <!-- Get DevCard CTA -->
     <div class="get-devcard">
       <p>Want your own DevCard?</p>
-      <a href="/" class="cta-link">Get your DevCard ⚡</a>
+      <div class="cta-actions">
+        <a href="/" class="cta-link">Get your DevCard вљЎ</a>
+        <button type="button" class="copy-link-btn" onclick={copyProfileUrl}>Copy Link</button>
+      </div>
+      {#if copyFeedback}
+        <p
+          class="copy-feedback"
+          class:copy-success={copyFeedback === 'success'}
+          class:copy-error={copyFeedback === 'error'}
+          role="status"
+          aria-live="polite"
+        >
+          {copyMessage}
+        </p>
+      {/if}
     </div>
 
     <footer class="footer">
-      Powered by <a href="/">DevCard</a> — Open Source Developer Profiles
+      Powered by <a href="/">DevCard</a> вЂ” Open Source Developer Profiles
     </footer>
   </main>
 {/if}
@@ -287,8 +330,49 @@
   }
 
   .cta-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-weight: 700;
     font-size: 1rem;
+  }
+
+  .cta-actions {
+    display: flex;
+    gap: 0.65rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .copy-link-btn {
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.9rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+  }
+
+  .copy-link-btn:hover {
+    border-color: var(--primary);
+  }
+
+  .copy-feedback {
+    margin-top: 0.65rem;
+    margin-bottom: 0;
+    font-size: 0.82rem;
+    min-height: 1rem;
+  }
+
+  .copy-success {
+    color: #10b981;
+  }
+
+  .copy-error {
+    color: #ef4444;
   }
 
   .footer {
