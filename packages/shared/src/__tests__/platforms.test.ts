@@ -21,4 +21,10 @@ describe('isSupportedPlatform', () => {
   it('returns false for GITHUB (case-sensitive check)', () => {
     expect(isSupportedPlatform('GITHUB')).toBe(false);
   });
+
+  it('returns false for inherited Object prototype keys like toString', () => {
+    expect(isSupportedPlatform('toString')).toBe(false);
+    expect(isSupportedPlatform('constructor')).toBe(false);
+    expect(isSupportedPlatform('__proto__')).toBe(false);
+  });
 });

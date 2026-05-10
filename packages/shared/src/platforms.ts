@@ -277,5 +277,5 @@ export function getDeepLinkUrl(platformId: string, username: string): string | n
 
 /** Returns true if the given id corresponds to a registered platform */
 export function isSupportedPlatform(id: string): boolean {
-  return PLATFORMS[id] !== undefined;
+  return Object.prototype.hasOwnProperty.call(PLATFORMS, id);
 }
