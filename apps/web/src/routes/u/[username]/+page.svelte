@@ -1,9 +1,15 @@
 <script lang="ts">
   import { PLATFORMS, getProfileUrl } from '@devcard/shared';
+  import { fade, fly, scale } from 'svelte/transition';
+  import { 
+    Zap, CreditCard, Share2, ExternalLink, ArrowRight,
+    Mail, Globe, MapPin, Briefcase 
+  } from 'lucide-svelte';
+  import BrandIcon from '$lib/components/BrandIcon.svelte';
 
   let { data } = $props();
-  const profile = data.profile;
-  const error = data.error;
+  const profile = $derived(data.profile);
+  const error = $derived(data.error);
 
   const platformColors: Record<string, string> = {
     github: '#181717', linkedin: '#0A66C2', twitter: '#000000',
@@ -12,294 +18,150 @@
     leetcode: '#FFA116', hackerrank: '#00EA64', discord: '#5865F2',
     telegram: '#26A5E4', email: '#EA4335', portfolio: '#6366F1', custom: '#8B5CF6',
   };
+
+  function handleShare() {
+    if (navigator.share) {
+      navigator.share({
+        title: `${profile.displayName}'s DevCard`,
+        url: window.location.href
+      });
+    }
+  }
 </script>
 
 <svelte:head>
   {#if profile}
     <title>{profile.displayName} — DevCard</title>
     <meta name="description" content="{profile.bio || `${profile.displayName}'s developer profiles`}" />
-    <meta property="og:title" content="{profile.displayName} — DevCard" />
-    <meta property="og:description" content="{profile.bio || 'Developer profile card'}" />
   {:else}
     <title>User Not Found — DevCard</title>
   {/if}
 </svelte:head>
 
-{#if error || !profile}
-  <main class="error-page">
-    <div class="error-content">
-      <div class="error-emoji">😕</div>
-      <h1>User Not Found</h1>
-      <p>This DevCard doesn't exist or has been removed.</p>
-      <a href="/" class="home-link">← Back to DevCard</a>
-    </div>
-  </main>
-{:else}
-  <main class="profile-page">
-    <div class="profile-card" style="--accent: {profile.accentColor}">
-      <!-- Avatar & Header -->
-      <div class="profile-header">
-        {#if profile.avatarUrl}
-          <img src={profile.avatarUrl} alt={profile.displayName} class="avatar" />
-        {:else}
-          <div class="avatar avatar-placeholder" style="background: {profile.accentColor}">
-            {profile.displayName.charAt(0).toUpperCase()}
+<div class="min-h-screen bg-(--bg-main) text-(--text-main) selection:bg-primary/30">
+  <!-- Background Accents -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+    <div class="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+    <div class="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-secondary/20 rounded-full blur-[120px] animate-pulse-slow-reverse"></div>
+  </div>
+
+  {#if error || !profile}
+    <main class="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+      <div transition:scale class="w-24 h-24 bg-primary/5 rounded-full flex items-center justify-center text-primary mb-8">
+        <Zap size={48} />
+      </div>
+      <h1 transition:fade class="text-4xl font-black mb-4">User Not Found</h1>
+      <p transition:fade class="text-(--text-muted) max-w-md mb-12 text-lg font-medium">This DevCard profile could not be found. It might have been moved or deleted.</p>
+      <a href="/" class="btn-premium-primary px-8 py-4 flex items-center gap-3">
+        <span>Go Home</span>
+        <ArrowRight size={20} />
+      </a>
+    </main>
+  {:else}
+    <main class="max-w-xl mx-auto px-6 py-12 lg:py-24">
+      <div 
+        transition:fly={{ y: 40, duration: 800 }}
+        class="card-premium p-1 relative overflow-hidden"
+      >
+        <!-- Profile Header -->
+        <div class="relative z-10 p-8 md:p-12 text-center">
+          <div class="relative inline-block mb-8 group">
+            <div class="absolute inset-0 bg-primary/30 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
+            {#if profile.avatarUrl}
+              <img 
+                src={profile.avatarUrl} 
+                alt={profile.displayName} 
+                class="w-32 h-32 rounded-full relative z-10 border-4 border-white/10 shadow-2xl"
+              />
+            {:else}
+              <div class="w-32 h-32 rounded-full relative z-10 bg-linear-to-br from-primary to-secondary flex items-center justify-center text-white text-4xl font-black shadow-2xl border-4 border-white/10">
+                {profile.displayName.charAt(0).toUpperCase()}
+              </div>
+            {/if}
           </div>
-        {/if}
-        <h1 class="display-name">{profile.displayName}</h1>
-        {#if profile.pronouns}
-          <span class="pronouns">{profile.pronouns}</span>
-        {/if}
-        {#if profile.role}
-          <p class="role">
-            {profile.role}{profile.company ? ` @ ${profile.company}` : ''}
-          </p>
-        {/if}
-        {#if profile.bio}
-          <p class="bio">{profile.bio}</p>
-        {/if}
+
+          <h1 class="text-4xl font-black mb-2 tracking-tight">{profile.displayName}</h1>
+          
+          <div class="flex flex-wrap items-center justify-center gap-4 text-sm font-bold text-(--text-muted) uppercase tracking-widest mb-6">
+            {#if profile.role}
+              <div class="flex items-center gap-1.5">
+                <Briefcase size={14} class="text-primary" />
+                <span>{profile.role}</span>
+              </div>
+            {/if}
+            {#if profile.company}
+              <div class="flex items-center gap-1.5">
+                <Globe size={14} class="text-secondary" />
+                <span>{profile.company}</span>
+              </div>
+            {/if}
+          </div>
+
+          {#if profile.bio}
+            <p class="text-lg text-(--text-muted) font-medium leading-relaxed max-w-md mx-auto mb-10">
+              {profile.bio}
+            </p>
+          {/if}
+
+          <!-- Action Bar -->
+          <div class="flex items-center justify-center gap-4 pt-8 border-t border-white/5">
+            <button 
+              onclick={handleShare}
+              class="flex-1 btn-premium-primary flex items-center justify-center gap-2 py-4"
+            >
+              <Share2 size={20} />
+              <span>Share Profile</span>
+            </button>
+            <button class="p-4 glass rounded-2xl hover:bg-primary/10 transition-colors text-primary">
+              <Zap size={24} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- Platform Links -->
-      <div class="links-section">
-        <p class="links-label">Connect with {profile.displayName.split(' ')[0]}</p>
-        {#each profile.links as link}
+      <!-- Links Grid -->
+      <div class="mt-8 space-y-4">
+        <h3 class="text-xs font-black uppercase tracking-[0.3em] text-(--text-muted) px-4 mb-6">Professional Connections</h3>
+        
+        {#each profile.links as link, i}
           {@const platform = PLATFORMS[link.platform]}
-          {@const color = platformColors[link.platform] || '#6366f1'}
-          <a
+          <a 
             href={link.url || getProfileUrl(link.platform, link.username)}
             target="_blank"
             rel="noopener noreferrer"
-            class="platform-tile"
+            transition:fly={{ y: 20, duration: 600, delay: 100 * i }}
+            class="card-premium group flex items-center justify-between hover:scale-[1.02] transition-all duration-300 active:scale-95"
           >
-            <div class="tile-icon" style="background: {color}">
-              {platform?.name.charAt(0) || '?'}
+            <div class="flex items-center gap-6">
+              <div class="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center text-(--text-muted) group-hover:text-primary transition-colors">
+                <BrandIcon name={link.platform as any} size={24} />
+              </div>
+              <div>
+                <h4 class="text-lg font-black group-hover:text-primary transition-colors">{platform?.name || link.platform}</h4>
+                <p class="text-sm font-medium text-(--text-muted)">{link.username}</p>
+              </div>
             </div>
-            <div class="tile-info">
-              <span class="tile-name">{platform?.name || link.platform}</span>
-              <span class="tile-username">{link.username}</span>
+            <div class="p-3 rounded-xl bg-primary/5 text-(--text-muted) group-hover:text-primary group-hover:bg-primary/10 transition-all">
+              <ExternalLink size={18} />
             </div>
-            <span class="tile-arrow">→</span>
           </a>
         {/each}
       </div>
-    </div>
 
-    <!-- Get DevCard CTA -->
-    <div class="get-devcard">
-      <p>Want your own DevCard?</p>
-      <a href="/" class="cta-link">Get your DevCard ⚡</a>
-    </div>
-
-    <footer class="footer">
-      Powered by <a href="/">DevCard</a> — Open Source Developer Profiles
-    </footer>
-  </main>
-{/if}
+      <!-- Footer CTA -->
+      <footer class="mt-20 text-center pb-12">
+        <p class="text-(--text-muted) font-medium mb-6">Want your own premium developer card?</p>
+        <a href="/" class="inline-flex items-center gap-3 glass px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all border-primary/20">
+          <Zap size={20} class="fill-primary" />
+          <span>Get Your DevCard Free</span>
+        </a>
+      </footer>
+    </main>
+  {/if}
+</div>
 
 <style>
-  .error-page {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-  }
-
-  .error-content {
-    text-align: center;
-  }
-
-  .error-emoji {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-  }
-
-  .error-content h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-  }
-
-  .error-content p {
-    color: var(--text-secondary);
-    margin-bottom: 1.5rem;
-  }
-
-  .home-link {
-    color: var(--primary-light);
-    font-weight: 600;
-  }
-
-  /* Profile Page */
-  .profile-page {
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 2rem 1rem;
-    min-height: 100vh;
-  }
-
-  .profile-card {
-    background: var(--bg-card);
-    border: 2px solid var(--accent);
-    border-radius: var(--radius-xl);
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
-  }
-
-  .profile-header {
-    text-align: center;
-    padding: 2.5rem 2rem 1.5rem;
-  }
-
-  .avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    margin: 0 auto 1rem;
-    display: block;
-    object-fit: cover;
-  }
-
-  .avatar-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 2rem;
-    font-weight: 700;
-  }
-
-  .display-name {
-    font-size: 1.75rem;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-  }
-
-  .pronouns {
-    color: var(--text-muted);
-    font-size: 0.85rem;
-    margin-top: 0.25rem;
-    display: block;
-  }
-
-  .role {
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-    font-size: 0.95rem;
-  }
-
-  .bio {
-    color: var(--text-secondary);
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    line-height: 1.6;
-  }
-
-  /* Links */
-  .links-section {
-    padding: 0.5rem 1.5rem 1.5rem;
-  }
-
-  .links-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    padding-left: 0.25rem;
-  }
-
-  .platform-tile {
-    display: flex;
-    align-items: center;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 0.875rem 1rem;
-    margin-bottom: 0.5rem;
-    transition: all 0.2s ease;
-    color: var(--text-primary);
-  }
-
-  .platform-tile:hover {
-    border-color: var(--primary);
-    transform: translateX(4px);
-    color: var(--text-primary);
-  }
-
-  .tile-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 700;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-  }
-
-  .tile-info {
-    flex: 1;
-    margin-left: 0.875rem;
-  }
-
-  .tile-name {
-    display: block;
-    font-weight: 600;
-    font-size: 0.95rem;
-  }
-
-  .tile-username {
-    display: block;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    margin-top: 1px;
-  }
-
-  .tile-arrow {
-    color: var(--text-muted);
-    font-size: 1.1rem;
-    transition: transform 0.2s;
-  }
-
-  .platform-tile:hover .tile-arrow {
-    transform: translateX(4px);
-    color: var(--primary-light);
-  }
-
-  /* CTA */
-  .get-devcard {
-    text-align: center;
-    margin-top: 2rem;
-    padding: 1.5rem;
-    background: var(--bg-card);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
-  }
-
-  .get-devcard p {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .cta-link {
-    font-weight: 700;
-    font-size: 1rem;
-  }
-
-  .footer {
-    text-align: center;
-    padding: 2rem 0;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-  }
-
-  @media (max-width: 500px) {
-    .profile-page { padding: 1rem 0.75rem; }
-    .display-name { font-size: 1.5rem; }
+  :global(body) {
+    background: var(--bg-main);
   }
 </style>

@@ -1,314 +1,146 @@
-<script>
+<script lang="ts">
+  import Navbar from '$lib/components/Navbar.svelte';
+  import Hero from '$lib/components/Hero.svelte';
+  import Features from '$lib/components/Features.svelte';
+  import Footer from '$lib/components/Footer.svelte';
+  import { Zap } from 'lucide-svelte';
   import { onMount } from 'svelte';
 
-  let theme = 'light';
-
   onMount(() => {
-    const saved = localStorage.getItem('devcard-theme');
-    if (saved) {
-      theme = saved;
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      theme = 'dark';
-    }
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    // Initial scroll animation setup if needed
   });
-
-  function toggleTheme() {
-    theme = theme === 'light' ? 'dark' : 'light';
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('devcard-theme', theme);
-  }
 </script>
 
 <svelte:head>
-  <title>DevCard — One Tap. Every Profile. Every Platform.</title>
+  <title>DevCard — Premium Developer Identity Platform</title>
   <meta
     name="description"
-    content="Open source developer profile exchange platform. Share all your developer profiles with one QR code."
+    content="One Tap. Every Profile. Every Platform. The premium open-source developer profile exchange platform."
   />
 </svelte:head>
 
-<main class="landing">
-  <section class="hero">
-    <button
-      id="theme-toggle"
-      class="theme-toggle"
-      on:click={toggleTheme}
-      aria-label="Toggle theme"
-    >
-      {theme === 'light' ? '🌙' : '☀️'}
-    </button>
-    <div class="logo">⚡</div>
-    <h1>DevCard</h1>
-    <p class="tagline">One Tap. Every Profile. Every Platform.</p>
-    <p class="description">
-      Stop sharing LinkedIn, GitHub, and Twitter one by one.<br />
-      DevCard puts every profile in one shareable QR code.
-    </p>
-    <div class="cta-group">
-      <a
-        href="https://github.com/Dev-Card/DevCard"
-        class="btn btn-primary"
-        target="_blank"
-        rel="noopener"
-      >
-        ⭐ Star on GitHub
-      </a>
-      <a href="#features" class="btn btn-secondary">Learn More ↓</a>
-    </div>
-  </section>
+<div class="relative min-h-screen selection:bg-primary/30 selection:text-primary">
+  <Navbar />
+  
+  <main>
+    <Hero />
+    
+    <section id="how-it-works" class="py-32 relative overflow-hidden bg-(--bg-secondary)/30">
+      <div class="container mx-auto px-6">
+        <div class="text-center max-w-3xl mx-auto mb-20">
+          <div class="inline-block px-4 py-1.5 rounded-full bg-secondary/10 text-secondary text-xs font-bold uppercase tracking-[0.2em] mb-6 border border-secondary/20">
+            Process
+          </div>
+          <h2 class="text-4xl md:text-5xl font-black mb-8 leading-tight">
+            Stop the manual <br />
+            <span class="text-primary italic">Search & Connect</span> dance.
+          </h2>
+          <p class="text-lg text-(--text-muted) font-medium">
+            DevCard streamlines professional networking by bridging the gap between physical interaction and digital connection.
+          </p>
+        </div>
 
-  <section id="features" class="features">
-    <div class="feature-card">
-      <div class="feature-icon">🔗</div>
-      <h3>One Card, All Profiles</h3>
-      <p>
-        GitHub, LinkedIn, Twitter/X, Devfolio, GitLab, LeetCode, and 10+ more —
-        all in one card.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">⚡</div>
-      <h3>Hybrid Follow Engine</h3>
-      <p>
-        Follow on GitHub silently via API. Connect on LinkedIn with one tap in
-        WebView. No app switching.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">💳</div>
-      <h3>Context Cards</h3>
-      <p>
-        Share your "Professional" card at conferences and "Hackathon" card at
-        hack events. Same profiles, different contexts.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📱</div>
-      <h3>QR + AirDrop</h3>
-      <p>
-        Generate a QR code or share via AirDrop-style link. Works even if the
-        receiver doesn't have the app.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">🔒</div>
-      <h3>Privacy First</h3>
-      <p>
-        No data monetization. No tracking. Apache 2.0 licensed. You own your
-        data.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">🌍</div>
-      <h3>Open Source</h3>
-      <p>
-        Community-driven development. Contribute, self-host, or extend with your
-        own platforms.
-      </p>
-    </div>
-  </section>
+        <div class="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+          <div class="flex-1 space-y-12">
+            <div class="group relative">
+              <div class="absolute -left-4 top-0 bottom-0 w-1 bg-primary/10 group-hover:bg-primary transition-colors duration-500 rounded-full"></div>
+              <div class="pl-8">
+                <div class="flex items-center gap-4 mb-4">
+                  <span class="text-4xl font-black text-primary/20 group-hover:text-primary transition-colors duration-500">01</span>
+                  <h3 class="text-2xl font-black">Connect Your Profiles</h3>
+                </div>
+                <p class="text-(--text-muted) font-medium leading-relaxed">
+                  Link your GitHub, LinkedIn, Twitter, and 15+ other platforms in seconds. Our API handles the synchronization so your data is always up-to-date.
+                </p>
+              </div>
+            </div>
 
-  <footer class="footer">
-    <p>DevCard — Open Source Developer Profile Exchange</p>
-    <p>
-      Apache 2.0 License • <a
-        href="https://github.com/Dev-Card/DevCard"
-        target="_blank"
-        rel="noopener">GitHub</a
-      >
-    </p>
-  </footer>
-</main>
+            <div class="group relative">
+              <div class="absolute -left-4 top-0 bottom-0 w-1 bg-primary/10 group-hover:bg-primary transition-colors duration-500 rounded-full"></div>
+              <div class="pl-8">
+                <div class="flex items-center gap-4 mb-4">
+                  <span class="text-4xl font-black text-primary/20 group-hover:text-primary transition-colors duration-500">02</span>
+                  <h3 class="text-2xl font-black">Generate Your Card</h3>
+                </div>
+                <p class="text-(--text-muted) font-medium leading-relaxed">
+                  Customize your card with professional, dark mode, or hackathon-focused layouts. Choose which profiles to share based on the context of your meeting.
+                </p>
+              </div>
+            </div>
+
+            <div class="group relative">
+              <div class="absolute -left-4 top-0 bottom-0 w-1 bg-primary/10 group-hover:bg-primary transition-colors duration-500 rounded-full"></div>
+              <div class="pl-8">
+                <div class="flex items-center gap-4 mb-4">
+                  <span class="text-4xl font-black text-primary/20 group-hover:text-primary transition-colors duration-500">03</span>
+                  <h3 class="text-2xl font-black">One Tap to Follow</h3>
+                </div>
+                <p class="text-(--text-muted) font-medium leading-relaxed">
+                  Show your QR code. Your peer scans it and connects with you on everything instantly. No typing, no typos, no friction.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex-1 relative">
+            <div class="relative z-10 glass p-4 rounded-[3rem] shadow-2xl transform lg:rotate-3 hover:rotate-0 transition-all duration-700">
+              <img 
+                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200" 
+                alt="Dashboard Preview" 
+                class="rounded-[2.5rem] w-full shadow-2xl" 
+              />
+              <!-- Floating UI element -->
+              <div class="absolute -bottom-10 -left-10 glass p-6 rounded-3xl shadow-2xl animate-bounce hidden md:block" style="animation-duration: 3s">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center text-green-500">
+                    <Zap size={24} class="fill-current" />
+                  </div>
+                  <div>
+                    <p class="text-xs font-black uppercase tracking-widest text-(--text-muted)">Connection</p>
+                    <p class="text-lg font-black">Success!</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Background glow -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-primary/10 rounded-full blur-[120px] -z-10"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <Features />
+
+    <!-- CTA Section -->
+    <section class="py-24">
+      <div class="container mx-auto px-6 text-center">
+        <div class="glass p-12 md:p-20 rounded-[3rem] relative overflow-hidden group">
+          <div class="absolute top-0 left-0 w-full h-full bg-linear-to-br from-primary/10 to-secondary/10 -z-10"></div>
+          <div class="absolute -top-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-[80px] group-hover:scale-125 transition-transform duration-700"></div>
+          
+          <h2 class="text-4xl md:text-6xl font-bold mb-8">Ready to upgrade your <br /> <span class="text-primary">developer networking?</span></h2>
+          <p class="text-xl text-[var(--text-muted)] mb-12 max-w-2xl mx-auto">
+            Join the community of developers who are streamlining their social presence with DevCard.
+          </p>
+          
+          <div class="flex flex-col sm:flex-row justify-center gap-6">
+            <a href="/login" class="btn-premium-primary text-lg px-10 py-5">
+              Get Started for Free
+            </a>
+            <a href="/login" class="btn-premium-secondary text-lg px-10 py-5">
+              Access Account
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</div>
 
 <style>
-  /* ── Theme toggle button ────────────────────────────────────────── */
-  .theme-toggle {
-    position: absolute;
-    top: 1.25rem;
-    right: 1.25rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 50%;
-    width: 2.75rem;
-    height: 2.75rem;
-    font-size: 1.3rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition:
-      background 0.3s ease,
-      border-color 0.3s ease,
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    line-height: 1;
-  }
-
-  .theme-toggle:hover {
-    transform: scale(1.12) rotate(15deg);
-    border-color: var(--primary);
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-  }
-
-  .theme-toggle:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 3px;
-  }
-
-  .landing {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 2rem;
-    position: relative;
-  }
-
-  .hero {
-    text-align: center;
-    padding: 6rem 0 4rem;
-  }
-
-  .logo {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    animation: float 3s ease-in-out infinite;
-  }
-
-  @keyframes float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-10px);
-    }
-  }
-
-  h1 {
-    font-size: 3.5rem;
-    font-weight: 800;
-    letter-spacing: -2px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .tagline {
-    font-size: 1.25rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-  }
-
-  .description {
-    font-size: 1.1rem;
-    color: var(--text-muted);
-    margin-top: 1.5rem;
-    line-height: 1.7;
-  }
-
-  .cta-group {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-top: 2.5rem;
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius);
-    font-weight: 600;
-    font-size: 1rem;
-    transition: all 0.2s ease;
-  }
-
-  .btn-primary {
-    background: var(--primary);
-    color: white;
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
-  }
-
-  .btn-primary:hover {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
-    color: white;
-  }
-
-  .btn-secondary {
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-  }
-
-  .btn-secondary:hover {
-    background: var(--bg-elevated);
-    color: var(--text-primary);
-  }
-
-  .features {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
-    padding: 3rem 0;
-  }
-
-  .feature-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 2rem;
-    transition:
-      transform 0.2s ease,
-      border-color 0.2s ease;
-  }
-
-  .feature-card:hover {
-    transform: translateY(-4px);
-    border-color: var(--primary);
-  }
-
-  .feature-icon {
-    font-size: 2rem;
-    margin-bottom: 1rem;
-  }
-
-  .feature-card h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-  }
-
-  .feature-card p {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.6;
-  }
-
-  .footer {
-    text-align: center;
-    padding: 3rem 0 2rem;
-    color: var(--text-muted);
-    font-size: 0.85rem;
-  }
-
-  .footer p + p {
-    margin-top: 0.5rem;
-  }
-
-  @media (max-width: 600px) {
-    h1 {
-      font-size: 2.5rem;
-    }
-    .hero {
-      padding: 3rem 0 2rem;
-    }
-    .cta-group {
-      flex-direction: column;
-      align-items: center;
-    }
+  .container {
+    max-width: 1200px;
   }
 </style>
