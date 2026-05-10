@@ -57,6 +57,67 @@ export async function analyticsRoutes(app: FastifyInstance) {
     };
   });
 
+  app.get('/export', {
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest<{ Querystring: { userId?: string } }>, reply: FastifyReply) => {
+    const requestingUserId = (request.user as any).id;
+
+    // IDOR guard: if a userId query param is supplied and differs from the caller, reject.
+    if (request.query.userId && request.query.userId !== requestingUserId) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
+    const userId = requestingUserId;
+
+    // Fetch card views grouped by date and source (used as "platform" for card views)
+    const cardViewGroups = await app.prisma.cardView.groupBy({
+      by: ['createdAt', 'source'],
+      where: { ownerId: userId },
+      _count: { id: true },
+    });
+
+    // Fetch follow logs grouped by date and platform
+    const followGroups = await app.prisma.followLog.groupBy({
+      by: ['createdAt', 'platform'],
+      where: { followerId: userId, status: 'success' },
+      _count: { id: true },
+    });
+
+    // Aggregate rows by date string + platform + event_type
+    const aggregated: Record<string, { date: string; platform: string; event_type: string; count: number }> = {};
+
+    for (const row of cardViewGroups) {
+      const date = row.createdAt.toISOString().slice(0, 10);
+      const key = `${date}|${row.source}|card_view`;
+      if (!aggregated[key]) {
+        aggregated[key] = { date, platform: row.source, event_type: 'card_view', count: 0 };
+      }
+      aggregated[key].count += row._count.id;
+    }
+
+    for (const row of followGroups) {
+      const date = row.createdAt.toISOString().slice(0, 10);
+      const key = `${date}|${row.platform}|follow`;
+      if (!aggregated[key]) {
+        aggregated[key] = { date, platform: row.platform, event_type: 'follow', count: 0 };
+      }
+      aggregated[key].count += row._count.id;
+    }
+
+    const rows = Object.values(aggregated).sort((a, b) => a.date.localeCompare(b.date));
+
+    const csvLines = ['date,platform,event_type,count'];
+    for (const r of rows) {
+      csvLines.push(`${r.date},${r.platform},${r.event_type},${r.count}`);
+    }
+    const csv = csvLines.join('\n');
+
+    reply
+      .header('Content-Type', 'text/csv')
+      .header('Content-Disposition', 'attachment; filename=devcard-analytics.csv')
+      .send(csv);
+  });
+
   app.get('/views', {
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest<{ Querystring: { page?: string, cardId?: string } }>, reply: FastifyReply) => {
