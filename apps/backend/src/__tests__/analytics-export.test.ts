@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import Fastify from 'fastify';
 import { analyticsRoutes } from '../routes/analytics.js';
 
@@ -6,18 +6,16 @@ import { analyticsRoutes } from '../routes/analytics.js';
 function buildApp(prismaOverrides: Record<string, any> = {}, authenticateReject = false) {
   const app = Fastify();
 
-  const defaultCardViewGroupBy = vi.fn(async () => []);
-  const defaultFollowGroupBy = vi.fn(async () => []);
-
   (app as any).prisma = {
     cardView: {
       count: vi.fn(async () => 0),
-      findMany: vi.fn(async () => []),
-      groupBy: prismaOverrides.cardViewGroupBy ?? defaultCardViewGroupBy,
+      findMany: prismaOverrides.cardViewFindMany ?? vi.fn(async () => []),
+      groupBy: vi.fn(async () => []),
     },
     followLog: {
       count: vi.fn(async () => 0),
-      groupBy: prismaOverrides.followGroupBy ?? defaultFollowGroupBy,
+      findMany: prismaOverrides.followLogFindMany ?? vi.fn(async () => []),
+      groupBy: vi.fn(async () => []),
     },
   };
 
@@ -53,12 +51,15 @@ describe('GET /api/analytics/export', () => {
   it('returns CSV with correct headers and structure', async () => {
     const date = new Date('2025-01-15T10:00:00Z');
     const app = buildApp({
-      cardViewGroupBy: vi.fn(async () => [
-        { createdAt: date, source: 'qr', _count: { id: 3 } },
-        { createdAt: date, source: 'web', _count: { id: 2 } },
+      cardViewFindMany: vi.fn(async () => [
+        { createdAt: date, source: 'qr' },
+        { createdAt: date, source: 'qr' },
+        { createdAt: date, source: 'qr' },
+        { createdAt: date, source: 'web' },
+        { createdAt: date, source: 'web' },
       ]),
-      followGroupBy: vi.fn(async () => [
-        { createdAt: date, platform: 'github', _count: { id: 1 } },
+      followLogFindMany: vi.fn(async () => [
+        { createdAt: date, platform: 'github' },
       ]),
     });
     await app.ready();
@@ -71,7 +72,6 @@ describe('GET /api/analytics/export', () => {
 
     const lines = res.body.split('\n');
     expect(lines[0]).toBe('date,platform,event_type,count');
-    // Check all data rows exist
     const dataLines = lines.slice(1);
     expect(dataLines).toContain('2025-01-15,qr,card_view,3');
     expect(dataLines).toContain('2025-01-15,web,card_view,2');
@@ -84,5 +84,18 @@ describe('GET /api/analytics/export', () => {
     const res = await app.inject({ method: 'GET', url: '/api/analytics/export' });
     expect(res.statusCode).toBe(200);
     expect(res.body.trim()).toBe('date,platform,event_type,count');
+  });
+
+  it('applies RFC 4180 CSV escaping for values containing commas', async () => {
+    const date = new Date('2025-03-01T00:00:00Z');
+    const app = buildApp({
+      cardViewFindMany: vi.fn(async () => [
+        { createdAt: date, source: 'web,mobile' },
+      ]),
+      followLogFindMany: vi.fn(async () => []),
+    });
+    await app.ready();
+    const res = await app.inject({ method: 'GET', url: '/api/analytics/export' });
+    expect(res.body).toContain('"web,mobile"');
   });
 });

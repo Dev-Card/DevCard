@@ -69,46 +69,55 @@ export async function analyticsRoutes(app: FastifyInstance) {
 
     const userId = requestingUserId;
 
-    // Fetch card views grouped by date and source (used as "platform" for card views)
-    const cardViewGroups = await app.prisma.cardView.groupBy({
-      by: ['createdAt', 'source'],
-      where: { ownerId: userId },
-      _count: { id: true },
-    });
+    // Use findMany + in-code day-level aggregation instead of groupBy on
+    // createdAt (a full timestamp), which would produce one group per row.
+    const [cardViews, followLogs] = await Promise.all([
+      app.prisma.cardView.findMany({
+        where: { ownerId: userId },
+        select: { createdAt: true, source: true },
+      }),
+      app.prisma.followLog.findMany({
+        where: { followerId: userId, status: 'success' },
+        select: { createdAt: true, platform: true },
+      }),
+    ]);
 
-    // Fetch follow logs grouped by date and platform
-    const followGroups = await app.prisma.followLog.groupBy({
-      by: ['createdAt', 'platform'],
-      where: { followerId: userId, status: 'success' },
-      _count: { id: true },
-    });
-
-    // Aggregate rows by date string + platform + event_type
+    // Aggregate by date (day) + platform + event_type
     const aggregated: Record<string, { date: string; platform: string; event_type: string; count: number }> = {};
 
-    for (const row of cardViewGroups) {
+    for (const row of cardViews) {
       const date = row.createdAt.toISOString().slice(0, 10);
-      const key = `${date}|${row.source}|card_view`;
+      const platform = row.source ?? 'unknown';
+      const key = `${date}|${platform}|card_view`;
       if (!aggregated[key]) {
-        aggregated[key] = { date, platform: row.source, event_type: 'card_view', count: 0 };
+        aggregated[key] = { date, platform, event_type: 'card_view', count: 0 };
       }
-      aggregated[key].count += row._count.id;
+      aggregated[key].count += 1;
     }
 
-    for (const row of followGroups) {
+    for (const row of followLogs) {
       const date = row.createdAt.toISOString().slice(0, 10);
-      const key = `${date}|${row.platform}|follow`;
+      const platform = row.platform ?? 'unknown';
+      const key = `${date}|${platform}|follow`;
       if (!aggregated[key]) {
-        aggregated[key] = { date, platform: row.platform, event_type: 'follow', count: 0 };
+        aggregated[key] = { date, platform, event_type: 'follow', count: 0 };
       }
-      aggregated[key].count += row._count.id;
+      aggregated[key].count += 1;
     }
 
     const rows = Object.values(aggregated).sort((a, b) => a.date.localeCompare(b.date));
 
+    // RFC 4180-compliant escaping: wrap cell in quotes if it contains comma,
+    // newline, or quote; double any embedded quotes.
+    function csvCell(value: string | number): string {
+      const s = String(value);
+      if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    }
+
     const csvLines = ['date,platform,event_type,count'];
     for (const r of rows) {
-      csvLines.push(`${r.date},${r.platform},${r.event_type},${r.count}`);
+      csvLines.push([csvCell(r.date), csvCell(r.platform), csvCell(r.event_type), csvCell(r.count)].join(','));
     }
     const csv = csvLines.join('\n');
 
