@@ -36,7 +36,7 @@ export function validateCardPlatforms(platforms: string[]): CardValidationResult
 
   const seen = new Set<string>();
   for (const id of platforms) {
-    if (!PLATFORMS[id]) {
+    if (!Object.prototype.hasOwnProperty.call(PLATFORMS, id)) {
       errors.push(`Unknown platform: "${id}".`);
     }
     if (seen.has(id)) {
@@ -55,14 +55,15 @@ export function validateCardPlatforms(platforms: string[]): CardValidationResult
  *
  * Returns which IDs were added, removed, or unchanged going from
  * oldCard → newCard. Order is not considered — only membership.
+ * Duplicate entries in either input are ignored (set semantics).
  */
 export function diffCardPlatforms(oldCard: string[], newCard: string[]): CardDiffResult {
   const oldSet = new Set(oldCard);
   const newSet = new Set(newCard);
 
-  const added = newCard.filter((id) => !oldSet.has(id));
-  const removed = oldCard.filter((id) => !newSet.has(id));
-  const unchanged = oldCard.filter((id) => newSet.has(id));
+  const added = [...newSet].filter((id) => !oldSet.has(id));
+  const removed = [...oldSet].filter((id) => !newSet.has(id));
+  const unchanged = [...oldSet].filter((id) => newSet.has(id));
 
   return { added, removed, unchanged };
 }

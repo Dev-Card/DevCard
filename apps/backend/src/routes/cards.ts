@@ -43,8 +43,12 @@ export async function cardRoutes(app: FastifyInstance) {
     if (parsed.data.linkIds.length > 0) {
       const links = await app.prisma.platformLink.findMany({
         where: { id: { in: parsed.data.linkIds }, userId },
-        select: { platform: true },
+        select: { id: true, platform: true },
       });
+      // Reject if any requested linkId doesn't belong to this user or doesn't exist.
+      if (links.length !== new Set(parsed.data.linkIds).size) {
+        return reply.status(403).send({ error: 'One or more link IDs are invalid or do not belong to you.' });
+      }
       const platformIds = links.map((l) => l.platform);
       const validation = validateCardPlatforms(platformIds);
       if (!validation.valid) {
@@ -116,8 +120,12 @@ export async function cardRoutes(app: FastifyInstance) {
       if (parsed.data.linkIds.length > 0) {
         const links = await app.prisma.platformLink.findMany({
           where: { id: { in: parsed.data.linkIds }, userId },
-          select: { platform: true },
+          select: { id: true, platform: true },
         });
+        // Reject if any requested linkId doesn't belong to this user or doesn't exist.
+        if (links.length !== new Set(parsed.data.linkIds).size) {
+          return reply.status(403).send({ error: 'One or more link IDs are invalid or do not belong to you.' });
+        }
         const platformIds = links.map((l) => l.platform);
         const validation = validateCardPlatforms(platformIds);
         if (!validation.valid) {
