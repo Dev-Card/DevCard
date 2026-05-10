@@ -4,7 +4,14 @@ import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───
 
-  app.get('/:username', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
+  app.get('/:username', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -71,7 +78,14 @@ export async function publicRoutes(app: FastifyInstance) {
 
   // ─── Shared Card View (Direct) ───
 
-  app.get('/card/:cardId', async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
+  app.get('/card/:cardId', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
     const { cardId } = request.params;
 
     const card = await app.prisma.card.findUnique({
@@ -110,7 +124,14 @@ export async function publicRoutes(app: FastifyInstance) {
 
   // ─── Public Card View ───
 
-  app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
+  app.get('/:username/card/:cardId', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
     const { username, cardId } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -182,7 +203,14 @@ export async function publicRoutes(app: FastifyInstance) {
 
   // ─── QR Code Generation ───
 
-  app.get('/:username/qr', async (request: FastifyRequest<{
+  app.get('/:username/qr', {
+    config: {
+      rateLimit: {
+        max: 50, // Lower limit for QR generation as it's more resource intensive
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{
     Params: { username: string };
     Querystring: { format?: string; size?: string };
   }>, reply: FastifyReply) => {
