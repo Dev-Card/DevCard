@@ -17,6 +17,7 @@ import { publicRoutes } from './routes/public.js';
 import { followRoutes } from './routes/follow.js';
 import { connectRoutes } from './routes/connect.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { nfcRoutes } from './routes/nfc.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,6 +65,11 @@ export async function buildApp() {
     } catch (err) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
+  });
+
+  // ─── Request Logger ───
+  app.addHook('onRequest', async (request) => {
+    app.log.info({ method: request.method, url: request.url }, 'incoming request');
   });
 
   // ─── Routes ───
