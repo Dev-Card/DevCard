@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
+import { validateCardPlatforms } from '@devcard/shared';
 
 export async function cardRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.authenticate);
@@ -36,6 +37,19 @@ export async function cardRoutes(app: FastifyInstance) {
 
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
+    }
+
+    // Validate platform IDs via shared utility
+    if (parsed.data.linkIds.length > 0) {
+      const links = await app.prisma.platformLink.findMany({
+        where: { id: { in: parsed.data.linkIds }, userId },
+        select: { platform: true },
+      });
+      const platformIds = links.map((l) => l.platform);
+      const validation = validateCardPlatforms(platformIds);
+      if (!validation.valid) {
+        return reply.status(400).send({ error: 'Invalid card platforms', details: validation.errors });
+      }
     }
 
     // Check if user's first card → make it default
@@ -98,6 +112,19 @@ export async function cardRoutes(app: FastifyInstance) {
 
     // Update card links if provided
     if (parsed.data.linkIds) {
+      // Validate updated platform set via shared utility
+      if (parsed.data.linkIds.length > 0) {
+        const links = await app.prisma.platformLink.findMany({
+          where: { id: { in: parsed.data.linkIds }, userId },
+          select: { platform: true },
+        });
+        const platformIds = links.map((l) => l.platform);
+        const validation = validateCardPlatforms(platformIds);
+        if (!validation.valid) {
+          return reply.status(400).send({ error: 'Invalid card platforms', details: validation.errors });
+        }
+      }
+
       // Remove existing links
       await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
       // Add new links
