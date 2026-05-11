@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // Inline the load function under test to avoid SvelteKit $types resolution
 // in a unit-test environment that does not run svelte-kit sync.
@@ -7,8 +7,11 @@ const API_BASE = 'http://localhost:3000';
 async function load({ params, fetch }: { params: { username: string }; fetch: typeof globalThis.fetch }) {
   try {
     const res = await fetch(`${API_BASE}/api/u/${params.username}?source=web`);
-    if (!res.ok) {
+    if (res.status === 404) {
       return { profile: null, error: 'User not found' };
+    }
+    if (!res.ok) {
+      return { profile: null, error: 'Failed to load profile' };
     }
     const profile = await res.json();
     return { profile, error: null };
@@ -56,11 +59,11 @@ describe('profile page server load', () => {
     expect(result.error).toBe('User not found');
   });
 
-  it('returns profile: null and error message when API returns 500', async () => {
+  it('returns profile: null and generic error message when API returns 500', async () => {
     const fetch = mockFetch(500, {});
     const result = await load({ params: { username: 'broken' }, fetch });
     expect(result.profile).toBeNull();
-    expect(result.error).toBe('User not found');
+    expect(result.error).toBe('Failed to load profile');
   });
 
   it('returns profile: null and network error message when fetch throws', async () => {

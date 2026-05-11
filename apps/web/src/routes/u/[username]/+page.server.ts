@@ -5,8 +5,11 @@ const API_BASE = process.env.BACKEND_URL || 'http://localhost:3000';
 export const load: PageServerLoad = async ({ params, fetch }) => {
   try {
     const res = await fetch(`${API_BASE}/api/u/${params.username}?source=web`);
-    if (!res.ok) {
+    if (res.status === 404) {
       return { profile: null, error: 'User not found' };
+    }
+    if (!res.ok) {
+      return { profile: null, error: 'Failed to load profile' };
     }
     const profile = await res.json();
     return { profile, error: null };
