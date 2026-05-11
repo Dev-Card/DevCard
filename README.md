@@ -279,3 +279,7 @@ DevCard is licensed under the [Apache License 2.0](./LICENSE).
 <p align="center">
   Built with ❤️ by the developer community, for the developer community.
 </p>
+## Contribution by Bhuvi 
+Improved documentation formatting. 
+## Contribution by Bhuvi 
+Improved documentation formatting. 
