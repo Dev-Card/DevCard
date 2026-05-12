@@ -39,7 +39,7 @@ const extractText = (node: any): string => {
 };
 
 describe('CardPickerSheet', () => {
-  test('renders card titles and link counts', () => {
+  test('renders card titles and link counts', async () => {
     const cards: Card[] = [
       buildCard({ id: 'card-1', title: 'Professional' }),
       buildCard({
@@ -64,29 +64,40 @@ describe('CardPickerSheet', () => {
       }),
     ];
 
-    const renderer = ReactTestRenderer.create(
-      <CardPickerSheet cards={cards} selectedCardId={null} onSelect={() => {}} />
-    );
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <CardPickerSheet cards={cards} selectedCardId={null} onSelect={() => {}} />
+      );
+    });
 
-    const textNodes = renderer.root.findAllByType(Text).map(node => extractText(node));
+    const textNodes = renderer!.root
+      .findAllByType(Text)
+      .map(node => extractText(node));
     expect(textNodes).toContain('Professional');
     expect(textNodes).toContain('Hackathon');
     expect(textNodes).toContain('1 links');
     expect(textNodes).toContain('2 links');
+    await ReactTestRenderer.act(async () => {
+      renderer!.unmount();
+    });
   });
 
-  test('calls onSelect when a card is selected', () => {
+  test('calls onSelect when a card is selected', async () => {
     const cards: Card[] = [
       buildCard({ id: 'card-1', title: 'Professional' }),
       buildCard({ id: 'card-2', title: 'Hackathon' }),
     ];
     const onSelect = jest.fn();
 
-    const renderer = ReactTestRenderer.create(
-      <CardPickerSheet cards={cards} selectedCardId="card-2" onSelect={onSelect} />
-    );
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <CardPickerSheet cards={cards} selectedCardId="card-2" onSelect={onSelect} />
+      );
+    });
 
-    const buttons = renderer.root.findAllByType(TouchableOpacity);
+    const buttons = renderer!.root.findAllByType(TouchableOpacity);
     const selectButton = buttons.find(button => {
       const labels = button.findAllByType(Text).map(node => extractText(node));
       return labels.includes('Select');
@@ -97,16 +108,27 @@ describe('CardPickerSheet', () => {
     });
 
     expect(onSelect).toHaveBeenCalledWith('card-1');
+    await ReactTestRenderer.act(async () => {
+      renderer!.unmount();
+    });
   });
 
-  test('shows empty state when only one card exists', () => {
+  test('shows empty state when only one card exists', async () => {
     const cards: Card[] = [buildCard({ id: 'card-1' })];
 
-    const renderer = ReactTestRenderer.create(
-      <CardPickerSheet cards={cards} selectedCardId="card-1" onSelect={() => {}} />
-    );
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <CardPickerSheet cards={cards} selectedCardId="card-1" onSelect={() => {}} />
+      );
+    });
 
-    const textNodes = renderer.root.findAllByType(Text).map(node => extractText(node));
+    const textNodes = renderer!.root
+      .findAllByType(Text)
+      .map(node => extractText(node));
     expect(textNodes).toContain('Create another card in Cards tab');
+    await ReactTestRenderer.act(async () => {
+      renderer!.unmount();
+    });
   });
 });
