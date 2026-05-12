@@ -76,7 +76,7 @@ describe('CardPickerSheet', () => {
       .map(node => extractText(node));
     expect(textNodes).toContain('Professional');
     expect(textNodes).toContain('Hackathon');
-    expect(textNodes).toContain('1 links');
+    expect(textNodes).toContain('1 link');
     expect(textNodes).toContain('2 links');
     await ReactTestRenderer.act(async () => {
       renderer!.unmount();

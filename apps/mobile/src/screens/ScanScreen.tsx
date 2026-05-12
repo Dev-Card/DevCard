@@ -34,6 +34,8 @@ export default function ScanScreen({ navigation }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [storedCardId, setStoredCardId] = useState<string | null>(null);
+  const [hasLoadedStoredCard, setHasLoadedStoredCard] = useState(false);
+  const [hasUserSelected, setHasUserSelected] = useState(false);
   const [loadingCards, setLoadingCards] = useState(false);
   const sheetRef = useRef<BottomSheetModal>(null);
 
@@ -87,6 +89,8 @@ export default function ScanScreen({ navigation }: Props) {
         setStoredCardId(value);
       } catch {
         setStoredCardId(null);
+      } finally {
+        setHasLoadedStoredCard(true);
       }
     };
 
@@ -94,13 +98,15 @@ export default function ScanScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => {
+    if (!hasLoadedStoredCard) return;
+
     if (!cards.length) {
       setSelectedCardId(null);
       return;
     }
 
     const currentValid = selectedCardId && cards.some(card => card.id === selectedCardId);
-    if (currentValid) return;
+    if (currentValid && hasUserSelected) return;
 
     const storedValid = storedCardId && cards.some(card => card.id === storedCardId);
     const defaultValid = user?.defaultCardId && cards.some(card => card.id === user.defaultCardId);
@@ -113,7 +119,7 @@ export default function ScanScreen({ navigation }: Props) {
     if (nextId && nextId !== selectedCardId) {
       setSelectedCardId(nextId);
     }
-  }, [cards, storedCardId, user?.defaultCardId, selectedCardId]);
+  }, [cards, storedCardId, user?.defaultCardId, selectedCardId, hasLoadedStoredCard, hasUserSelected]);
 
   const handleOpenPicker = () => {
     if (!cards.length) return;
@@ -121,6 +127,7 @@ export default function ScanScreen({ navigation }: Props) {
   };
 
   const handleSelectCard = async (cardId: string) => {
+    setHasUserSelected(true);
     setSelectedCardId(cardId);
     try {
       await AsyncStorage.setItem(LAST_SELECTED_CARD_KEY, cardId);

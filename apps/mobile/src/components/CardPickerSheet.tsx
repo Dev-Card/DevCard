@@ -42,7 +42,7 @@ const CardPickerSheet = React.forwardRef<BottomSheetModal, Props>(
         <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
           <Text style={styles.title}>Select a card</Text>
 
-          {cards.length <= 1 && (
+          {cards.length === 1 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Create another card in Cards tab</Text>
             </View>
