@@ -8,7 +8,7 @@ import { ThemeProvider } from './src/context/ThemeContext';
 import AuthStack from './src/navigation/AuthStack';
 import MainTabs from './src/navigation/MainTabs';
 
-import { Linking } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 
 function AppContent() {
   const { isAuthenticated, isLoading, login } = useAuth();
@@ -49,7 +49,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.gestureRoot}>
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
@@ -62,3 +62,7 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  gestureRoot: { flex: 1 },
+});

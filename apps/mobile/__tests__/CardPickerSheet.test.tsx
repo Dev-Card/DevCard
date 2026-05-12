@@ -5,9 +5,9 @@ import type { Card } from '@devcard/shared';
 import CardPickerSheet from '../src/components/CardPickerSheet';
 
 jest.mock('@gorhom/bottom-sheet', () => {
-  const React = require('react');
+  const ReactModule = require('react');
   return {
-    BottomSheetModal: React.forwardRef(({ children }: any, _ref: any) => (
+    BottomSheetModal: ReactModule.forwardRef(({ children }: any, _ref: any) => (
       <>{children}</>
     )),
     BottomSheetBackdrop: () => null,

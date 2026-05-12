@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -15,11 +15,7 @@ export const ViewsScreen: React.FC<Props> = () => {
   const [loading, setLoading] = useState(true);
   const [views, setViews] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchViews();
-  }, []);
-
-  const fetchViews = async () => {
+  const fetchViews = useCallback(async () => {
     if (!token) {
       setLoading(false);
       return;
@@ -37,7 +33,11 @@ export const ViewsScreen: React.FC<Props> = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchViews();
+  }, [fetchViews]);
 
   const formatDate = (dateString: string) => {
     const d = new Date(dateString);

@@ -1,3 +1,4 @@
+/* eslint-env jest */
 import 'react-native-gesture-handler/jestSetup';
 
 global.__reanimatedWorkletInit = () => {};
@@ -36,7 +37,6 @@ jest.mock('react-native-reanimated', () => ({
   withSpring: (value) => value,
   runOnJS: (fn) => fn,
   runOnUI: (fn) => fn,
-  createAnimatedComponent: (Component) => Component,
   Easing: {},
 }));
 

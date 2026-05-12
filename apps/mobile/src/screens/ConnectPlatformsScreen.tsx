@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -16,16 +16,12 @@ interface ConnectedPlatform {
   scopes: string;
 }
 
-export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
+export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigation }) => {
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [connectedPlatforms, setConnectedPlatforms] = useState<ConnectedPlatform[]>([]);
 
-  useEffect(() => {
-    fetchConnections();
-  }, []);
-
-  const fetchConnections = async () => {
+  const fetchConnections = useCallback(async () => {
     if (!token) {
       setLoading(false);
       return;
@@ -43,7 +39,11 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchConnections();
+  }, [fetchConnections]);
 
   const handleConnect = async (platform: string) => {
     if (!token) {
@@ -58,7 +58,7 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
         // User will be redirected back to the app via deep link
         // A real app would listen to the Linking.addEventListener('url') here to refresh
         setTimeout(fetchConnections, 5000); // Polling fallback
-      } catch (err) {
+      } catch {
         Alert.alert('Error', 'Failed to open connection page');
       }
     } else {
@@ -87,7 +87,7 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
                } else {
                  Alert.alert('Error', 'Failed to disconnect');
                }
-             } catch (err) {
+             } catch {
                Alert.alert('Error', 'Failed to disconnect');
              }
           }
