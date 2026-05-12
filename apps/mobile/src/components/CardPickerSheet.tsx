@@ -63,7 +63,9 @@ const CardPickerSheet = React.forwardRef<BottomSheetModal, Props>(
                     <Text style={styles.cardTitle} numberOfLines={1}>
                       {card.title}
                     </Text>
-                    <Text style={styles.cardMeta}>{links.length} links</Text>
+                    <Text style={styles.cardMeta}>
+                      {links.length} {links.length === 1 ? 'link' : 'links'}
+                    </Text>
                     <View style={styles.platformRow}>
                       {links.slice(0, 4).map(link => (
                         <View
