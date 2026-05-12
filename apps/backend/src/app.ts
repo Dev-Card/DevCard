@@ -54,9 +54,12 @@ export async function buildApp() {
   });
 
   // ─── Database & Cache Plugins ───
-  await app.register(prismaPlugin);
+ if (process.env.NODE_ENV !== 'test') {
+  await app.register(prismaPlugin); //change 
+}
+  if (process.env.NODE_ENV !== 'test') {
   await app.register(redisPlugin);
-
+}
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
@@ -76,11 +79,12 @@ export async function buildApp() {
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
 
   // ─── Health Check ───
-  app.get('/health', async () => ({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    service: 'devcard-api',
-  }));
+type HealthResponse = {
+  status: 'ok';
+};
 
+app.get('/health', async (): Promise<HealthResponse> => {
+  return { status: 'ok' };
+});
   return app;
 }
