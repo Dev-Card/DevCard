@@ -61,7 +61,11 @@ export async function connectRoutes(app: FastifyInstance) {
 
     try {
       // Decode state to find which user requested the connect
-      const decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+      const decodedState = parseGoogleState(state);
+
+      if (!decodedState) {
+        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+      }
       const userId = decodedState.userId;
 
       if (!userId) {
