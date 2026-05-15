@@ -1,281 +1,127 @@
 <p align="center">
-  <h1 align="center">DevCard</h1>
-  <p align="center"><strong>One Tap. Every Profile. Every Platform.</strong></p>
-  <p align="center">Open Source Developer Profile Exchange Platform</p>
-  <p align="center">
-    <a href="https://github.com/Dev-Card/DevCard">
-      <img src="https://img.shields.io/badge/GitHub-Dev--Card%2FDevCard-blue?logo=github&style=flat-square" alt="GitHub Repo" />
-    </a>
-  </p>
+  <img src="https://img.shields.io/badge/Status-Active-success?style=flat-square" alt="Status" />
+  <img src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/badge/Tech-SvelteKit%20%7C%20Fastify%20%7C%20React%20Native-6366f1?style=flat-square" alt="Tech Stack" />
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#contributing">Contributing</a> •
-  <a href="#license">License</a>
+  <h1 align="center">DevCard</h1>
+  <p align="center"><strong>One Tap. Every Profile. Every Platform.</strong></p>
+  <p align="center">The open-source developer profile exchange platform that simplifies networking at hackathons, conferences, and meetups.</p>
+</p>
+
+<p align="center">
+  <a href="#-features">Features</a> •
+  <a href="#-tech-stack">Tech Stack</a> •
+  <a href="#-getting-started">Getting Started</a> •
+  <a href="#-project-structure">Project Structure</a> •
+  <a href="#-contributing">Contributing</a> •
+  <a href="#-license">License</a>
 </p>
 
 ---
 
-## The Problem
+## 💡 The Problem
 
-At every developer meetup, hackathon, or conference, the same friction plays out:
+Networking as a developer often involves a fragmented exchange of handles:
+> *"What's your LinkedIn? Do you have GitHub? Are you on X/Twitter?"*
 
-> *"What's your LinkedIn?"* → open LinkedIn, search, send request  
-> *"Do you have GitHub?"* → open GitHub, search, follow  
-> *"Are you on Twitter?"* → open Twitter, search, follow
+Each exchange requires manual searching, multiple app switches, and unnecessary friction. **DevCard** solves this by aggregating all your professional profiles into a single, scan-and-connect experience.
 
-Each exchange is manual, error-prone, and slow. DevCard fixes this.
+## 🚀 Features
 
-## The Solution
+- 🔗 **Profile Aggregation** — Support for GitHub, LinkedIn, X/Twitter, Devfolio, GitLab, LeetCode, and 10+ more.
+- 📱 **QR & AirDrop Sharing** — Share your entire digital presence with one scan or link.
+- ⚡ **Hybrid Follow Engine** — Background follows for GitHub (API) and seamless WebView connections for others.
+- 🎯 **Context Cards** — Tailor your shared profiles for specific events (e.g., "Professional" vs. "Hackathon" cards).
+- 🔒 **Privacy-First** — No data monetization. Apache 2.0 licensed. You own your profile.
+- 🌐 **Web Backup** — Recipients can view and connect even if they don't have the DevCard app.
 
-**DevCard** aggregates all your developer profiles into a single shareable QR code. The receiver opens one screen and can follow/connect on every platform — without switching apps.
+## 🛠 Tech Stack
 
-## Features
+| Component | Technology |
+| :--- | :--- |
+| **Frontend (Web)** | SvelteKit, Vite, Lucide Icons |
+| **Mobile App** | React Native (Bare Workflow), React Navigation |
+| **Backend API** | Fastify, TypeScript, Prisma ORM |
+| **Database** | PostgreSQL 16, Redis 7 (Caching) |
+| **Package Manager** | pnpm (Workspaces) |
 
-- 🔗 **Universal Profile Aggregation** — GitHub, LinkedIn, Twitter/X, GitLab, Devfolio, and 10+ more platforms
-- 📱 **QR Code Sharing** — Show your QR, they scan, done
-- ⚡ **One-Screen Multi-Platform Connect** — Follow on GitHub, Connect on LinkedIn, all from one card
-- 📈 **Advanced Analytics** — Track who viewed your card, when, and from where (Web, QR, App)
-- 🔌 **Per-Platform OAuth Integrations** — Securely connect accounts for "Silent Follows"
-- 🎯 **Context Cards** — Different cards for different situations (Professional, Hackathon, Community)
-- 🌐 **Web Backup** — Receivers don't need the app — works in any browser
-- 🔒 **Privacy-First** — No tracking, no data selling, your data stays yours
-- 🛠️ **Open Source** — Apache 2.0 licensed, community-governed
-
-## Quick Start
+## 🏁 Getting Started
 
 ### Prerequisites
 
-- Node.js >= 20
-- pnpm >= 9
-- Docker & Docker Compose
-- React Native development environment ([setup guide](https://reactnative.dev/docs/environment-setup))
+- **Node.js**: `v20.x` or higher
+- **pnpm**: `v9.x` or higher
+- **Docker**: For running PostgreSQL and Redis
+- **React Native environment**: [Official Guide](https://reactnative.dev/docs/environment-setup)
 
-### Development Setup
+### Local Development
 
-```bash
-# Clone the repo
-git clone https://github.com/Dev-Card/DevCard.git
-cd devcard
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Dev-Card/DevCard.git
+   cd DevCard
+   ```
 
-# Install dependencies
-pnpm install
+2. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
 
-# Start infrastructure (PostgreSQL + Redis)
-docker compose up -d
+3. **Spin up infrastructure**
+   ```bash
+   docker compose up -d
+   ```
 
-# Copy environment config
-cp .env.example .env
+4. **Environment Configuration**
+   ```bash
+   cp .env.example .env
+   # Update .env with your local database and provider secrets
+   ```
 
-# Run database migrations
-pnpm db:migrate
+5. **Initialize Database**
+   ```bash
+   pnpm db:migrate
+   pnpm db:seed
+   ```
 
-# Seed sample data
-pnpm db:seed
+6. **Start Development Servers**
+   ```bash
+   # Run the entire stack
+   pnpm dev:web      # Web Dashboard
+   pnpm dev:backend  # API Server
+   pnpm dev:mobile   # Mobile App (Expo/Metro)
+   ```
 
-# Start the backend
-pnpm dev:backend
+## 📂 Project Structure
 
-# In another terminal — start the mobile app
-pnpm dev:mobile
-```
-
-## Architecture
-
-```
-devcard/
+```text
+DevCard/
 ├── apps/
-│   ├── backend/          # Fastify + TypeScript API
-│   ├── mobile/           # React Native (Bare) mobile app
-│   └── web/              # SvelteKit web backup
+│   ├── backend/    # Fastify + Prisma API
+│   ├── mobile/     # React Native Mobile Application
+│   └── web/        # SvelteKit Dashboard & Profile Views
 ├── packages/
-│   └── shared/           # Shared types, platform registry, utils
-├── docker-compose.yml    # PostgreSQL + Redis
-└── pnpm-workspace.yaml   # Monorepo config
+│   └── shared/     # Shared types, constants, and utilities
+├── docker-compose.yml
+└── pnpm-workspace.yaml
 ```
 
-### Tech Stack
+## 🤝 Contributing
 
-| Layer | Technology |
-|-------|-----------|
-| Mobile App | React Native (Bare) + React Navigation |
-| Backend API | Fastify + TypeScript |
-| Database | PostgreSQL 16 + Prisma ORM |
-| Cache | Redis 7 |
-| Web Backup | SvelteKit |
-| Auth | OAuth 2.0 (GitHub, Google) |
+We love contributions! Whether it's fixing a bug, improving the UI, or adding a new platform integration.
 
-### Hybrid Follow Engine
+1. Check out our [Good First Issues](https://github.com/Dev-Card/DevCard/issues?q=is%3Aopen+label%3A%22good-first-issue%22).
+2. Read the [CONTRIBUTING.md](./CONTRIBUTING.md) for our workflow and coding standards.
+3. Open a Pull Request!
 
-DevCard uses a three-layer follow engine:
+## 📄 License
 
-| Layer | Strategy | Platforms |
-|-------|----------|-----------|
-| API Follow | Silent background follow | GitHub |
-| WebView Connect | In-app WebView interaction | LinkedIn, Twitter/X |
-| Profile Link | Opens profile in browser | GitLab, Devfolio, others |
-
-## API Endpoints
-
-The API provides the following endpoints (defined by the `cardRoutes` function in `apps/backend/src/routes/cards.ts`):
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| **GET** | `/` | List all cards for the authenticated user |
-| **POST** | `/` | Create a new card (first card is auto-set as default) |
-| **PUT** | `/:id` | Update a card's title and/or links |
-| **DELETE** | `/:id` | Delete a card |
-| **PUT** | `/:id/default` | Set a card as the default card |
-
-### **POST /** - Create a New Card (Example)
-
-**Request:**
-```json
-POST /cards HTTP/1.1
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "title": "New Card",
-  "linkIds": [
-    "223e4567-e89b-12d3-a456-426614174000",
-    "323e4567-e89b-12d3-a456-426614174000"
-  ]
-}
-```
-
-**Response (201 Created):**
-```json
-{
-  "id": "623e4567-e89b-12d3-a456-426614174000",
-  "title": "New Card",
-  "isDefault": false,
-  "links": [
-    {
-      "id": "223e4567-e89b-12d3-a456-426614174000",
-      "platform": "github",
-      "username": "john-doe",
-      "url": "https://github.com/john-doe"
-    },
-    {
-      "id": "323e4567-e89b-12d3-a456-426614174000",
-      "platform": "twitter",
-      "username": "johndoe",
-      "url": "https://twitter.com/johndoe"
-    }
-  ]
-}
-```
-**Field constraints:**
-- `title`: String, 1-100 characters (required)
-- `linkIds`: Array of UUID strings (required, can be empty array)
-
-### **PUT /:id** - Update a Card (Example)
-
-**Request:**
-```json
-PUT /cards/123e4567-e89b-12d3-a456-426614174000 HTTP/1.1
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "title": "Updated Card Title",
-  "linkIds": [
-    "223e4567-e89b-12d3-a456-426614174000"
-  ]
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "title": "Updated Card Title",
-  "isDefault": true,
-  "links": [
-    {
-      "id": "223e4567-e89b-12d3-a456-426614174000",
-      "platform": "github",
-      "username": "john-doe",
-      "url": "https://github.com/john-doe"
-    }
-  ]
-}
-```
-
-**Field constraints:**
-- `title`: String, 1-100 characters (optional)
-- `linkIds`: Array of UUID strings (optional)
-
-### **DELETE /:id** - Delete a Card (Example)
-
-**Request:**
-```http
-DELETE /cards/123e4567-e89b-12d3-a456-426614174000 HTTP/1.1
-Authorization: Bearer <token>
-```
-
-**Response (204 No Content):**
-```
-(empty body)
-```
-### **PUT /:id/default** - Set a Card as Default (Example)
-
-**Request:**
-```http
-PUT /cards/423e4567-e89b-12d3-a456-426614174000/default HTTP/1.1
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**Response (200 OK):**
-```json
-{
-  "message": "Default card updated"
-}
-```
-
-### Error Cases
-
-The following error cases are implemented:
-
-| Scenario | Status | Response |
-|----------|--------|----------|
-| **Create/Update Card** | 400 | `{ error: 'Validation failed', details: parsed.error.flatten() }` — when title or linkIds don't meet constraints |
-| **Create/Update Card** | 409 | `{ error: 'Username already taken'}` — when a user with the same username exists |
-| **Update Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
-| **Delete Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
-| **Set Default Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
-| **Successful Deletion** | 204 | No content |
-
-## Good First Issues
-
-New to open source? We've got you covered! Check out our [Good First Issues](https://github.com/Dev-Card/DevCard/issues?q=is%3Aopen+label%3A%22good-first-issue%22), these are specially curated issues that are:
-
-- Well-documented with clear acceptance criteria
-- Limited in scope (perfect for a first contribution)
-- Mentored by maintainers
-
-### How to Claim an Issue
-
-1. Browse the [Good First Issues list](https://github.com/Dev-Card/DevCard/issues?q=is%3Aopen+label%3A%22good-first-issue%22).
-2. Comment on the issue you'd like to work on (e.g., "I'd like to take this on!") and wait for a maintainer to assign it to you.
-3. If you feel like opening the PR first, you can do that, and you will be assigned accordingly.
-4. Fork the repo, make your changes, and open a PR.
-
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions, coding standards, and PR process.
-
-## License
-
-DevCard is licensed under the [Apache License 2.0](./LICENSE).
+DevCard is open-source software licensed under the [Apache License 2.0](./LICENSE).
 
 ---
 
 <p align="center">
-  Built with ❤️ by the developer community, for the developer community.
+  Built with ⚡ by the <strong>DevCard Community</strong>.
 </p>
