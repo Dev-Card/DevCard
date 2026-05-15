@@ -1,5 +1,6 @@
 <script>
   import '../app.css';
+  import ScrollToTop from '$lib/components/ScrollToTop.svelte';
   let { children } = $props();
 </script>
 
@@ -9,3 +10,4 @@
 </svelte:head>
 
 {@render children()}
+<ScrollToTop />
