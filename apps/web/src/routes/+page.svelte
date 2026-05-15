@@ -26,6 +26,10 @@
     name="description"
     content="Open source developer profile exchange platform. Share all your developer profiles with one QR code."
   />
+  <meta property="og:title" content="DevCard — One Tap. Every Profile. Every Platform." />
+  <meta property="og:description" content="Open source developer profile exchange platform. Share all your developer profiles with one QR code." />
+  <meta name="twitter:title" content="DevCard — One Tap. Every Profile. Every Platform." />
+  <meta name="twitter:description" content="Open source developer profile exchange platform. Share all your developer profiles with one QR code." />
 </svelte:head>
 
 <main class="landing">

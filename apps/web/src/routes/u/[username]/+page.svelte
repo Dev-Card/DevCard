@@ -18,8 +18,20 @@
   {#if profile}
     <title>{profile.displayName} — DevCard</title>
     <meta name="description" content="{profile.bio || `${profile.displayName}'s developer profiles`}" />
+    
+    <!-- Open Graph -->
     <meta property="og:title" content="{profile.displayName} — DevCard" />
     <meta property="og:description" content="{profile.bio || 'Developer profile card'}" />
+    {#if profile.avatarUrl}
+      <meta property="og:image" content={profile.avatarUrl} />
+    {/if}
+    
+    <!-- Twitter -->
+    <meta name="twitter:title" content="{profile.displayName} — DevCard" />
+    <meta name="twitter:description" content="{profile.bio || 'Developer profile card'}" />
+    {#if profile.avatarUrl}
+      <meta name="twitter:image" content={profile.avatarUrl} />
+    {/if}
   {:else}
     <title>User Not Found — DevCard</title>
   {/if}
