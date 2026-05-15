@@ -1,5 +1,6 @@
 <script lang="ts">
   import { PLATFORMS, getProfileUrl } from '@devcard/shared';
+  import EmptyState from '$lib/components/EmptyState.svelte';
 
   let { data } = $props();
   const profile = data.profile;
@@ -60,28 +61,34 @@
         {/if}
       </div>
 
-      <!-- Platform Links -->
       <div class="links-section">
         <p class="links-label">Connect with {profile.displayName.split(' ')[0]}</p>
-        {#each profile.links as link}
-          {@const platform = PLATFORMS[link.platform]}
-          {@const color = platformColors[link.platform] || '#6366f1'}
-          <a
-            href={link.url || getProfileUrl(link.platform, link.username)}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="platform-tile"
-          >
-            <div class="tile-icon" style="background: {color}">
-              {platform?.name.charAt(0) || '?'}
-            </div>
-            <div class="tile-info">
-              <span class="tile-name">{platform?.name || link.platform}</span>
-              <span class="tile-username">{link.username}</span>
-            </div>
-            <span class="tile-arrow">→</span>
-          </a>
-        {/each}
+        {#if profile.links.length > 0}
+          {#each profile.links as link}
+            {@const platform = PLATFORMS[link.platform]}
+            {@const color = platformColors[link.platform] || '#6366f1'}
+            <a
+              href={link.url || getProfileUrl(link.platform, link.username)}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="platform-tile"
+            >
+              <div class="tile-icon" style="background: {color}">
+                {platform?.name.charAt(0) || '?'}
+              </div>
+              <div class="tile-info">
+                <span class="tile-name">{platform?.name || link.platform}</span>
+                <span class="tile-username">{link.username}</span>
+              </div>
+              <span class="tile-arrow">→</span>
+            </a>
+          {/each}
+        {:else}
+          <EmptyState 
+            title="No links shared yet" 
+            message="{profile.displayName} hasn't added any profiles to their DevCard."
+          />
+        {/if}
       </div>
     </div>
 
