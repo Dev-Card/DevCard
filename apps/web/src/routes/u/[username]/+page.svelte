@@ -1,5 +1,11 @@
 <script lang="ts">
   import { PLATFORMS, getProfileUrl } from '@devcard/shared';
+  import {
+    Frown,
+    ArrowLeft,
+    ArrowRight,
+    Zap,
+  } from 'lucide-svelte';
 
   let { data } = $props();
   const profile = data.profile;
@@ -28,10 +34,10 @@
 {#if error || !profile}
   <main class="error-page">
     <div class="error-content">
-      <div class="error-emoji">😕</div>
+      <div class="error-emoji"><Frown size={64} /></div>
       <h1>User Not Found</h1>
       <p>This DevCard doesn't exist or has been removed.</p>
-      <a href="/" class="home-link">← Back to DevCard</a>
+      <a href="/" class="home-link"><ArrowLeft size={18} style="display: inline; vertical-align: middle; margin-right: 4px;" /> Back to DevCard</a>
     </div>
   </main>
 {:else}
@@ -79,7 +85,7 @@
               <span class="tile-name">{platform?.name || link.platform}</span>
               <span class="tile-username">{link.username}</span>
             </div>
-            <span class="tile-arrow">→</span>
+            <span class="tile-arrow"><ArrowRight size={18} /></span>
           </a>
         {/each}
       </div>
@@ -88,7 +94,9 @@
     <!-- Get DevCard CTA -->
     <div class="get-devcard">
       <p>Want your own DevCard?</p>
-      <a href="/" class="cta-link">Get your DevCard ⚡</a>
+      <a href="/" class="cta-link">
+        Get your DevCard <Zap size={18} style="display: inline; vertical-align: middle; margin-left: 2px;" fill="currentColor" />
+      </a>
     </div>
 
     <footer class="footer">

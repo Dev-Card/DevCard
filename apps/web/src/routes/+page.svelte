@@ -1,5 +1,17 @@
 <script>
   import { onMount } from 'svelte';
+  import {
+    Moon,
+    Sun,
+    Zap,
+    Star,
+    ChevronDown,
+    Link,
+    CreditCard,
+    Smartphone,
+    Lock,
+    Globe,
+  } from 'lucide-svelte';
 
   let theme = 'light';
 
@@ -36,9 +48,15 @@
       on:click={toggleTheme}
       aria-label="Toggle theme"
     >
-      {theme === 'light' ? '🌙' : '☀️'}
+      {#if theme === 'light'}
+        <Moon size={20} />
+      {:else}
+        <Sun size={20} />
+      {/if}
     </button>
-    <div class="logo">⚡</div>
+    <div class="logo">
+      <Zap size={64} strokeWidth={2.5} fill="currentColor" />
+    </div>
     <h1>DevCard</h1>
     <p class="tagline">One Tap. Every Profile. Every Platform.</p>
     <p class="description">
@@ -52,15 +70,17 @@
         target="_blank"
         rel="noopener"
       >
-        ⭐ Star on GitHub
+        <Star size={18} fill="currentColor" /> Star on GitHub
       </a>
-      <a href="#features" class="btn btn-secondary">Learn More ↓</a>
+      <a href="#features" class="btn btn-secondary">
+        Learn More <ChevronDown size={18} />
+      </a>
     </div>
   </section>
 
   <section id="features" class="features">
     <div class="feature-card">
-      <div class="feature-icon">🔗</div>
+      <div class="feature-icon"><Link size={32} /></div>
       <h3>One Card, All Profiles</h3>
       <p>
         GitHub, LinkedIn, Twitter/X, Devfolio, GitLab, LeetCode, and 10+ more —
@@ -68,7 +88,7 @@
       </p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">⚡</div>
+      <div class="feature-icon"><Zap size={32} /></div>
       <h3>Hybrid Follow Engine</h3>
       <p>
         Follow on GitHub silently via API. Connect on LinkedIn with one tap in
@@ -76,7 +96,7 @@
       </p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">💳</div>
+      <div class="feature-icon"><CreditCard size={32} /></div>
       <h3>Context Cards</h3>
       <p>
         Share your "Professional" card at conferences and "Hackathon" card at
@@ -84,7 +104,7 @@
       </p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">📱</div>
+      <div class="feature-icon"><Smartphone size={32} /></div>
       <h3>QR + AirDrop</h3>
       <p>
         Generate a QR code or share via AirDrop-style link. Works even if the
@@ -92,7 +112,7 @@
       </p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">🔒</div>
+      <div class="feature-icon"><Lock size={32} /></div>
       <h3>Privacy First</h3>
       <p>
         No data monetization. No tracking. Apache 2.0 licensed. You own your
@@ -100,7 +120,7 @@
       </p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">🌍</div>
+      <div class="feature-icon"><Globe size={32} /></div>
       <h3>Open Source</h3>
       <p>
         Community-driven development. Contribute, self-host, or extend with your
