@@ -60,7 +60,6 @@
         {/if}
       </div>
 
-      <!-- Platform Links -->
       <div class="links-section">
         <p class="links-label">Connect with {profile.displayName.split(' ')[0]}</p>
         {#each profile.links as link}
@@ -71,15 +70,16 @@
             target="_blank"
             rel="noopener noreferrer"
             class="platform-tile"
+            aria-label="Visit {profile.displayName}'s {platform?.name || link.platform} profile"
           >
-            <div class="tile-icon" style="background: {color}">
+            <div class="tile-icon" style="background: {color}" aria-hidden="true">
               {platform?.name.charAt(0) || '?'}
             </div>
             <div class="tile-info">
               <span class="tile-name">{platform?.name || link.platform}</span>
               <span class="tile-username">{link.username}</span>
             </div>
-            <span class="tile-arrow">→</span>
+            <span class="tile-arrow" aria-hidden="true">→</span>
           </a>
         {/each}
       </div>
@@ -88,7 +88,7 @@
     <!-- Get DevCard CTA -->
     <div class="get-devcard">
       <p>Want your own DevCard?</p>
-      <a href="/" class="cta-link">Get your DevCard ⚡</a>
+      <a href="/" class="cta-link" aria-label="Get your own DevCard for free">Get your DevCard ⚡</a>
     </div>
 
     <footer class="footer">
