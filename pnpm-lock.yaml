@@ -193,6 +193,9 @@ importers:
       '@devcard/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      lucide-svelte:
+        specifier: ^1.0.1
+        version: 1.0.1(svelte@5.53.10)
     devDependencies:
       '@sveltejs/adapter-auto':
         specifier: ^7.0.0
@@ -1925,6 +1928,7 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    deprecated: Potential CWE-502 - Update to 1.3.1 or higher
 
   '@vitest/expect@2.1.9':
     resolution: {integrity: sha512-UJCIkTBenHeKT1TTlKMJWy1laZewsRIzYighyYiJKZreqtdxSos/S1t+ktRMQWu2CKqaarrkeszJx1cgC5tGZw==}
@@ -3700,6 +3704,11 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  lucide-svelte@1.0.1:
+    resolution: {integrity: sha512-WvzZgk0pqzgda+AErLvgWxHkfg/+GgUwqKMRHvzt0IqyMdmyEDzDCk3Z+Wo/3y753oIgx8u9Q4eUbWkghFa8Jg==}
+    peerDependencies:
+      svelte: ^3 || ^4 || ^5.0.0-next.42
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -9448,6 +9457,10 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide-svelte@1.0.1(svelte@5.53.10):
+    dependencies:
+      svelte: 5.53.10
 
   magic-string@0.30.21:
     dependencies:

@@ -12,7 +12,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"dependencies": {
-		"@devcard/shared": "workspace:*"
+		"@devcard/shared": "workspace:*",
+		"lucide-svelte": "^1.0.1"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",

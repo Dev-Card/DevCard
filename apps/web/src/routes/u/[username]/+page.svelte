@@ -1,9 +1,24 @@
 <script lang="ts">
   import { PLATFORMS, getProfileUrl } from '@devcard/shared';
+  import { Copy, Check } from 'lucide-svelte';
 
   let { data } = $props();
   const profile = data.profile;
   const error = data.error;
+
+  let copied = $state(false);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      copied = true;
+      setTimeout(() => {
+        copied = false;
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  }
 
   const platformColors: Record<string, string> = {
     github: '#181717', linkedin: '#0A66C2', twitter: '#000000',
@@ -39,6 +54,18 @@
     <div class="profile-card" style="--accent: {profile.accentColor}">
       <!-- Avatar & Header -->
       <div class="profile-header">
+        <button 
+          class="copy-btn" 
+          onclick={copyLink} 
+          aria-label="Copy profile link"
+          title="Copy profile link"
+        >
+          {#if copied}
+            <Check size={18} class="text-success" />
+          {:else}
+            <Copy size={18} />
+          {/if}
+        </button>
         {#if profile.avatarUrl}
           <img src={profile.avatarUrl} alt={profile.displayName} class="avatar" />
         {:else}
@@ -149,6 +176,34 @@
   .profile-header {
     text-align: center;
     padding: 2.5rem 2rem 1.5rem;
+    position: relative;
+  }
+
+  .copy-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover {
+    background: var(--bg-card);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .text-success {
+    color: #10b981 !important;
   }
 
   .avatar {
