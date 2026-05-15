@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import FeatureCard from '$lib/components/FeatureCard.svelte';
 
   let theme = 'light';
 
@@ -59,54 +60,36 @@
   </section>
 
   <section id="features" class="features">
-    <div class="feature-card">
-      <div class="feature-icon">🔗</div>
-      <h3>One Card, All Profiles</h3>
-      <p>
-        GitHub, LinkedIn, Twitter/X, Devfolio, GitLab, LeetCode, and 10+ more —
-        all in one card.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">⚡</div>
-      <h3>Hybrid Follow Engine</h3>
-      <p>
-        Follow on GitHub silently via API. Connect on LinkedIn with one tap in
-        WebView. No app switching.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">💳</div>
-      <h3>Context Cards</h3>
-      <p>
-        Share your "Professional" card at conferences and "Hackathon" card at
-        hack events. Same profiles, different contexts.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📱</div>
-      <h3>QR + AirDrop</h3>
-      <p>
-        Generate a QR code or share via AirDrop-style link. Works even if the
-        receiver doesn't have the app.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">🔒</div>
-      <h3>Privacy First</h3>
-      <p>
-        No data monetization. No tracking. Apache 2.0 licensed. You own your
-        data.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">🌍</div>
-      <h3>Open Source</h3>
-      <p>
-        Community-driven development. Contribute, self-host, or extend with your
-        own platforms.
-      </p>
-    </div>
+    <FeatureCard
+      icon="🔗"
+      title="One Card, All Profiles"
+      description="GitHub, LinkedIn, Twitter/X, Devfolio, GitLab, LeetCode, and 10+ more — all in one card."
+    />
+    <FeatureCard
+      icon="⚡"
+      title="Hybrid Follow Engine"
+      description="Follow on GitHub silently via API. Connect on LinkedIn with one tap in WebView. No app switching."
+    />
+    <FeatureCard
+      icon="💳"
+      title="Context Cards"
+      description="Share your 'Professional' card at conferences and 'Hackathon' card at hack events. Same profiles, different contexts."
+    />
+    <FeatureCard
+      icon="📱"
+      title="QR + AirDrop"
+      description="Generate a QR code or share via AirDrop-style link. Works even if the receiver doesn't have the app."
+    />
+    <FeatureCard
+      icon="🔒"
+      title="Privacy First"
+      description="No data monetization. No tracking. Apache 2.0 licensed. You own your data."
+    />
+    <FeatureCard
+      icon="🌍"
+      title="Open Source"
+      description="Community-driven development. Contribute, self-host, or extend with your own platforms."
+    />
   </section>
 
   <footer class="footer">
@@ -254,38 +237,6 @@
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.5rem;
     padding: 3rem 0;
-  }
-
-  .feature-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 2rem;
-    transition:
-      transform 0.2s ease,
-      border-color 0.2s ease;
-  }
-
-  .feature-card:hover {
-    transform: translateY(-4px);
-    border-color: var(--primary);
-  }
-
-  .feature-icon {
-    font-size: 2rem;
-    margin-bottom: 1rem;
-  }
-
-  .feature-card h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-  }
-
-  .feature-card p {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.6;
   }
 
   .footer {
