@@ -9,7 +9,9 @@ import {
   Alert,
   StatusBar,
   Image,
+  Linking,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
@@ -60,6 +62,15 @@ export default function SettingsScreen() {
       { text: 'Logout', style: 'destructive', onPress: logout },
     ]);
   };
+  const handleReportBug = async () => {
+    const url = 'mailto:support@devcard.dev?subject=Bug%20Report';
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert('No mail app found', 'Please email support@devcard.dev directly.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -109,6 +120,20 @@ export default function SettingsScreen() {
             <View style={styles.settingRowLeft}>
               <Text style={styles.settingRowIcon}>🔌</Text>
               <Text style={styles.settingRowText}>Connected Platforms</Text>
+            </View>
+            <Text style={styles.settingRowArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionSubtitle}>Support</Text>
+          <Text style={styles.reportDescription}>
+            Found a bug? Include steps to reproduce, your device model, and OS version.
+          </Text>
+          <TouchableOpacity style={styles.settingRow} onPress={handleReportBug}>
+            <View style={styles.settingRowLeft}>
+              <Text style={styles.settingRowIcon}>🐛</Text>
+              <Text style={styles.settingRowText}>Report an issue</Text>
             </View>
             <Text style={styles.settingRowArrow}>→</Text>
           </TouchableOpacity>
@@ -190,6 +215,13 @@ const styles = StyleSheet.create({
   logoutButtonText: { color: COLORS.error, fontWeight: '600', fontSize: FONT_SIZE.md },
   sectionContainer: { marginBottom: SPACING.xl },
   sectionSubtitle: { fontSize: FONT_SIZE.md, fontWeight: '700', color: COLORS.textSecondary, marginBottom: SPACING.sm },
+  
+  reportDescription: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted,
+    marginBottom: SPACING.sm,
+  },
+  
   settingRow: { 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: COLORS.bgCard, padding: SPACING.md, borderRadius: BORDER_RADIUS.md,
