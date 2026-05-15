@@ -299,7 +299,27 @@
   }
 
   @media (max-width: 500px) {
-    .profile-page { padding: 1rem 0.75rem; }
-    .display-name { font-size: 1.5rem; }
+    .profile-page { 
+      padding: 1.5rem 0.75rem; 
+    }
+    .display-name { 
+      font-size: 1.5rem; 
+    }
+    .profile-header {
+      padding: 2rem 1.25rem 1rem;
+    }
+    .avatar {
+      width: 72px;
+      height: 72px;
+    }
+    .platform-tile {
+      padding: 1rem;
+    }
+  }
+
+  /* Active states for better touch feedback */
+  .platform-tile:active, .cta-link:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
   }
 </style>

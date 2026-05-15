@@ -300,15 +300,45 @@
   }
 
   @media (max-width: 600px) {
+    .landing {
+      padding: 1rem;
+    }
     h1 {
-      font-size: 2.5rem;
+      font-size: 2.25rem;
+      letter-spacing: -1.5px;
+    }
+    .tagline {
+      font-size: 1.1rem;
+    }
+    .description {
+      font-size: 1rem;
+      margin-top: 1rem;
     }
     .hero {
-      padding: 3rem 0 2rem;
+      padding: 4rem 0 3rem;
     }
     .cta-group {
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
+      gap: 0.75rem;
+      padding: 0 1rem;
     }
+    .btn {
+      justify-content: center;
+      padding: 0.875rem;
+    }
+    .features {
+      padding: 1.5rem 0;
+      gap: 1rem;
+    }
+    .feature-card {
+      padding: 1.5rem;
+    }
+  }
+
+  /* Active states for better touch feedback */
+  .btn:active, .theme-toggle:active, .feature-card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
   }
 </style>
