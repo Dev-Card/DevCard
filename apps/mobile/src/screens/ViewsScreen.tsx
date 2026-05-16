@@ -1,32 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import * as tokens from '../theme/tokens';
-import { api } from '../utils/api';
+import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
+import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../config';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../navigation/types';
+import type { RootStackParamList } from '../navigation/MainTabs';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Views'>;
 
 export const ViewsScreen: React.FC<Props> = () => {
+  const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [views, setViews] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchViews();
-  }, []);
-
-  const fetchViews = async () => {
+  const fetchViews = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
-      const response = await api.get('/analytics/views');
-      setViews(response.data.data);
+      const response = await fetch(`${API_BASE_URL}/api/analytics/views`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setViews(data.data || []);
+      }
     } catch (err) {
       console.error('Failed to fetch views analytics', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchViews();
+  }, [fetchViews]);
 
   const formatDate = (dateString: string) => {
     const d = new Date(dateString);
@@ -50,7 +61,7 @@ export const ViewsScreen: React.FC<Props> = () => {
         <View style={styles.avatarContainer}>
           {isAnonymous ? (
             <View style={[styles.avatar, styles.anonymousAvatar]}>
-              <Icon name="incognito" size={24} color={tokens.colors.textSecondary} />
+              <Icon name="incognito" size={24} color={COLORS.textSecondary} />
             </View>
           ) : item.viewer.avatarUrl ? (
             <Image source={{ uri: item.viewer.avatarUrl }} style={styles.avatar} />
@@ -72,7 +83,7 @@ export const ViewsScreen: React.FC<Props> = () => {
         </View>
 
         <View style={styles.sourceBadge}>
-          <Icon name={getSourceIcon(item.source)} size={16} color={tokens.colors.primary} />
+          <Icon name={getSourceIcon(item.source)} size={16} color={COLORS.primary} />
           <Text style={styles.sourceText}>{item.source.toUpperCase()}</Text>
         </View>
       </View>
@@ -82,7 +93,7 @@ export const ViewsScreen: React.FC<Props> = () => {
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={tokens.colors.primary} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -91,7 +102,7 @@ export const ViewsScreen: React.FC<Props> = () => {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       {views.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Icon name="chart-bar" size={64} color={tokens.colors.textTertiary} />
+          <Icon name="chart-bar" size={64} color={COLORS.textMuted} />
           <Text style={styles.emptyTitle}>No Views Yet</Text>
           <Text style={styles.emptyDesc}>Share your card or QR code to start collecting analytics.</Text>
         </View>
@@ -110,65 +121,65 @@ export const ViewsScreen: React.FC<Props> = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: COLORS.bgPrimary,
   },
   center: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   listContainer: {
-    padding: tokens.spacing.md,
+    padding: SPACING.md,
   },
   viewItem: {
     flexDirection: 'row',
-    backgroundColor: tokens.colors.surface,
-    padding: tokens.spacing.md,
-    borderRadius: tokens.radii.lg,
-    marginBottom: tokens.spacing.sm,
+    backgroundColor: COLORS.bgCard,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.sm,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: tokens.colors.borderLight,
+    borderColor: COLORS.borderLight,
   },
   avatarContainer: {
-    marginRight: tokens.spacing.md,
+    marginRight: SPACING.md,
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: tokens.colors.surfaceHighlight,
+    backgroundColor: COLORS.bgElevated,
   },
   anonymousAvatar: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: tokens.colors.surfaceHighlight,
+    backgroundColor: COLORS.bgElevated,
   },
   placeholderAvatar: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: tokens.colors.primary,
+    backgroundColor: COLORS.primary,
   },
   placeholderText: {
-    color: tokens.colors.textPrimary,
+    color: COLORS.textPrimary,
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   infoContainer: {
     flex: 1,
   },
   viewerName: {
-    color: tokens.colors.textPrimary,
-    fontSize: tokens.typography.sizes.md,
-    fontWeight: tokens.typography.weights.semibold as any,
+    color: COLORS.textPrimary,
+    fontSize: FONT_SIZE.md,
+    fontWeight: '600',
   },
   viewTarget: {
-    color: tokens.colors.textSecondary,
-    fontSize: tokens.typography.sizes.sm,
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
     marginTop: 2,
   },
   timestamp: {
-    color: tokens.colors.textTertiary,
-    fontSize: tokens.typography.sizes.xs,
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.xs,
     marginTop: 4,
   },
   sourceBadge: {
@@ -177,10 +188,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99, 102, 241, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 6,
-    borderRadius: tokens.radii.md,
+    borderRadius: BORDER_RADIUS.md,
   },
   sourceText: {
-    color: tokens.colors.primary,
+    color: COLORS.primary,
     fontSize: 10,
     fontWeight: 'bold',
     marginTop: 2,
@@ -189,18 +200,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: tokens.spacing.xl,
+    padding: SPACING.xl,
   },
   emptyTitle: {
-    color: tokens.colors.textPrimary,
-    fontSize: tokens.typography.sizes.xl,
-    fontWeight: 'bold',
-    marginTop: tokens.spacing.md,
+    color: COLORS.textPrimary,
+    fontSize: FONT_SIZE.xl,
+    fontWeight: '700',
+    marginTop: SPACING.md,
   },
   emptyDesc: {
-    color: tokens.colors.textSecondary,
-    fontSize: tokens.typography.sizes.md,
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.md,
     textAlign: 'center',
-    marginTop: tokens.spacing.sm,
+    marginTop: SPACING.sm,
   },
 });
