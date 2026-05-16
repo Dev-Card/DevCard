@@ -1,0 +1,62 @@
+# Implementation Verification & Setup Guide
+
+This guide covers how to set up the project and verify the newly implemented `/assign` GitHub Action.
+
+## 1. Local Project Setup
+To ensure your local environment matches the project structure and all dependencies are present:
+
+1. **Install pnpm** (if not already installed):
+   ```bash
+   npm install -g pnpm
+   ```
+
+2. **Install Dependencies**:
+   Run this from the root of the repository to install all workspace dependencies:
+   ```bash
+   pnpm install
+   ```
+
+3. **Verify Configuration Files**:
+   - Check that `.github/workflows/assign.yml` exists.
+   - Check that `CONTRIBUTING.md` includes the "Self-Assigning Issues & PRs" section.
+
+---
+
+## 2. Verifying the GitHub Action
+GitHub Actions run on GitHub's infrastructure. To verify the `/assign` command:
+
+1. **Push Changes**:
+   Ensure the new `.github/workflows/assign.yml` file is pushed to your GitHub repository.
+   ```bash
+   git add .github/workflows/assign.yml CONTRIBUTING.md
+   git commit -m "feat: implement /assign GitHub Action"
+   git push origin <your-branch-name>
+   ```
+
+2. **Trigger the Action**:
+   - Open any Issue or Pull Request on your GitHub repository.
+   - Post a comment: `/assign`
+   - **Expected Result**: The "Issue / PR Self-Assign" workflow should trigger. You can see this under the "Actions" tab.
+   - **Confirmation**: A bot (github-actions) should reply to your comment and you should be added as an assignee.
+
+3. **Test Edge Cases**:
+   - Post: `/assign @nonexistent_user_12345` (Should reply with an error).
+   - Post: `/assign @another_valid_user` (Should assign that user).
+   - Post: `/assign` again (Should notify you that you are already assigned).
+
+---
+
+## 3. Optional: Local Workflow Testing
+If you want to test the workflow logic without pushing to GitHub, you can use **act**:
+
+1. **Install act**:
+   ```bash
+   brew install nektos/tap/act
+   ```
+
+2. **Run the workflow**:
+   Note: This requires Docker to be running.
+   ```bash
+   act issue_comment
+   ```
+   *(Note: You may need to provide a mock event JSON to simulate a specific comment body like "/assign")*

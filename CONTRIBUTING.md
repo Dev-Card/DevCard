@@ -82,20 +82,46 @@ devcard/
 - **Conventional Commits** for commit messages (`feat:`, `fix:`, `docs:`, `chore:`)
 - Write tests for new features and bug fixes
 
+## Self-Assigning Issues & PRs
+
+You can assign yourself (or another contributor) to any open issue or pull request by posting a comment with the `/assign` command — no maintainer action required.
+
+| Command | Effect |
+|---|---|
+| `/assign` | Assigns **you** (the commenter) to the issue/PR |
+| `/assign @username` | Assigns the specified GitHub **@username** |
+
+**Examples:**
+
+```
+/assign
+```
+```
+/assign @octocat
+```
+
+The bot will reply with a confirmation comment (or an error message if the username is invalid, the user is already assigned, or the account lacks repo access).
+
+> **Note:** Bot accounts cannot be assigned. Duplicate assignments are silently prevented.
+
+---
+
 ## Pull Request Process
 
 1. Create a feature branch from `main`: `git checkout -b feat/your-feature`
-2. Make your changes with clear, descriptive commits
-3. Ensure all tests pass: `pnpm test`
-4. Ensure linting passes: `pnpm lint`
-5. Open a PR against `main` with a clear description of the change
-6. Wait for review — maintainers will respond within 48 hours
+2. Self-assign the related issue with `/assign` so others know you're working on it
+3. Make your changes with clear, descriptive commits
+4. Ensure all tests pass: `pnpm test`
+5. Ensure linting passes: `pnpm lint`
+6. Open a PR against `main` with a clear description of the change
+7. Wait for review — maintainers will respond within 48 hours
 
 ## Reporting Issues
 
 - Use GitHub Issues for bug reports and feature requests
 - Include reproduction steps for bugs
 - Search existing issues before creating a new one
+- Use `/assign` on an issue you plan to fix so work isn't duplicated
 
 ## Code of Conduct
 

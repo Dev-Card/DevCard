@@ -1,0 +1,131 @@
+name: Issue / PR Self-Assign
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  assign:
+    if: |
+      !github.event.sender.type == 'Bot' &&
+      contains(github.event.comment.body, '/assign')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Parse /assign command
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body       = context.payload.comment.body.trim();
+            const commenter  = context.payload.comment.user.login;
+            const senderType = context.payload.comment.user.type;
+
+            if (senderType === 'Bot') {
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            // Supports /assign or /assign @username
+            const match = body.match(/^\/assign(?:\s+@?([\w-]+))?/im);
+
+            if (!match) {
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            const targetUser = match[1] ? match[1] : commenter;
+
+            core.setOutput('skip',        'false');
+            core.setOutput('target_user', targetUser);
+            core.setOutput('commenter',   commenter);
+
+      - name: Assign user
+        if: steps.parse.outputs.skip == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const targetUser  = '${{ steps.parse.outputs.target_user }}';
+            const commenter   = '${{ steps.parse.outputs.commenter }}';
+            const issueNumber = context.payload.issue.number;
+            const owner       = context.repo.owner;
+            const repo        = context.repo.repo;
+
+            async function postComment(body) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber, body
+              });
+            }
+
+            let userMeta;
+            try {
+              const { data } = await github.rest.users.getByUsername({ username: targetUser });
+              userMeta = data;
+            } catch (err) {
+              if (err.status === 404) {
+                await postComment(
+                  `> ❌ @${commenter} – \`${targetUser}\` is not a valid GitHub username. ` +
+                  `Please check the spelling and try again.`
+                );
+                core.setFailed(`User '${targetUser}' not found on GitHub.`);
+                return;
+              }
+              throw err;
+            }
+
+            if (userMeta.type === 'Bot') {
+              await postComment(
+                `> ⚠️ @${commenter} – bot accounts cannot be assigned to issues or PRs.`
+              );
+              return;
+            }
+
+            const { data: issue } = await github.rest.issues.get({
+              owner, repo, issue_number: issueNumber
+            });
+
+            const currentAssignees = issue.assignees.map(a => a.login.toLowerCase());
+
+            if (currentAssignees.includes(targetUser.toLowerCase())) {
+              const isSelf = targetUser.toLowerCase() === commenter.toLowerCase();
+              await postComment(
+                isSelf
+                  ? `> ℹ️ @${commenter} – you are already assigned to this ${issue.pull_request ? 'PR' : 'issue'}.`
+                  : `> ℹ️ @${commenter} – \`${targetUser}\` is already assigned to this ${issue.pull_request ? 'PR' : 'issue'}.`
+              );
+              return;
+            }
+
+            try {
+              await github.rest.issues.addAssignees({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                assignees: [targetUser]
+              });
+            } catch (err) {
+              // GitHub returns 422 when a user lacks repo access
+              if (err.status === 422) {
+                await postComment(
+                  `> ❌ @${commenter} – \`${targetUser}\` could not be assigned. ` +
+                  `They may not have the necessary repository access. ` +
+                  `Please ask a maintainer for help.`
+                );
+                core.setFailed(`Cannot assign '${targetUser}' – insufficient permissions.`);
+                return;
+              }
+              throw err;
+            }
+
+            const isSelf   = targetUser.toLowerCase() === commenter.toLowerCase();
+            const itemType = issue.pull_request ? 'PR' : 'issue';
+            await postComment(
+              isSelf
+                ? `> ✅ @${commenter} has self-assigned this ${itemType}. Good luck! 🚀`
+                : `> ✅ @${commenter} has assigned @${targetUser} to this ${itemType}.`
+            );
