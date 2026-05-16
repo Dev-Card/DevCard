@@ -37,7 +37,22 @@ export async function buildApp() {
     credentials: true,
   });
 
-  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        fontSrc: ["'self'", 'https:', 'data:', 'https://fonts.gstatic.com'],
+        frameAncestors: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        scriptSrcAttr: ["'none'"],
+        styleSrc: ["'self'", 'https:', "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        upgradeInsecureRequests: [],
+      },
+    },
+  });
 
   await app.register(jwt, {
     secret: process.env.JWT_SECRET || 'dev-secret-change-me',
