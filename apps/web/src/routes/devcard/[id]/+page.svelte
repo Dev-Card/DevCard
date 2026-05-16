@@ -1,6 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	let { data } = $props();
 	const card = $derived(data.card);
+
+	let currentUrl = $state('');
+
+	onMount(() => {
+		currentUrl = window.location.href;
+	});
 
 	function getPlatformColor(platform: string) {
 		const colors: Record<string, string> = {
@@ -66,8 +73,19 @@
 						<p class="bio-text">{card.owner.bio}</p>
 					{/if}
 				</div>
-				<div class="card-badge">
-					<span>PLATINUM</span>
+				<div class="bottom-right-content">
+					<div class="qr-wrapper">
+						{#if currentUrl}
+							<img 
+								src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(currentUrl)}&color=ffffff&bgcolor=0f172a`} 
+								alt="QR Code" 
+								class="qr-code" 
+							/>
+						{/if}
+					</div>
+					<div class="card-badge">
+						<span>PLATINUM</span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -228,6 +246,11 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-end;
+		gap: 16px;
+	}
+
+	.bio-container {
+		flex: 1;
 	}
 
 	.bio-text {
@@ -236,6 +259,28 @@
 		color: rgba(255, 255, 255, 0.4);
 		max-width: 250px;
 		line-height: 1.4;
+	}
+
+	.bottom-right-content {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 8px;
+	}
+
+	.qr-wrapper {
+		width: 60px;
+		height: 60px;
+		background: white;
+		border-radius: 6px;
+		padding: 3px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+	}
+
+	.qr-code {
+		width: 100%;
+		height: 100%;
+		border-radius: 4px;
 	}
 
 	.card-badge {

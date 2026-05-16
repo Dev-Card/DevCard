@@ -46,15 +46,15 @@
       DevCard puts every profile in one shareable QR code.
     </p>
     <div class="cta-group">
+      <a href="/create" class="btn btn-primary">⚡ Create Your Card</a>
       <a
         href="https://github.com/Dev-Card/DevCard"
-        class="btn btn-primary"
+        class="btn btn-secondary"
         target="_blank"
         rel="noopener"
       >
         ⭐ Star on GitHub
       </a>
-      <a href="#features" class="btn btn-secondary">Learn More ↓</a>
     </div>
   </section>
 
