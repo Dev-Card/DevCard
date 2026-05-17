@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 type TrackEventInput = {
     userId: string;
@@ -23,7 +23,7 @@ type TrackEventInput = {
     ip?: string;
     userAgent?: string;
 
-    metadata?: Record<string, unknown>;
+    metadata?: Prisma.InputJsonValue;
 };
 
 export async function trackEvent(
