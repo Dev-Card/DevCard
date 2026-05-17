@@ -15,6 +15,8 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORMS, getAllPlatforms } from '@devcard/shared';
 import { API_BASE_URL } from '../config';
+import { EmptyState } from '../components/EmptyState';
+import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
 import type { PlatformDef } from '@devcard/shared';
 
 interface PlatformLink {
@@ -31,8 +33,10 @@ export default function LinksScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformDef | null>(null);
   const [usernameInput, setUsernameInput] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const fetchLinks = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -43,12 +47,23 @@ export default function LinksScreen() {
       }
     } catch (err) {
       console.error('Failed to fetch links:', err);
+    } finally {
+      setLoading(false);
     }
   }, [token]);
 
   useEffect(() => {
     fetchLinks();
   }, [fetchLinks]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
+        <LoadingPlaceholder rows={4} />
+      </SafeAreaView>
+    );
+  }
 
   const addLink = async () => {
     if (!selectedPlatform || !usernameInput.trim()) return;
@@ -96,6 +111,15 @@ export default function LinksScreen() {
     ]);
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
+        <LoadingPlaceholder rows={4} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
@@ -131,11 +155,11 @@ export default function LinksScreen() {
           );
         }}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🔗</Text>
-            <Text style={styles.emptyText}>No links yet</Text>
-            <Text style={styles.emptySubtext}>Add your first platform link</Text>
-          </View>
+          <EmptyState
+            emoji="🔗"
+            title="No links yet"
+            description="Add your first platform link"
+          />
         }
       />
 
