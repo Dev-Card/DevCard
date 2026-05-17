@@ -284,6 +284,28 @@ export async function authRoutes(app: FastifyInstance) {
     reply.clearCookie('token', { path: '/' });
     return { message: 'Logged out' };
   });
+
+  // ─── Dev Login Bypass ───
+  app.get('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = await app.prisma.user.findUnique({
+      where: { username: 'devcard-demo' },
+    });
+    if (!user) {
+      return reply.status(404).send({ error: 'Demo user not found' });
+    }
+    const token = app.jwt.sign(
+      { id: user.id, username: user.username },
+      { expiresIn: '30d' }
+    );
+    reply.setCookie('token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60,
+    });
+    return reply.redirect(`${process.env.PUBLIC_APP_URL || 'http://localhost:5173'}/devcard/analytics`);
+  });
 }
 
 function generateState(): string {
