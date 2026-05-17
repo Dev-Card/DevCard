@@ -9,7 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { prismaPlugin } from './plugins/prisma.js';
-// import { redisPlugin } from './plugins/redis.js';
+import { redisPlugin } from './plugins/redis.js';
 import { authRoutes } from './routes/auth.js';
 import { profileRoutes } from './routes/profiles.js';
 import { cardRoutes } from './routes/cards.js';
@@ -57,7 +57,7 @@ export async function buildApp() {
 
   // ─── Database & Cache Plugins ───
   await app.register(prismaPlugin);
-  // await app.register(redisPlugin);
+  await app.register(redisPlugin);
 
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
