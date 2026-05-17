@@ -1,58 +1,59 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+import { trackEvent } from '../services/analytics/trackEvent.js';
 
 type PublicProfileLink = {
   id: string;
   platform: string;
-  username: string; 
-  url: string; 
-  displayOrder: number; 
+  username: string;
+  url: string;
+  displayOrder: number;
 }
 
-type UsernamePublicProfileResponse =  {
-  username: string; 
+type UsernamePublicProfileResponse = {
+  username: string;
   displayName: string;
-  bio: string | null; 
-  pronouns: string | null; 
-  role: string | null; 
+  bio: string | null;
+  pronouns: string | null;
+  role: string | null;
   company: string | null;
-  avatarUrl: string | null; 
+  avatarUrl: string | null;
   accentColor: string;
   links: PublicProfileLink[]
-} 
+}
 
 type PublicProfileCardLink = {
   id: string;
   platform: string;
-  username: string; 
-  url: string; 
+  username: string;
+  url: string;
 }
 
 type CardPublicProfileResponse = {
-  id: string; 
-  title: string; 
+  id: string;
+  title: string;
   owner: {
-    username: string; 
-    displayName: string; 
+    username: string;
+    displayName: string;
     bio: string | null;
     avatarUrl: string | null;
-    accentColor: string; 
-  }; 
+    accentColor: string;
+  };
   links: PublicProfileCardLink[]
 }
 
 type UsernameCardPublicProfileResponse = {
-  title: string; 
+  title: string;
   owner: {
-    username: string; 
+    username: string;
     displayName: string;
-    bio: string | null; 
-    pronouns: string | null; 
-    role: string | null; 
+    bio: string | null;
+    pronouns: string | null;
+    role: string | null;
     company: string | null;
-    avatarUrl: string | null; 
+    avatarUrl: string | null;
     accentColor: string;
-  }; 
+  };
   links: PublicProfileCardLink[]
 }
 
@@ -97,17 +98,39 @@ export async function publicRoutes(app: FastifyInstance) {
 
     // Don't track if the owner is viewing their own profile
     if (viewerId !== user.id) {
-      // Background view tracking
       app.prisma.cardView.create({
         data: {
           ownerId: user.id,
-          cardId: null, // this is a profile view, not a card view
+          cardId: null,
           viewerId,
           viewerIp: request.ip || null,
           viewerAgent: request.headers['user-agent'] || null,
           source: (request.query as any)?.source || 'link',
         },
       }).catch(err => app.log.error('Failed to log view:', err));
+
+      trackEvent(app.prisma, {
+        userId: user.id,
+
+        viewerId: viewerId || undefined,
+
+        eventType: 'PROFILE_VIEW',
+
+        source: (request.query as any)?.source || 'link',
+
+        ip: request.ip || undefined,
+
+        userAgent:
+          typeof request.headers['user-agent'] === 'string'
+            ? request.headers['user-agent']
+            : undefined,
+
+        metadata: {
+          username: user.username,
+        },
+      }).catch(err =>
+        app.log.error('Failed to track engagement event:', err)
+      );
     }
 
     const response: UsernamePublicProfileResponse = {
@@ -128,7 +151,7 @@ export async function publicRoutes(app: FastifyInstance) {
       })),
     }
 
-    return response; 
+    return response;
 
   });
 
@@ -175,7 +198,7 @@ export async function publicRoutes(app: FastifyInstance) {
       })),
     }
 
-    return response; 
+    return response;
 
   });
 
@@ -218,7 +241,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerId = decoded.id;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     if (viewerId !== user.id) {
       app.prisma.cardView.create({
@@ -254,7 +277,7 @@ export async function publicRoutes(app: FastifyInstance) {
         displayOrder: cl.displayOrder,
       })),
     }
-    return response; 
+    return response;
   });
 
   // ─── QR Code Generation ───
