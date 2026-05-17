@@ -65,6 +65,11 @@ export async function profileRoutes(app: FastifyInstance) {
       }
     }
 
+    const current = await app.prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    });
+
     const updated = await app.prisma.user.update({
       where: { id: userId },
       data: parsed.data,
@@ -81,6 +86,19 @@ export async function profileRoutes(app: FastifyInstance) {
         accentColor: true,
       },
     });
+
+    const cacheKeys = new Set([
+      current?.username ? `profile:${current.username}` : null,
+      `profile:${updated.username}`,
+    ].filter((key): key is string => Boolean(key)));
+
+    try {
+      if (cacheKeys.size > 0) {
+        await app.redis.del(...cacheKeys);
+      }
+    } catch (err) {
+      app.log.warn({ err, userId }, 'Failed to invalidate public profile cache');
+    }
 
     return updated;
   });

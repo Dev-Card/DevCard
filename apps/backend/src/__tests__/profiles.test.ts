@@ -27,9 +27,14 @@ const mockPrisma = {
   },
 };
 
+const mockRedis = {
+  del: vi.fn(),
+};
+
 async function buildApp() {
   const app = Fastify();
-  app.decorate('prisma', mockPrisma);
+  app.decorate('prisma', mockPrisma as any);
+  app.decorate('redis', mockRedis as any);
   app.decorate('authenticate', async (request: any) => {
     request.user = { id: 'user-123' };
   });
@@ -67,6 +72,7 @@ describe('PUT /api/profiles/me', () => {
 
   it('should update profile and return updated data', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
     mockPrisma.user.update.mockResolvedValue({ ...mockUser, displayName: 'Updated Name' });
     const app = await buildApp();
     const res = await app.inject({
@@ -76,6 +82,22 @@ describe('PUT /api/profiles/me', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().displayName).toBe('Updated Name');
+  });
+
+  it('should invalidate public profile cache after update', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    mockPrisma.user.update.mockResolvedValue({ ...mockUser, username: 'newuser' });
+    const app = await buildApp();
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/profiles/me',
+      payload: { username: 'newuser' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockRedis.del).toHaveBeenCalledWith('profile:testuser', 'profile:newuser');
   });
 
   it('should return 400 for invalid accentColor', async () => {
