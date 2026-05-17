@@ -134,7 +134,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      app.log.error('GitHub auth error:', err);
+      app.log.error(err as any, 'GitHub auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -235,7 +235,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      app.log.error('Google auth error:', err);
+      app.log.error(err as any, 'Google auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });

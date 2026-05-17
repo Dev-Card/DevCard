@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { encrypt } from '../utils/encryption.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -81,12 +82,12 @@ export async function connectRoutes(app: FastifyInstance) {
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
-        app.log.error('GitHub connect token error:', tokenData);
+        app.log.error(tokenData, 'GitHub connect token error');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
       // Encrypt and store the token
-      const encryptedToken = app.encryption.encrypt(tokenData.access_token);
+      const encryptedToken = encrypt(tokenData.access_token);
       
       await app.prisma.oAuthToken.upsert({
         where: {
@@ -116,7 +117,7 @@ export async function connectRoutes(app: FastifyInstance) {
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=github`);
       
     } catch (err) {
-      app.log.error('GitHub connect error:', err);
+      app.log.error(err as any, 'GitHub connect error');
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
     }
   });
