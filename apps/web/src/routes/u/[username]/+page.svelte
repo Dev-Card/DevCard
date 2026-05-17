@@ -1,10 +1,16 @@
 <script lang="ts">
   import { PLATFORMS, getProfileUrl } from '@devcard/shared';
+  import { fade, fly, scale } from 'svelte/transition';
+  import { 
+    Zap, CreditCard, Share2, ExternalLink, ArrowRight,
+    Mail, Globe, MapPin, Briefcase 
+  } from 'lucide-svelte';
+  import BrandIcon from '$lib/components/BrandIcon.svelte';
   import { onMount } from 'svelte';
 
   let { data } = $props();
-  const profile = data.profile;
-  const error = data.error;
+  const profile = $derived(data.profile);
+  const error = $derived(data.error);
 
   const platformColors: Record<string, string> = {
     github: '#181717', linkedin: '#0A66C2', twitter: '#000000',
@@ -18,6 +24,15 @@
   onMount(() => {
     mounted = true;
   });
+
+  function handleShare() {
+    if (navigator.share && profile) {
+      navigator.share({
+        title: `${profile.displayName}'s DevCard`,
+        url: window.location.href
+      });
+    }
+  }
 </script>
 
 <svelte:head>
@@ -29,291 +44,148 @@
   {/if}
 </svelte:head>
 
-<div class="bg-gradient" style="--accent: {profile?.accentColor || '#6366f1'}"></div>
+<div class="min-h-screen bg-(--bg-main) text-(--text-main) selection:bg-primary/30" style="--accent-color: {profile?.accentColor || '#7C3AED'}">
+  <!-- Background Accents -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-(--accent-color)/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/20 rounded-full blur-[120px] animate-pulse-slow-reverse"></div>
+  </div>
 
-<main class="profile-container {mounted ? 'loaded' : ''}">
   {#if error || !profile}
-    <div class="error-glass glass">
-      <div class="error-emoji">😕</div>
-      <h1>Profile not found</h1>
-      <p>This DevCard has vanished into the digital void.</p>
-      <a href="/" class="btn-primary">Return Home</a>
-    </div>
+    <main class="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+      <div transition:scale class="w-24 h-24 bg-primary/5 rounded-full flex items-center justify-center text-primary mb-8">
+        <Zap size={48} />
+      </div>
+      <h1 transition:fade class="text-4xl font-black mb-4">User Not Found</h1>
+      <p transition:fade class="text-(--text-muted) max-w-md mb-12 text-lg font-medium">This DevCard profile could not be found. It might have been moved or deleted.</p>
+      <a href="/" class="btn-premium-primary px-8 py-4 flex items-center gap-3">
+        <span>Go Home</span>
+        <ArrowRight size={20} />
+      </a>
+    </main>
   {:else}
-    <div class="profile-card glass" style="--accent: {profile.accentColor}">
-      <header class="profile-header">
-        <div class="avatar-wrapper">
-          {#if profile.avatarUrl}
-            <img src={profile.avatarUrl} alt={profile.displayName} class="avatar" />
-          {:else}
-            <div class="avatar avatar-placeholder" style="background: {profile.accentColor}">
-              {profile.displayName.charAt(0).toUpperCase()}
-            </div>
-          {/if}
-          <div class="avatar-glow" style="background: {profile.accentColor}"></div>
-        </div>
-        
-        <h1 class="display-name">{profile.displayName}</h1>
-        {#if profile.role}
-          <div class="role-badge">
-            {profile.role}{profile.company ? ` @ ${profile.company}` : ''}
+    <main class="max-w-xl mx-auto px-6 py-12 lg:py-24">
+      <div 
+        transition:fly={{ y: 40, duration: 800 }}
+        class="card-premium p-1 relative overflow-hidden"
+      >
+        <!-- Profile Header -->
+        <div class="relative z-10 p-8 md:p-12 text-center">
+          <div class="relative inline-block mb-8 group">
+            <div class="absolute inset-0 bg-(--accent-color)/30 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
+            {#if profile.avatarUrl}
+              <img 
+                src={profile.avatarUrl} 
+                alt={profile.displayName} 
+                class="w-32 h-32 rounded-full relative z-10 border-4 border-black/10 dark:border-white/10 shadow-2xl"
+              />
+            {:else}
+              <div 
+                class="w-32 h-32 rounded-full relative z-10 flex items-center justify-center text-white text-4xl font-black shadow-2xl border-4 border-black/10 dark:border-white/10"
+                style="background: linear-gradient(135deg, var(--accent-color), var(--color-secondary, #06B6D4))"
+              >
+                {profile.displayName.charAt(0).toUpperCase()}
+              </div>
+            {/if}
           </div>
-        {/if}
-        
-        {#if profile.bio}
-          <p class="bio">{profile.bio}</p>
-        {/if}
-      </header>
 
-      <div class="links-grid">
+          <h1 class="text-4xl font-black mb-2 tracking-tight">{profile.displayName}</h1>
+          
+          <div class="flex flex-wrap items-center justify-center gap-4 text-sm font-bold text-(--text-muted) uppercase tracking-widest mb-6">
+            {#if profile.role}
+              <div class="flex items-center gap-1.5">
+                <Briefcase size={14} class="text-(--accent-color)" />
+                <span>{profile.role}</span>
+              </div>
+            {/if}
+            {#if profile.company}
+              <div class="flex items-center gap-1.5">
+                <Globe size={14} class="text-secondary" />
+                <span>{profile.company}</span>
+              </div>
+            {/if}
+          </div>
+
+          {#if profile.bio}
+            <p class="text-lg text-(--text-muted) font-medium leading-relaxed max-w-md mx-auto mb-10">
+              {profile.bio}
+            </p>
+          {/if}
+
+          <!-- Action Bar -->
+          <div class="flex items-center justify-center gap-4 pt-8 border-t border-black/5 dark:border-white/5">
+            <button 
+              onclick={handleShare}
+              class="flex-1 btn-premium-primary flex items-center justify-center gap-2 py-4"
+              style="background: linear-gradient(135deg, var(--accent-color), var(--color-secondary, #06B6D4))"
+            >
+              <Share2 size={20} />
+              <span>Share Profile</span>
+            </button>
+            <button 
+              class="p-4 glass rounded-2xl hover:bg-primary/10 transition-colors text-primary"
+              style="color: var(--accent-color)"
+            >
+              <Zap size={24} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Links Grid -->
+      <div class="mt-8 space-y-4">
+        <h3 class="text-xs font-black uppercase tracking-[0.3em] text-(--text-muted) px-4 mb-6">Professional Connections</h3>
+        
         {#each profile.links as link, i}
           {@const platform = PLATFORMS[link.platform]}
-          {@const color = platformColors[link.platform] || '#6366f1'}
-          <a
+          {@const color = platformColors[link.platform] || '#8B5CF6'}
+          <a 
             href={link.url || getProfileUrl(link.platform, link.username)}
             target="_blank"
             rel="noopener noreferrer"
-            class="link-tile glass"
-            style="--delay: {i * 0.1}s"
+            transition:fly={{ y: 20, duration: 600, delay: 100 * i }}
+            class="card-premium group flex items-center justify-between hover:scale-[1.02] transition-all duration-300 active:scale-95 border border-black/5 dark:border-white/5 p-4 md:p-6 rounded-2xl glass"
           >
-            <div class="tile-icon" style="background: {color}">
-              <span class="platform-initial">{platform?.name.charAt(0) || '?'}</span>
+            <div class="flex items-center gap-6">
+              <div 
+                class="w-14 h-14 rounded-2xl flex items-center justify-center text-(--text-muted) transition-colors"
+                style="background: {color}15; color: {color}"
+              >
+                <BrandIcon name={link.platform as any} size={24} />
+              </div>
+              <div>
+                <h4 class="text-lg font-black group-hover:text-(--accent-color) transition-colors">{platform?.name || link.platform}</h4>
+                <p class="text-sm font-medium text-(--text-muted)">{link.username}</p>
+              </div>
             </div>
-            <div class="tile-content">
-              <span class="platform-name">{platform?.name || link.platform}</span>
-              <span class="username">@{link.username}</span>
+            <div 
+              class="p-3 rounded-xl transition-all"
+              style="background: {color}10; color: {color}"
+            >
+              <ExternalLink size={18} />
             </div>
-            <span class="arrow">→</span>
           </a>
         {/each}
       </div>
-      
-      <footer class="card-footer">
-        <p>Verified Developer Profile</p>
-        <div class="logo-sm">⚡ DevCard</div>
-      </footer>
-    </div>
 
-    <div class="get-your-own">
-      <p>Want a card like this?</p>
-      <a href="/" class="gradient-text">Create your DevCard ⚡</a>
-    </div>
+      <!-- Footer CTA -->
+      <footer class="mt-20 text-center pb-12">
+        <p class="text-(--text-muted) font-medium mb-6">Want your own premium developer card?</p>
+        <a 
+          href="/" 
+          class="inline-flex items-center gap-3 glass px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all border-primary/20"
+          style="border-color: var(--accent-color)30"
+        >
+          <Zap size={20} class="fill-primary" style="fill: var(--accent-color)" />
+          <span>Get Your DevCard Free</span>
+        </a>
+      </footer>
+    </main>
   {/if}
-</main>
+</div>
 
 <style>
-  .bg-gradient {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(circle at 50% 0%, var(--accent), transparent 50%),
-                #020617;
-    opacity: 0.15;
-    z-index: -1;
-  }
-
-  .profile-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 4rem 1.5rem;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .profile-container.loaded {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .profile-card {
-    width: 100%;
-    max-width: 480px;
-    border-radius: var(--radius-xl);
-    padding: 3rem 2rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .profile-header {
-    text-align: center;
-    margin-bottom: 3rem;
-  }
-
-  .avatar-wrapper {
-    position: relative;
-    width: 110px;
-    height: 110px;
-    margin: 0 auto 1.5rem;
-  }
-
-  .avatar {
-    width: 100%;
-    height: 100%;
-    border-radius: 35% 65% 70% 30% / 30% 30% 70% 70%;
-    object-fit: cover;
-    border: 3px solid white;
-    position: relative;
-    z-index: 2;
-    animation: morph 8s ease-in-out infinite;
-  }
-
-  @keyframes morph {
-    0%, 100% { border-radius: 35% 65% 70% 30% / 30% 30% 70% 70%; }
-    50% { border-radius: 65% 35% 30% 70% / 70% 70% 30% 30%; }
-  }
-
-  .avatar-glow {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    filter: blur(20px);
-    opacity: 0.4;
-    z-index: 1;
-    border-radius: 50%;
-  }
-
-  .display-name {
-    font-size: 2.25rem;
-    font-weight: 800;
-    letter-spacing: -1px;
-    margin-bottom: 0.5rem;
-  }
-
-  .role-badge {
-    display: inline-block;
-    padding: 0.4rem 1rem;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 100px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-  }
-
-  .bio {
-    color: var(--text-secondary);
-    font-size: 1rem;
-    line-height: 1.6;
-    max-width: 320px;
-    margin: 0 auto;
-  }
-
-  .links-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .link-tile {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    border-radius: var(--radius-lg);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    animation: slideIn 0.5s ease-out forwards;
-    animation-delay: var(--delay);
-    opacity: 0;
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(-20px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-
-  .link-tile:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: scale(1.02) translateX(5px);
-  }
-
-  .tile-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 800;
-    font-size: 1.2rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  }
-
-  .tile-content {
-    flex: 1;
-    margin-left: 1.25rem;
-  }
-
-  .platform-name {
-    display: block;
-    font-weight: 700;
-    font-size: 1.05rem;
-  }
-
-  .username {
-    display: block;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-  }
-
-  .arrow {
-    opacity: 0.3;
-    font-size: 1.2rem;
-    transition: all 0.3s;
-  }
-
-  .link-tile:hover .arrow {
-    opacity: 1;
-    transform: translateX(5px);
-  }
-
-  .card-footer {
-    margin-top: 3rem;
-    padding-top: 2rem;
-    border-top: 1px solid rgba(255,255,255,0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .logo-sm {
-    color: var(--text-secondary);
-    font-family: 'Outfit', sans-serif;
-  }
-
-  .get-your-own {
-    margin-top: 3rem;
-    text-align: center;
-  }
-
-  .get-your-own p {
-    font-size: 0.9rem;
-    color: var(--text-muted);
-    margin-bottom: 0.5rem;
-  }
-
-  .get-your-own a {
-    font-weight: 700;
-    font-size: 1.1rem;
-  }
-
-  .error-glass {
-    text-align: center;
-    padding: 4rem;
-    border-radius: var(--radius-xl);
-  }
-
-  @media (max-width: 480px) {
-    .profile-card { padding: 2rem 1.5rem; }
-    .display-name { font-size: 1.75rem; }
+  :global(body) {
+    background: var(--bg-main);
   }
 </style>
