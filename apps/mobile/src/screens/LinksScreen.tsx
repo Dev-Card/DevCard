@@ -56,15 +56,6 @@ export default function LinksScreen() {
     fetchLinks();
   }, [fetchLinks]);
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
-        <LoadingPlaceholder rows={4} />
-      </SafeAreaView>
-    );
-  }
-
   const addLink = async () => {
     if (!selectedPlatform || !usernameInput.trim()) return;
     try {
@@ -85,7 +76,7 @@ export default function LinksScreen() {
         setUsernameInput('');
         fetchLinks();
       }
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Failed to add link');
     }
   };
@@ -103,7 +94,7 @@ export default function LinksScreen() {
               headers: { Authorization: `Bearer ${token}` },
             });
             fetchLinks();
-          } catch (err) {
+          } catch {
             Alert.alert('Error', 'Failed to remove link');
           }
         },
@@ -242,10 +233,6 @@ const styles = StyleSheet.create({
   username: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: 2 },
   deleteBtn: { padding: SPACING.sm },
   deleteBtnText: { color: COLORS.error, fontSize: FONT_SIZE.md, fontWeight: '700' },
-  empty: { alignItems: 'center', paddingVertical: SPACING.xxl },
-  emptyEmoji: { fontSize: 48, marginBottom: SPACING.md },
-  emptyText: { fontSize: FONT_SIZE.lg, fontWeight: '600', color: COLORS.textPrimary },
-  emptySubtext: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, marginTop: SPACING.xs },
   modalOverlay: {
     flex: 1, backgroundColor: COLORS.overlay,
     justifyContent: 'flex-end',

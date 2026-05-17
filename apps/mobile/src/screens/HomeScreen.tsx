@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -44,11 +44,7 @@ export default function HomeScreen({ navigation }: Props) {
     ? `${APP_URL}/devcard/${user.defaultCardId}`
     : `${APP_URL}/u/${user?.username}`;
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [profileRes, analyticsRes] = await Promise.all([
@@ -72,7 +68,11 @@ export default function HomeScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const onRefresh = async () => {
     setRefreshing(true);

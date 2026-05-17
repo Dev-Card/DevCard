@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
+import { COLORS, SPACING, FONT_SIZE } from '../theme/tokens';
 
 interface EmptyStateProps {
   emoji?: string;
