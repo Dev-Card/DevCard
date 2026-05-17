@@ -98,4 +98,42 @@ export async function analyticsRoutes(app: FastifyInstance) {
       },
     };
   });
+
+// ─── Export Analytics CSV ───
+  app.get('/export', {
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = (request.user as any).id;
+
+    // Fetch raw views
+    const views = await app.prisma.cardView.findMany({
+      where: { ownerId: userId },
+      select: { createdAt: true, source: true },
+    });
+
+    // Aggregation Object to group by date
+    const dailyStats: Record<string, number> = {};
+
+    views.forEach((view) => {
+      const date = view.createdAt.toISOString().split('T')[0];
+      if (!dailyStats[date]) {
+        dailyStats[date] = 0;
+      }
+      dailyStats[date]++;
+    });
+
+    // Create CSV Header strictly as per Acceptance Criteria
+    let csvContent = 'date,platform,event_type,count\n';
+
+    // Populate rows
+    for (const [date, count] of Object.entries(dailyStats)) {
+      csvContent += `${date},devcard,view,${count}\n`;
+    }
+
+    // Set Headers
+    reply.header('Content-Type', 'text/csv');
+    reply.header('Content-Disposition', 'attachment; filename="devcard-analytics.csv"');
+    
+    return reply.send(csvContent);
+  });
 }
