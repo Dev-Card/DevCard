@@ -8,7 +8,7 @@
   let isLoading = $state(false);
   let error = $state('');
   
-  const BACKEND_URL = 'http://localhost:3000';
+  const BACKEND_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
 
   onMount(() => {
     isMounted = true;

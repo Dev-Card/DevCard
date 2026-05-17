@@ -16,6 +16,8 @@
   --radius-3xl: 3rem;
 }
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800;900&display=swap');
+
 @layer base {
   :root {
     --bg-main: #f8fafc;
@@ -26,6 +28,20 @@
     --glass-bg: rgba(255, 255, 255, 0.7);
     --glass-border: rgba(255, 255, 255, 0.5);
     --primary-glow: rgba(124, 58, 237, 0.2);
+
+    /* Legacy/Upstream compatibility variables */
+    --primary: #7C3AED; /* Premium theme color */
+    --accent: #EC4899; /* Premium accent color */
+    --primary-glow: rgba(124, 58, 237, 0.2);
+    --accent-glow: rgba(236, 72, 153, 0.2);
+    --bg-primary: var(--bg-main);
+    --bg-glass: var(--glass-bg);
+    --bg-card: var(--bg-secondary);
+    --text-primary: var(--text-main);
+    --text-secondary: var(--text-muted);
+    --border: var(--border-main);
+    --border-glass: var(--glass-border);
+    --theme-transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .dark {
@@ -37,10 +53,30 @@
     --glass-bg: rgba(3, 7, 18, 0.6);
     --glass-border: rgba(255, 255, 255, 0.08);
     --primary-glow: rgba(124, 58, 237, 0.3);
+
+    /* Legacy/Upstream compatibility variables */
+    --primary: #7C3AED;
+    --accent: #EC4899;
+    --primary-glow: rgba(124, 58, 237, 0.3);
+    --accent-glow: rgba(236, 72, 153, 0.3);
+    --bg-primary: var(--bg-main);
+    --bg-glass: var(--glass-bg);
+    --bg-card: var(--bg-secondary);
+    --text-primary: var(--text-main);
+    --text-secondary: var(--text-muted);
+    --border: var(--border-main);
+    --border-glass: var(--glass-border);
   }
 
   body {
     @apply bg-(--bg-main) text-(--text-main) transition-colors duration-500 antialiased font-sans overflow-x-hidden;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    line-height: 1.1;
   }
 }
 
@@ -74,6 +110,10 @@
     @apply glass-morphic rounded-3xl p-8 transition-all duration-700 hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/20 relative overflow-hidden;
   }
 
+  .card-premium {
+    @apply glass-morphic rounded-3xl transition-all duration-700 relative overflow-hidden;
+  }
+
   .btn-premium-primary {
     @apply relative inline-flex items-center justify-center rounded-2xl font-black uppercase tracking-widest text-white transition-all duration-500 overflow-hidden;
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-pink));
@@ -95,6 +135,31 @@
     transform: translateY(-2px) scale(1.02);
     background: rgba(124, 58, 237, 0.1);
     border-color: rgba(124, 58, 237, 0.6);
+  }
+
+  /* Upstream compatibility */
+  .gradient-text {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: white;
+    padding: 0.8rem 1.6rem;
+    border-radius: var(--radius, 12px);
+    font-weight: 600;
+    box-shadow: 0 4px 15px var(--primary-glow);
+    border: none;
+    cursor: pointer;
+    transition: var(--theme-transition);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--primary-glow);
   }
 }
 

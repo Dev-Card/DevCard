@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 
-const API_BASE = process.env.BACKEND_URL || 'http://localhost:3000';
+const API_BASE = import.meta.env.PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
 
 export const load: PageServerLoad = async ({ params, fetch }) => {
   try {

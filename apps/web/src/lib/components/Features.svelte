@@ -77,7 +77,7 @@
   });
 </script>
 
-<section id="features" class="py-24 relative overflow-hidden bg-(--bg-secondary)/50" bind:this={sectionRef}>
+<section id="features" class="pt-12 pb-24 relative overflow-hidden bg-(--bg-secondary)/50" bind:this={sectionRef}>
   <!-- Background Accents -->
   <div class="absolute top-0 right-0 w-1/2 h-1/2 bg-primary/5 rounded-full blur-[140px] -z-10 animate-pulse-slow"></div>
   <div class="absolute bottom-0 left-0 w-1/2 h-1/2 bg-secondary/5 rounded-full blur-[140px] -z-10 animate-pulse-slow" style="animation-delay: 2s"></div>

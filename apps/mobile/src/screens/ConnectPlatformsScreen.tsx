@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import * as tokens from '../theme/tokens';
-import { useAuth } from '../contexts/AuthContext';
-import { api } from '../utils/api';
+import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
+import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../config';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../navigation/types';
+import type { RootStackParamList } from '../navigation/MainTabs';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConnectPlatforms'>;
 
@@ -16,39 +16,49 @@ interface ConnectedPlatform {
   scopes: string;
 }
 
-export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
-  const { user } = useAuth();
+export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigation }) => {
+  const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [connectedPlatforms, setConnectedPlatforms] = useState<ConnectedPlatform[]>([]);
 
-  useEffect(() => {
-    fetchConnections();
-  }, []);
-
-  const fetchConnections = async () => {
+  const fetchConnections = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
-      const response = await api.get('/connect/status');
-      setConnectedPlatforms(response.data.connectedPlatforms || []);
+      const response = await fetch(`${API_BASE_URL}/api/connect/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setConnectedPlatforms(data.connectedPlatforms || []);
+      }
     } catch (err) {
       console.error('Failed to fetch connected platforms', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchConnections();
+  }, [fetchConnections]);
 
   const handleConnect = async (platform: string) => {
+    if (!token) {
+      Alert.alert('Login required', 'Please log in again to connect platforms.');
+      return;
+    }
     if (platform === 'github') {
-      const BACKEND_URL = 'http://10.0.2.2:3000'; // Or from env
-      // Generate standard state for the connect request
-      const sessionState = `mobile_${Date.now()}`;
-      const authUrl = `${BACKEND_URL}/api/connect/github?state=${sessionState}`;
+      const authUrl = `${API_BASE_URL}/api/connect/github`;
       
       try {
         await Linking.openURL(authUrl);
         // User will be redirected back to the app via deep link
         // A real app would listen to the Linking.addEventListener('url') here to refresh
         setTimeout(fetchConnections, 5000); // Polling fallback
-      } catch (err) {
+      } catch {
         Alert.alert('Error', 'Failed to open connection page');
       }
     } else {
@@ -67,9 +77,17 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
              try {
-               await api.delete(`/connect/${platform}`);
-               fetchConnections();
-             } catch (err) {
+               if (!token) return;
+               const response = await fetch(`${API_BASE_URL}/api/connect/${platform}`, {
+                 method: 'DELETE',
+                 headers: { Authorization: `Bearer ${token}` },
+               });
+               if (response.ok) {
+                 fetchConnections();
+               } else {
+                 Alert.alert('Error', 'Failed to disconnect');
+               }
+             } catch {
                Alert.alert('Error', 'Failed to disconnect');
              }
           }
@@ -84,7 +102,7 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <View style={styles.platformCard} key={platformId}>
         <View style={styles.platformHeader}>
-          <Icon name={icon} size={28} color={tokens.colors.textPrimary} />
+          <Icon name={icon} size={28} color={COLORS.textPrimary} />
           <View style={styles.platformInfo}>
             <Text style={styles.platformName}>{name}</Text>
             <Text style={styles.platformDesc}>{description}</Text>
@@ -94,7 +112,7 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
         {isConnected ? (
           <View style={styles.connectedState}>
             <View style={styles.statusBadge}>
-              <Icon name="check-circle" size={14} color={tokens.colors.success} />
+              <Icon name="check-circle" size={14} color={COLORS.success} />
               <Text style={styles.statusText}>Connected</Text>
             </View>
             <TouchableOpacity 
@@ -119,7 +137,7 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={tokens.colors.primary} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -160,96 +178,96 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: COLORS.bgPrimary,
   },
   center: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   scroll: {
-    padding: tokens.spacing.lg,
+    padding: SPACING.lg,
   },
   sectionTitle: {
-    fontSize: tokens.typography.sizes.xl,
-    fontWeight: tokens.typography.weights.bold as any,
-    color: tokens.colors.textPrimary,
-    marginBottom: tokens.spacing.xs,
+    fontSize: FONT_SIZE.xl,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   sectionDesc: {
-    fontSize: tokens.typography.sizes.sm,
-    color: tokens.colors.textSecondary,
-    marginBottom: tokens.spacing.xl,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xl,
     lineHeight: 20,
   },
   platformCard: {
-    backgroundColor: tokens.colors.surface,
-    borderRadius: tokens.radii.lg,
-    padding: tokens.spacing.lg,
-    marginBottom: tokens.spacing.lg,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
     borderWidth: 1,
-    borderColor: tokens.colors.border,
+    borderColor: COLORS.border,
   },
   platformHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: tokens.spacing.md,
+    marginBottom: SPACING.md,
   },
   platformInfo: {
-    marginLeft: tokens.spacing.md,
+    marginLeft: SPACING.md,
     flex: 1,
   },
   platformName: {
-    fontSize: tokens.typography.sizes.lg,
-    fontWeight: tokens.typography.weights.semibold as any,
-    color: tokens.colors.textPrimary,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   platformDesc: {
-    fontSize: tokens.typography.sizes.xs,
-    color: tokens.colors.textTertiary,
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
     marginTop: 2,
   },
   connectedState: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: tokens.spacing.sm,
-    paddingTop: tokens.spacing.md,
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: tokens.colors.borderLight,
+    borderTopColor: COLORS.borderLight,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(52, 211, 153, 0.1)',
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: tokens.spacing.xs,
-    borderRadius: tokens.radii.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
   },
   statusText: {
-    color: tokens.colors.success,
-    fontSize: tokens.typography.sizes.xs,
-    fontWeight: tokens.typography.weights.medium as any,
+    color: COLORS.success,
+    fontSize: FONT_SIZE.xs,
+    fontWeight: '600',
     marginLeft: 4,
   },
   disconnectBtn: {
-    paddingVertical: tokens.spacing.xs,
-    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
   },
   disconnectBtnText: {
-    color: tokens.colors.error,
-    fontSize: tokens.typography.sizes.sm,
-    fontWeight: tokens.typography.weights.medium as any,
+    color: COLORS.error,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: '600',
   },
   connectBtn: {
-    backgroundColor: tokens.colors.primary,
-    borderRadius: tokens.radii.md,
-    paddingVertical: tokens.spacing.sm,
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.sm,
     alignItems: 'center',
-    marginTop: tokens.spacing.sm,
+    marginTop: SPACING.sm,
   },
   connectBtnText: {
-    color: tokens.colors.textPrimary,
-    fontSize: tokens.typography.sizes.sm,
-    fontWeight: tokens.typography.weights.semibold as any,
+    color: COLORS.textPrimary,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: '700',
   },
 });

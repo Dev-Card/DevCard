@@ -1,39 +1,103 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import Fastify from 'fastify';
+import { profileRoutes } from '../routes/profiles.js';
 
-// Mock test for duplicate username check
-// Note: This test verifies the expected behavior of the /api/profiles/me PUT endpoint
-// when attempting to change username to one that's already taken.
-//
-// The actual implementation in profiles.ts (lines 54-63) already handles this correctly:
-// - Checks for existing username with different user ID
-// - Returns 409 status with { error: "Username already taken" }
-//
-// Concurrency note: The current implementation uses a simple findFirst query.
-// For production, consider adding a timestamp/version field to handle race conditions
-// where two users might try to claim the same username simultaneously.
+const mockUser = {
+  id: 'user-123',
+  email: 'test@example.com',
+  username: 'testuser',
+  displayName: 'Test User',
+  bio: null,
+  pronouns: null,
+  role: null,
+  company: null,
+  avatarUrl: null,
+  accentColor: '#ffffff',
+  platformLinks: [],
+  cards: [],
+  provider: 'github',
+  providerId: 'gh-123',
+};
 
-describe('PUT /api/profiles/me - Duplicate Username', () => {
-  // This test would require setting up the full Fastify app with test database
-  // For now, documenting the expected behavior based on profiles.ts implementation
+const mockPrisma = {
+  user: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
+  },
+};
 
-  it('should return 409 with error "Username already taken" when username exists', async () => {
-    // Expected behavior (from profiles.ts lines 54-63):
-    // const existing = await app.prisma.user.findFirst({
-    //   where: {
-    //     username: parsed.data.username,
-    //     NOT: { id: userId },
-    //   },
-    // });
-    // if (existing) {
-    //   return reply.status(409).send({ error: 'Username already taken' });
-    // }
+async function buildApp() {
+  const app = Fastify();
+  app.decorate('prisma', mockPrisma);
+  app.decorate('authenticate', async (request: any) => {
+    request.user = { id: 'user-123' };
+  });
+  app.register(profileRoutes, { prefix: '/api/profiles' });
+  await app.ready();
+  return app;
+}
 
-    // Expected response:
-    expect(true).toBe(true); // Placeholder - actual test needs full app setup
+describe('GET /api/profiles/me', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('should return user profile with displayName', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: '/api/profiles/me' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.displayName).toBe('Test User');
+    expect(body.email).toBe('test@example.com');
+    expect(body.provider).toBeUndefined();
+    expect(body.providerId).toBeUndefined();
   });
 
-  it('should allow username change when username is available', async () => {
-    // Expected: 200 OK with updated profile
-    expect(true).toBe(true);
+  it('should return 404 if user not found', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: '/api/profiles/me' });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe('User not found');
+  });
+});
+
+describe('PUT /api/profiles/me', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('should update profile and return updated data', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.update.mockResolvedValue({ ...mockUser, displayName: 'Updated Name' });
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/profiles/me',
+      payload: { displayName: 'Updated Name' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().displayName).toBe('Updated Name');
+  });
+
+  it('should return 400 for invalid accentColor', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/profiles/me',
+      payload: { accentColor: 'notacolor' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('Validation failed');
+  });
+
+  it('should return 409 if username is already taken', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: 'other-user' });
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/profiles/me',
+      payload: { username: 'takenuser' },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe('Username already taken');
   });
 });

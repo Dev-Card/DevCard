@@ -25,7 +25,7 @@
   <main>
     <Hero />
     
-    <section id="how-it-works" class="py-32 relative overflow-hidden bg-(--bg-secondary)/30">
+    <section id="how-it-works" class="pt-32 pb-16 relative overflow-hidden bg-(--bg-secondary)/30">
       <div class="container mx-auto px-6">
         <div class="text-center max-w-3xl mx-auto mb-20">
           <div class="inline-block px-4 py-1.5 rounded-full bg-secondary/10 text-secondary text-xs font-bold uppercase tracking-[0.2em] mb-6 border border-secondary/20">

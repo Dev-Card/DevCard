@@ -1,4 +1,5 @@
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+
 
 export async function fetchWithAuth(path: string, options: RequestInit = {}) {
   // In SvelteKit, we should handle cookies properly
