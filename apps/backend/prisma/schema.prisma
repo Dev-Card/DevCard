@@ -94,6 +94,20 @@ model OAuthToken {
   @@map("oauth_tokens")
 }
 
+model ApiKey {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  keyHash    String   @map("key_hash")
+  label      String?  
+  lastUsed   DateTime? @map("last_used")
+  createdAt  DateTime @default(now()) @map("created_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
 model CardView {
   id          String   @id @default(uuid())
   cardId      String?  @map("card_id")       // null = default profile view

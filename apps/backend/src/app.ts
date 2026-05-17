@@ -7,9 +7,12 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
+import { apiKeyPlugin } from './plugins/apiKey.js';
 import { authRoutes } from './routes/auth.js';
 import { profileRoutes } from './routes/profiles.js';
 import { cardRoutes } from './routes/cards.js';
@@ -17,6 +20,7 @@ import { publicRoutes } from './routes/public.js';
 import { followRoutes } from './routes/follow.js';
 import { connectRoutes } from './routes/connect.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { v1Routes } from './routes/v1.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -71,6 +75,36 @@ export async function buildApp() {
   // ─── Database & Cache Plugins ───
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
+  await app.register(apiKeyPlugin);
+
+  await app.register(swagger, {
+    openapi: {
+      openapi: '3.1.0',
+      info: {
+        title: 'DevCard Public API',
+        description: 'Versioned public REST API for DevCard.',
+        version: '1.0.0',
+      },
+      servers: [{ url: process.env.PUBLIC_API_URL || 'http://localhost:3000/api/v1' }],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'API Key',
+          },
+        },
+      },
+    },
+  });
+
+  await app.register(swaggerUi, {
+    routePrefix: '/api/v1/docs',
+    staticCSP: true,
+    swagger: {
+      url: '/api/v1/openapi.json',
+    },
+  });
 
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
@@ -89,6 +123,7 @@ export async function buildApp() {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
+  await app.register(v1Routes, { prefix: '/api/v1' });
 
   // ─── Health Check ───
   app.get('/health', async () => ({
