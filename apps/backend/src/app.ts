@@ -72,6 +72,11 @@ export async function buildApp() {
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
 
+  // ─── Request Logging ───
+  app.addHook('onRequest', async (request) => {
+    request.log.info({ method: request.method, url: request.url }, 'incoming request');
+  });
+
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
