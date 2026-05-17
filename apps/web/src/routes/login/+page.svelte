@@ -103,7 +103,7 @@
         </div>
 
         <div class="p-4 rounded-2xl bg-primary/5 border border-primary/10 flex gap-4 items-start">
-          <Globe size={20} class="text-primary flex-shrink-0 mt-0.5" />
+          <Globe size={20} class="text-primary shrink-0 mt-0.5" />
           <p class="text-xs text-(--text-muted) leading-relaxed">
             We only request public profile access. Your private data and repositories remain completely secure and untouched.
           </p>

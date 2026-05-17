@@ -102,13 +102,13 @@
 
         <div class="space-y-4">
           <div class="flex items-center gap-4">
-            <div class="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 flex-shrink-0">
+            <div class="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 shrink-0">
               <Sparkles size={16} />
             </div>
             <span class="text-sm font-bold text-(--text-muted)">Instant QR Generation</span>
           </div>
           <div class="flex items-center gap-4">
-            <div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 flex-shrink-0">
+            <div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
               <Globe size={16} />
             </div>
             <span class="text-sm font-bold text-(--text-muted)">Public Shareable Profile</span>

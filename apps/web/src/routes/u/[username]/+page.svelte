@@ -47,8 +47,8 @@
 <div class="min-h-screen bg-(--bg-main) text-(--text-main) selection:bg-primary/30" style="--accent-color: {profile?.accentColor || '#7C3AED'}">
   <!-- Background Accents -->
   <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-    <div class="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-[var(--accent-color)]/20 rounded-full blur-[120px] animate-pulse-slow"></div>
-    <div class="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-secondary/20 rounded-full blur-[120px] animate-pulse-slow-reverse"></div>
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-(--accent-color)/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/20 rounded-full blur-[120px] animate-pulse-slow-reverse"></div>
   </div>
 
   {#if error || !profile}
@@ -72,7 +72,7 @@
         <!-- Profile Header -->
         <div class="relative z-10 p-8 md:p-12 text-center">
           <div class="relative inline-block mb-8 group">
-            <div class="absolute inset-0 bg-[var(--accent-color)]/30 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
+            <div class="absolute inset-0 bg-(--accent-color)/30 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
             {#if profile.avatarUrl}
               <img 
                 src={profile.avatarUrl} 
@@ -94,7 +94,7 @@
           <div class="flex flex-wrap items-center justify-center gap-4 text-sm font-bold text-(--text-muted) uppercase tracking-widest mb-6">
             {#if profile.role}
               <div class="flex items-center gap-1.5">
-                <Briefcase size={14} class="text-[var(--accent-color)]" />
+                <Briefcase size={14} class="text-(--accent-color)" />
                 <span>{profile.role}</span>
               </div>
             {/if}
@@ -154,7 +154,7 @@
                 <BrandIcon name={link.platform as any} size={24} />
               </div>
               <div>
-                <h4 class="text-lg font-black group-hover:text-[var(--accent-color)] transition-colors">{platform?.name || link.platform}</h4>
+                <h4 class="text-lg font-black group-hover:text-(--accent-color) transition-colors">{platform?.name || link.platform}</h4>
                 <p class="text-sm font-medium text-(--text-muted)">{link.username}</p>
               </div>
             </div>
