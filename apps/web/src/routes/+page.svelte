@@ -83,7 +83,7 @@
           </div>
 
           <div class="flex-1 relative pb-10 lg:pb-0">
-            <div class="relative z-10 glass p-4 rounded-[3rem] shadow-2xl transform lg:rotate-3 hover:rotate-0 transition-all duration-700">
+            <div class="relative z-10 glass p-4 rounded-3xl shadow-2xl transform lg:rotate-3 hover:rotate-0 transition-all duration-700">
               <img 
                 src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200" 
                 alt="Dashboard Preview" 
@@ -114,12 +114,12 @@
     <!-- CTA Section -->
     <section class="py-24">
       <div class="container mx-auto px-6 text-center">
-        <div class="glass p-12 md:p-20 rounded-[3rem] relative overflow-hidden group">
+        <div class="glass p-12 md:p-20 rounded-3xl relative overflow-hidden group">
           <div class="absolute top-0 left-0 w-full h-full bg-linear-to-br from-primary/10 to-secondary/10 -z-10"></div>
           <div class="absolute -top-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-[80px] group-hover:scale-125 transition-transform duration-700"></div>
           
           <h2 class="text-4xl md:text-6xl font-bold mb-8">Ready to upgrade your <br /> <span class="text-primary">developer networking?</span></h2>
-          <p class="text-xl text-[var(--text-muted)] mb-12 max-w-2xl mx-auto">
+          <p class="text-xl text-(--text-muted) mb-12 max-w-2xl mx-auto">
             Join the community of developers who are streamlining their social presence with DevCard.
           </p>
           
