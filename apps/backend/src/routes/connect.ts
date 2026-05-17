@@ -125,7 +125,7 @@ export async function connectRoutes(app: FastifyInstance) {
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=github`);
 
     } catch (err) {
-      app.log.error('GitHub connect error:', err);
+      app.log.error({ err }, 'GitHub connect error');
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
     }
   });

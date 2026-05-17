@@ -1,5 +1,24 @@
 import { z } from 'zod';
 
+export const registerSchema = z.object({
+  email: z.string().email().max(255).transform((value) => value.toLowerCase()),
+  username: z
+    .string()
+    .min(3)
+    .max(50)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, hyphens, and underscores'),
+  displayName: z.string().min(1).max(100),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password must be less than 128 characters'),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email().max(255).transform((value) => value.toLowerCase()),
+  password: z.string().min(1).max(128),
+});
+
 export const updateProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   username: z

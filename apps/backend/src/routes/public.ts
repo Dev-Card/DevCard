@@ -107,7 +107,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: (request.query as any)?.source || 'link',
         },
-      }).catch(err => app.log.error('Failed to log view:', err));
+      }).catch((err: unknown) => app.log.error({ err }, 'Failed to log view'));
     }
 
     const response: UsernamePublicProfileResponse = {
@@ -119,7 +119,7 @@ export async function publicRoutes(app: FastifyInstance) {
       company: user.company,
       avatarUrl: user.avatarUrl,
       accentColor: user.accentColor,
-      links: user.platformLinks.map((link) => ({
+      links: user.platformLinks.map((link: any) => ({
         id: link.id,
         platform: link.platform,
         username: link.username,
@@ -167,7 +167,7 @@ export async function publicRoutes(app: FastifyInstance) {
         avatarUrl: card.user.avatarUrl,
         accentColor: card.user.accentColor,
       },
-      links: card.cardLinks.map((cl) => ({
+      links: card.cardLinks.map((cl: any) => ({
         id: cl.platformLink.id,
         platform: cl.platformLink.platform,
         username: cl.platformLink.username,
@@ -230,7 +230,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: (request.query as any)?.source || 'qr',
         },
-      }).catch(err => app.log.error('Failed to log card view:', err));
+      }).catch((err: unknown) => app.log.error({ err }, 'Failed to log card view'));
     }
 
 
@@ -246,7 +246,7 @@ export async function publicRoutes(app: FastifyInstance) {
         avatarUrl: user.avatarUrl,
         accentColor: user.accentColor,
       },
-      links: card.cardLinks.map((cl) => ({
+      links: card.cardLinks.map((cl: any) => ({
         id: cl.platformLink.id,
         platform: cl.platformLink.platform,
         username: cl.platformLink.username,

@@ -1,4 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import bcrypt from 'bcrypt';
+import { loginSchema, registerSchema } from '../utils/validators.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -12,7 +14,77 @@ interface OAuthCallbackQuery {
   state?: string;
 }
 
+const PASSWORD_SALT_ROUNDS = 12;
+
 export async function authRoutes(app: FastifyInstance) {
+  app.post('/register', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = registerSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
+    }
+
+    const { email, username, displayName, password } = parsed.data;
+    const existingUser = await app.prisma.user.findFirst({
+      where: {
+        OR: [{ email }, { username }],
+      },
+      select: { email: true, username: true },
+    });
+
+    if (existingUser?.email === email) {
+      return reply.status(409).send({ error: 'Email already registered' });
+    }
+
+    if (existingUser?.username === username) {
+      return reply.status(409).send({ error: 'Username already taken' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, PASSWORD_SALT_ROUNDS);
+    const user = await app.prisma.user.create({
+      data: {
+        email,
+        username,
+        displayName,
+        provider: 'local',
+        providerId: email,
+        passwordHash,
+      },
+      select: userSelect,
+    });
+
+    const token = signAuthToken(app, user);
+    setAuthCookie(reply, token);
+
+    return reply.status(201).send({ token, user });
+  });
+
+  app.post('/login', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = loginSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
+    }
+
+    const { email, password } = parsed.data;
+    const user = await app.prisma.user.findUnique({ where: { email } });
+
+    if (!user?.passwordHash) {
+      return reply.status(401).send({ error: 'Invalid email or password' });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+    if (!passwordMatches) {
+      return reply.status(401).send({ error: 'Invalid email or password' });
+    }
+
+    const token = signAuthToken(app, user);
+    setAuthCookie(reply, token);
+
+    const { passwordHash, provider, providerId, ...safeUser } = user;
+    return { token, user: safeUser };
+  });
+
   // ─── GitHub OAuth ───
 
   app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -112,10 +184,7 @@ export async function authRoutes(app: FastifyInstance) {
       });
 
       // Generate JWT
-      const token = app.jwt.sign(
-        { id: user.id, username: user.username },
-        { expiresIn: '30d' }
-      );
+      const token = signAuthToken(app, user);
 
       // For mobile app: redirect with token as query param
       const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
@@ -124,17 +193,11 @@ export async function authRoutes(app: FastifyInstance) {
       }
 
       // For web: set cookie and redirect
-      reply.setCookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-      });
+      setAuthCookie(reply, token);
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      app.log.error('GitHub auth error:', err);
+      app.log.error({ err }, 'GitHub auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -215,27 +278,18 @@ export async function authRoutes(app: FastifyInstance) {
         },
       });
 
-      const token = app.jwt.sign(
-        { id: user.id, username: user.username },
-        { expiresIn: '30d' }
-      );
+      const token = signAuthToken(app, user);
 
       if (request.query.state?.startsWith('mobile_')) {
         const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}?token=${token}`);
       }
 
-      reply.setCookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 30 * 24 * 60 * 60,
-      });
+      setAuthCookie(reply, token);
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      app.log.error('Google auth error:', err);
+      app.log.error({ err }, 'Google auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -288,4 +342,40 @@ export async function authRoutes(app: FastifyInstance) {
 
 function generateState(): string {
   return Math.random().toString(36).substring(2, 15);
+}
+
+const userSelect = {
+  id: true,
+  email: true,
+  username: true,
+  displayName: true,
+  bio: true,
+  pronouns: true,
+  role: true,
+  company: true,
+  avatarUrl: true,
+  accentColor: true,
+  createdAt: true,
+};
+
+type AuthUser = {
+  id: string;
+  username: string;
+};
+
+function signAuthToken(app: FastifyInstance, user: AuthUser): string {
+  return app.jwt.sign(
+    { id: user.id, username: user.username },
+    { expiresIn: '30d' }
+  );
+}
+
+function setAuthCookie(reply: FastifyReply, token: string) {
+  reply.setCookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 30 * 24 * 60 * 60,
+  });
 }

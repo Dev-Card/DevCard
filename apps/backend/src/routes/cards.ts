@@ -20,11 +20,11 @@ export async function cardRoutes(app: FastifyInstance) {
       orderBy: { createdAt: 'asc' },
     });
 
-    return cards.map((card) => ({
+    return cards.map((card: any) => ({
       id: card.id,
       title: card.title,
       isDefault: card.isDefault,
-      links: card.cardLinks.map((cl) => cl.platformLink),
+      links: card.cardLinks.map((cl: any) => cl.platformLink),
     }));
   });
 
@@ -65,7 +65,7 @@ export async function cardRoutes(app: FastifyInstance) {
       id: card.id,
       title: card.title,
       isDefault: card.isDefault,
-      links: card.cardLinks.map((cl) => cl.platformLink),
+      links: card.cardLinks.map((cl: any) => cl.platformLink),
     });
   });
 
@@ -125,7 +125,7 @@ export async function cardRoutes(app: FastifyInstance) {
       id: updated!.id,
       title: updated!.title,
       isDefault: updated!.isDefault,
-      links: updated!.cardLinks.map((cl) => cl.platformLink),
+      links: updated!.cardLinks.map((cl: any) => cl.platformLink),
     };
   });
 

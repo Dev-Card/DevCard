@@ -20,6 +20,7 @@ model User {
   accentColor String   @default("#6366f1") @map("accent_color")
   provider    String
   providerId  String   @map("provider_id")
+  passwordHash String?  @map("password_hash")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
