@@ -56,7 +56,7 @@ export async function authRoutes(app: FastifyInstance) {
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
-        app.log.error('GitHub token error:', tokenData);
+        app.log.error({ tokenData }, 'GitHub token error');
         return reply.status(400).send({ error: 'Failed to authenticate with GitHub' });
       }
 
@@ -134,7 +134,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      app.log.error('GitHub auth error:', err);
+      app.log.error({ err }, 'GitHub auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -181,7 +181,7 @@ export async function authRoutes(app: FastifyInstance) {
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
-        app.log.error('Google token error:', tokenData);
+        app.log.error({ tokenData }, 'Google token error');
         return reply.status(400).send({ error: 'Failed to authenticate with Google' });
       }
 
@@ -235,7 +235,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      app.log.error('Google auth error:', err);
+      app.log.error({ err }, 'Google auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });

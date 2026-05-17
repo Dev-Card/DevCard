@@ -53,12 +53,12 @@ export async function followRoutes(app: FastifyInstance) {
             status: 'success',
             layer: 'api',
           },
-        }).catch(err => app.log.error('Failed to log follow:', err));
+        }).catch((err: unknown) => app.log.error({ err }, 'Failed to log follow'));
       }
 
       return result;
     } catch (err: any) {
-      app.log.error(`Follow error for ${platform}:`, err);
+      app.log.error({ err, platform }, 'Follow error');
       
       app.prisma.followLog.create({
         data: {
@@ -68,7 +68,7 @@ export async function followRoutes(app: FastifyInstance) {
           status: 'error',
           layer: 'api',
         },
-      }).catch(e => app.log.error('Failed to log follow error:', e));
+      }).catch((err: unknown) => app.log.error({ err }, 'Failed to log follow error'));
 
       return reply.status(500).send({ error: 'Follow action failed', message: err.message });
     }
