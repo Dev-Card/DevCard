@@ -9,7 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { prismaPlugin } from './plugins/prisma.js';
-import { redisPlugin } from './plugins/redis.js';
+// import { redisPlugin } from './plugins/redis.js';
 import { authRoutes } from './routes/auth.js';
 import { profileRoutes } from './routes/profiles.js';
 import { cardRoutes } from './routes/cards.js';
@@ -17,6 +17,8 @@ import { publicRoutes } from './routes/public.js';
 import { followRoutes } from './routes/follow.js';
 import { connectRoutes } from './routes/connect.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { eventRoutes } from './routes/event.js';
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,7 +57,7 @@ export async function buildApp() {
 
   // ─── Database & Cache Plugins ───
   await app.register(prismaPlugin);
-  await app.register(redisPlugin);
+  // await app.register(redisPlugin);
 
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
@@ -74,6 +76,7 @@ export async function buildApp() {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
+  await app.register(eventRoutes, {prefix: '/api/events'})
 
   // ─── Health Check ───
   app.get('/health', async () => ({
