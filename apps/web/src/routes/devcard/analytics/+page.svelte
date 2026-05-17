@@ -35,7 +35,10 @@
 			<div class="error-icon">🔒</div>
 			<h2>{error}</h2>
 			<p>Accessing the dashboard requires an active session.</p>
-			<a href="/" class="btn-primary">Return Home</a>
+			<div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem;">
+				<a href="/" class="btn-secondary" style="border: 1px solid var(--border); padding: 0.75rem 1.5rem; border-radius: var(--radius); text-decoration: none; color: var(--text-secondary);">Return Home</a>
+				<a href="http://localhost:3000/auth/dev-login" class="btn-primary" style="background: var(--primary); color: white; padding: 0.75rem 1.5rem; border-radius: var(--radius); text-decoration: none; font-weight: 600; box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);">Dev Login Bypass</a>
+			</div>
 		</div>
 	{:else if overview}
 		<!-- KPI Overview -->
