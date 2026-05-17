@@ -1,6 +1,11 @@
 <script lang="ts">
   import { PLATFORMS, getProfileUrl } from '@devcard/shared';
-  import { onMount } from 'svelte';
+  import {
+    Frown,
+    ArrowLeft,
+    ArrowRight,
+    Zap,
+  } from 'lucide-svelte';
 
   let { data } = $props();
   const profile = data.profile;
@@ -13,307 +18,296 @@
     leetcode: '#FFA116', hackerrank: '#00EA64', discord: '#5865F2',
     telegram: '#26A5E4', email: '#EA4335', portfolio: '#6366F1', custom: '#8B5CF6',
   };
-
-  let mounted = $state(false);
-  onMount(() => {
-    mounted = true;
-  });
 </script>
 
 <svelte:head>
   {#if profile}
-    <title>{profile.displayName} | DevCard</title>
+    <title>{profile.displayName} — DevCard</title>
     <meta name="description" content="{profile.bio || `${profile.displayName}'s developer profiles`}" />
+    <meta property="og:title" content="{profile.displayName} — DevCard" />
+    <meta property="og:description" content="{profile.bio || 'Developer profile card'}" />
   {:else}
-    <title>User Not Found | DevCard</title>
+    <title>User Not Found — DevCard</title>
   {/if}
 </svelte:head>
 
-<div class="bg-gradient" style="--accent: {profile?.accentColor || '#6366f1'}"></div>
-
-<main class="profile-container {mounted ? 'loaded' : ''}">
-  {#if error || !profile}
-    <div class="error-glass glass">
-      <div class="error-emoji">😕</div>
-      <h1>Profile not found</h1>
-      <p>This DevCard has vanished into the digital void.</p>
-      <a href="/" class="btn-primary">Return Home</a>
+{#if error || !profile}
+  <main class="error-page">
+    <div class="error-content">
+      <div class="error-emoji"><Frown size={64} /></div>
+      <h1>User Not Found</h1>
+      <p>This DevCard doesn't exist or has been removed.</p>
+      <a href="/" class="home-link"><ArrowLeft size={18} style="display: inline; vertical-align: middle; margin-right: 4px;" /> Back to DevCard</a>
     </div>
-  {:else}
-    <div class="profile-card glass" style="--accent: {profile.accentColor}">
-      <header class="profile-header">
-        <div class="avatar-wrapper">
-          {#if profile.avatarUrl}
-            <img src={profile.avatarUrl} alt={profile.displayName} class="avatar" />
-          {:else}
-            <div class="avatar avatar-placeholder" style="background: {profile.accentColor}">
-              {profile.displayName.charAt(0).toUpperCase()}
-            </div>
-          {/if}
-          <div class="avatar-glow" style="background: {profile.accentColor}"></div>
-        </div>
-        
-        <h1 class="display-name">{profile.displayName}</h1>
-        {#if profile.role}
-          <div class="role-badge">
-            {profile.role}{profile.company ? ` @ ${profile.company}` : ''}
+  </main>
+{:else}
+  <main class="profile-page">
+    <div class="profile-card" style="--accent: {profile.accentColor}">
+      <!-- Avatar & Header -->
+      <div class="profile-header">
+        {#if profile.avatarUrl}
+          <img src={profile.avatarUrl} alt={profile.displayName} class="avatar" />
+        {:else}
+          <div class="avatar avatar-placeholder" style="background: {profile.accentColor}">
+            {profile.displayName.charAt(0).toUpperCase()}
           </div>
         {/if}
-        
+        <h1 class="display-name">{profile.displayName}</h1>
+        {#if profile.pronouns}
+          <span class="pronouns">{profile.pronouns}</span>
+        {/if}
+        {#if profile.role}
+          <p class="role">
+            {profile.role}{profile.company ? ` @ ${profile.company}` : ''}
+          </p>
+        {/if}
         {#if profile.bio}
           <p class="bio">{profile.bio}</p>
         {/if}
-      </header>
+      </div>
 
-      <div class="links-grid">
-        {#each profile.links as link, i}
+      <!-- Platform Links -->
+      <div class="links-section">
+        <p class="links-label">Connect with {profile.displayName.split(' ')[0]}</p>
+        {#each profile.links as link}
           {@const platform = PLATFORMS[link.platform]}
           {@const color = platformColors[link.platform] || '#6366f1'}
           <a
             href={link.url || getProfileUrl(link.platform, link.username)}
             target="_blank"
             rel="noopener noreferrer"
-            class="link-tile glass"
-            style="--delay: {i * 0.1}s"
+            class="platform-tile"
           >
             <div class="tile-icon" style="background: {color}">
-              <span class="platform-initial">{platform?.name.charAt(0) || '?'}</span>
+              {platform?.name.charAt(0) || '?'}
             </div>
-            <div class="tile-content">
-              <span class="platform-name">{platform?.name || link.platform}</span>
-              <span class="username">@{link.username}</span>
+            <div class="tile-info">
+              <span class="tile-name">{platform?.name || link.platform}</span>
+              <span class="tile-username">{link.username}</span>
             </div>
-            <span class="arrow">→</span>
+            <span class="tile-arrow"><ArrowRight size={18} /></span>
           </a>
         {/each}
       </div>
-      
-      <footer class="card-footer">
-        <p>Verified Developer Profile</p>
-        <div class="logo-sm">⚡ DevCard</div>
-      </footer>
     </div>
 
-    <div class="get-your-own">
-      <p>Want a card like this?</p>
-      <a href="/" class="gradient-text">Create your DevCard ⚡</a>
+    <!-- Get DevCard CTA -->
+    <div class="get-devcard">
+      <p>Want your own DevCard?</p>
+      <a href="/" class="cta-link">
+        Get your DevCard <Zap size={18} style="display: inline; vertical-align: middle; margin-left: 2px;" fill="currentColor" />
+      </a>
     </div>
-  {/if}
-</main>
+
+    <footer class="footer">
+      Powered by <a href="/">DevCard</a> — Open Source Developer Profiles
+    </footer>
+  </main>
+{/if}
 
 <style>
-  .bg-gradient {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(circle at 50% 0%, var(--accent), transparent 50%),
-                #020617;
-    opacity: 0.15;
-    z-index: -1;
-  }
-
-  .profile-container {
-    min-height: 100vh;
+  .error-page {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    padding: 4rem 1.5rem;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+    justify-content: center;
+    min-height: 100vh;
   }
 
-  .profile-container.loaded {
-    opacity: 1;
-    transform: translateY(0);
+  .error-content {
+    text-align: center;
+  }
+
+  .error-emoji {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+  }
+
+  .error-content h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .error-content p {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .home-link {
+    color: var(--primary-light);
+    font-weight: 600;
+  }
+
+  /* Profile Page */
+  .profile-page {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    min-height: 100vh;
   }
 
   .profile-card {
-    width: 100%;
-    max-width: 480px;
+    background: var(--bg-card);
+    border: 2px solid var(--accent);
     border-radius: var(--radius-xl);
-    padding: 3rem 2rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    position: relative;
     overflow: hidden;
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
   }
 
   .profile-header {
     text-align: center;
-    margin-bottom: 3rem;
-  }
-
-  .avatar-wrapper {
-    position: relative;
-    width: 110px;
-    height: 110px;
-    margin: 0 auto 1.5rem;
+    padding: 2.5rem 2rem 1.5rem;
   }
 
   .avatar {
-    width: 100%;
-    height: 100%;
-    border-radius: 35% 65% 70% 30% / 30% 30% 70% 70%;
-    object-fit: cover;
-    border: 3px solid white;
-    position: relative;
-    z-index: 2;
-    animation: morph 8s ease-in-out infinite;
-  }
-
-  @keyframes morph {
-    0%, 100% { border-radius: 35% 65% 70% 30% / 30% 30% 70% 70%; }
-    50% { border-radius: 65% 35% 30% 70% / 70% 70% 30% 30%; }
-  }
-
-  .avatar-glow {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    filter: blur(20px);
-    opacity: 0.4;
-    z-index: 1;
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
+    margin: 0 auto 1rem;
+    display: block;
+    object-fit: cover;
   }
 
-  .display-name {
-    font-size: 2.25rem;
-    font-weight: 800;
-    letter-spacing: -1px;
-    margin-bottom: 0.5rem;
-  }
-
-  .role-badge {
-    display: inline-block;
-    padding: 0.4rem 1rem;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 100px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-  }
-
-  .bio {
-    color: var(--text-secondary);
-    font-size: 1rem;
-    line-height: 1.6;
-    max-width: 320px;
-    margin: 0 auto;
-  }
-
-  .links-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .link-tile {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    border-radius: var(--radius-lg);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    animation: slideIn 0.5s ease-out forwards;
-    animation-delay: var(--delay);
-    opacity: 0;
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(-20px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-
-  .link-tile:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: scale(1.02) translateX(5px);
-  }
-
-  .tile-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+  .avatar-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-weight: 800;
-    font-size: 1.2rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  }
-
-  .tile-content {
-    flex: 1;
-    margin-left: 1.25rem;
-  }
-
-  .platform-name {
-    display: block;
+    font-size: 2rem;
     font-weight: 700;
-    font-size: 1.05rem;
   }
 
-  .username {
-    display: block;
+  .display-name {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .pronouns {
+    color: var(--text-muted);
     font-size: 0.85rem;
-    color: var(--text-muted);
+    margin-top: 0.25rem;
+    display: block;
   }
 
-  .arrow {
-    opacity: 0.3;
-    font-size: 1.2rem;
-    transition: all 0.3s;
+  .role {
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
   }
 
-  .link-tile:hover .arrow {
-    opacity: 1;
-    transform: translateX(5px);
+  .bio {
+    color: var(--text-secondary);
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.6;
   }
 
-  .card-footer {
-    margin-top: 3rem;
-    padding-top: 2rem;
-    border-top: 1px solid rgba(255,255,255,0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--text-muted);
+  /* Links */
+  .links-section {
+    padding: 0.5rem 1.5rem 1.5rem;
+  }
+
+  .links-label {
     font-size: 0.75rem;
-    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1px;
-  }
-
-  .logo-sm {
-    color: var(--text-secondary);
-    font-family: 'Outfit', sans-serif;
-  }
-
-  .get-your-own {
-    margin-top: 3rem;
-    text-align: center;
-  }
-
-  .get-your-own p {
-    font-size: 0.9rem;
     color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    padding-left: 0.25rem;
+  }
+
+  .platform-tile {
+    display: flex;
+    align-items: center;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+    color: var(--text-primary);
+  }
+
+  .platform-tile:hover {
+    border-color: var(--primary);
+    transform: translateX(4px);
+    color: var(--text-primary);
+  }
+
+  .tile-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  .tile-info {
+    flex: 1;
+    margin-left: 0.875rem;
+  }
+
+  .tile-name {
+    display: block;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .tile-username {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-top: 1px;
+  }
+
+  .tile-arrow {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    transition: transform 0.2s;
+  }
+
+  .platform-tile:hover .tile-arrow {
+    transform: translateX(4px);
+    color: var(--primary-light);
+  }
+
+  /* CTA */
+  .get-devcard {
+    text-align: center;
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+  }
+
+  .get-devcard p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
     margin-bottom: 0.5rem;
   }
 
-  .get-your-own a {
+  .cta-link {
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
-  .error-glass {
+  .footer {
     text-align: center;
-    padding: 4rem;
-    border-radius: var(--radius-xl);
+    padding: 2rem 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
   }
 
-  @media (max-width: 480px) {
-    .profile-card { padding: 2rem 1.5rem; }
-    .display-name { font-size: 1.75rem; }
+  @media (max-width: 500px) {
+    .profile-page { padding: 1rem 0.75rem; }
+    .display-name { font-size: 1.5rem; }
   }
 </style>
