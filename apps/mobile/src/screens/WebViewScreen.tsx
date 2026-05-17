@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
+import { Skeleton } from '../components/Skeleton';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/MainTabs';
@@ -30,7 +31,7 @@ type Props = {
  * - Clean close button to dismiss
  */
 export default function WebViewScreen({ navigation, route }: Props) {
-  const { platform, profileUrl, displayName } = route.params;
+  const { profileUrl, displayName } = route.params;
   const webViewRef = useRef<WebView>(null);
 
   return (
@@ -66,10 +67,14 @@ export default function WebViewScreen({ navigation, route }: Props) {
         startInLoadingState={true}
         renderLoading={() => (
           <View style={styles.loading}>
+            <Skeleton width="82%" height={18} borderRadius={10} />
+            <Skeleton width="92%" height={180} borderRadius={BORDER_RADIUS.lg} style={styles.loadingBlock} />
+            <Skeleton width="78%" height={16} borderRadius={10} style={styles.loadingLine} />
+            <Skeleton width="64%" height={16} borderRadius={10} style={styles.loadingLine} />
             <Text style={styles.loadingText}>Loading {displayName}...</Text>
           </View>
         )}
-        onNavigationStateChange={(navState) => {
+        onNavigationStateChange={(_navState) => {
           // If user navigates away from the profile page,
           // they likely completed the action
           // We could auto-close here in the future
@@ -104,8 +109,16 @@ const styles = StyleSheet.create({
   bannerText: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center' },
   bannerBold: { fontWeight: '700', color: COLORS.primary },
   webview: { flex: 1 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.bgPrimary },
-  loadingText: { color: COLORS.textMuted, fontSize: FONT_SIZE.md },
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.bgPrimary,
+    padding: SPACING.lg,
+  },
+  loadingBlock: { marginTop: SPACING.lg },
+  loadingLine: { marginTop: SPACING.md },
+  loadingText: { color: COLORS.textMuted, fontSize: FONT_SIZE.sm, marginTop: SPACING.lg },
   footer: {
     padding: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border,
   },

@@ -12,8 +12,8 @@ import ScanScreen from '../screens/ScanScreen';
 import DevCardViewScreen from '../screens/DevCardViewScreen';
 import WebViewScreen from '../screens/WebViewScreen';
 
-import ConnectPlatformsScreen from '../screens/ConnectPlatformsScreen';
-import ViewsScreen from '../screens/ViewsScreen';
+import { ConnectPlatformsScreen } from '../screens/ConnectPlatformsScreen';
+import { ViewsScreen } from '../screens/ViewsScreen';
 
 // ─── Types ───
 
@@ -76,7 +76,7 @@ function TabNavigator() {
         component={ScanScreen}
         options={{
           tabBarLabel: '',
-          tabBarIcon: ({ focused }) => (
+          tabBarIcon: () => (
             <View style={styles.scanButton}>
               <Text style={styles.scanEmoji}>📷</Text>
             </View>
