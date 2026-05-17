@@ -2,11 +2,13 @@ import type { PageServerLoad } from './$types';
 
 const API_BASE = process.env.BACKEND_URL || 'http://localhost:3000';
 
-export const load: PageServerLoad = async ({ fetch }) => {
+export const load: PageServerLoad = async ({ fetch, request }) => {
 	try {
+		const cookie = request.headers.get('cookie') || '';
+		const headers = { cookie };
 		const [overviewRes, viewsRes] = await Promise.all([
-			fetch(`${API_BASE}/api/analytics/overview`),
-			fetch(`${API_BASE}/api/analytics/views`)
+			fetch(`${API_BASE}/api/analytics/overview`, { headers }),
+			fetch(`${API_BASE}/api/analytics/views`, { headers })
 		]);
 
 		if (!overviewRes.ok || !viewsRes.ok) {

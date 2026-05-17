@@ -60,6 +60,9 @@ export async function buildApp() {
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
+      if (!request.headers.authorization && request.cookies && request.cookies.token) {
+        request.headers.authorization = `Bearer ${request.cookies.token}`;
+      }
       await request.jwtVerify();
     } catch (err) {
       reply.status(401).send({ error: 'Unauthorized' });
