@@ -6,7 +6,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (token) {
 		try {
 			// Call backend to verify token and get user info
-			const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+			const apiUrl = import.meta.env.PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
 			const res = await event.fetch(`${apiUrl}/api/profiles/me`);
 			
 			if (res.ok) {

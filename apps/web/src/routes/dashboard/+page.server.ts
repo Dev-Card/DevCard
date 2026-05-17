@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
 	}
 
   try {
-    const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+    const apiUrl = import.meta.env.PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:3000';
     const response = await fetch(`${apiUrl}/api/cards`);
     if (response.ok) {
       const cards = await response.json();

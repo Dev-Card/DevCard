@@ -25,9 +25,10 @@
     --text-main: #0f172a;
     --text-muted: #64748b;
     --border-main: #e2e8f0;
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-bg: rgba(255, 255, 255, 0.75);
+    --glass-border: rgba(15, 23, 42, 0.08);
     --primary-glow: rgba(124, 58, 237, 0.2);
+    --btn-secondary-bg: rgba(124, 58, 237, 0.05);
 
     /* Legacy/Upstream compatibility variables */
     --primary: #7C3AED; /* Premium theme color */
@@ -53,6 +54,7 @@
     --glass-bg: rgba(3, 7, 18, 0.6);
     --glass-border: rgba(255, 255, 255, 0.08);
     --primary-glow: rgba(124, 58, 237, 0.3);
+    --btn-secondary-bg: rgba(255, 255, 255, 0.05);
 
     /* Legacy/Upstream compatibility variables */
     --primary: #7C3AED;
@@ -126,7 +128,7 @@
 
   .btn-premium-secondary {
     @apply relative inline-flex items-center justify-center rounded-2xl font-black uppercase tracking-widest transition-all duration-500 overflow-hidden;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--btn-secondary-bg);
     border: 1px solid rgba(124, 58, 237, 0.3);
     color: var(--color-primary);
     backdrop-filter: blur(10px);

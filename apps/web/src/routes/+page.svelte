@@ -25,7 +25,7 @@
   <main>
     <Hero />
     
-    <section id="how-it-works" class="pt-32 pb-16 relative overflow-hidden bg-(--bg-secondary)/30">
+    <section id="how-it-works" class="pt-24 lg:pt-32 pb-24 lg:pb-32 relative overflow-hidden bg-(--bg-secondary)/30">
       <div class="container mx-auto px-6">
         <div class="text-center max-w-3xl mx-auto mb-20">
           <div class="inline-block px-4 py-1.5 rounded-full bg-secondary/10 text-secondary text-xs font-bold uppercase tracking-[0.2em] mb-6 border border-secondary/20">
@@ -82,7 +82,7 @@
             </div>
           </div>
 
-          <div class="flex-1 relative">
+          <div class="flex-1 relative pb-10 lg:pb-0">
             <div class="relative z-10 glass p-4 rounded-[3rem] shadow-2xl transform lg:rotate-3 hover:rotate-0 transition-all duration-700">
               <img 
                 src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200" 
