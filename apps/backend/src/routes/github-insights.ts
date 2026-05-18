@@ -13,8 +13,19 @@ const GITHUB_API = 'https://api.github.com';
 const CACHE_TTL_SECONDS = 60 * 60;
 const CACHE_TTL_MS = CACHE_TTL_SECONDS * 1000;
 const REDIS_KEY_PREFIX = 'github_insights:';
-/** Max repos to fetch for language analysis */
-const MAX_REPOS_FOR_ANALYSIS = 100;
+/**
+ * Maximum repos fetched for analysis (2 pages × 100).
+ *
+ * ⚠️  KNOWN LIMITATION: For users with more than 200 public repos,
+ * `totalStars`, `totalForks`, and `languageStats` are computed from
+ * the most-recently-updated 200 repos only, while `totalRepos` always
+ * reflects the full count from the GitHub user profile.
+ * These fields are therefore marked as estimates when the cap is hit —
+ * see `statsAreCapped` in the response.
+ */
+const MAX_REPOS_PAGES = 2;
+const REPOS_PER_PAGE = 100;
+const MAX_REPOS_FOR_ANALYSIS = MAX_REPOS_PAGES * REPOS_PER_PAGE;
 /** Top repos to surface in the response */
 const TOP_REPOS_COUNT = 5;
 
@@ -34,7 +45,7 @@ export async function githubInsightsRoutes(app: FastifyInstance) {
    * Query params:
    *   ?refresh=true  — bypass cache and force a fresh fetch
    */
-  app.get('/', {
+  app.get('/github-insights', {
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest<{ Querystring: { refresh?: string } }>, reply: FastifyReply) => {
     const userId = (request.user as any).id;
@@ -135,26 +146,34 @@ async function buildInsights(accessToken: string): Promise<GitHubInsights> {
   const [ghUser, firstPageRepos] = await Promise.all([
     githubFetch<any>('/user', accessToken),
     githubFetch<any[]>(
-      `/user/repos?per_page=100&sort=updated&type=owner`,
+      `/user/repos?per_page=${REPOS_PER_PAGE}&sort=updated&type=owner&page=1`,
       accessToken,
     ),
   ]);
 
-  // If user has more than 100 repos, fetch the second page too (cap at 200)
   let allRepos = firstPageRepos;
-  if (ghUser.public_repos > MAX_REPOS_FOR_ANALYSIS) {
+  let statsAreCapped = false;
+
+  // Fetch second page if the user has more than one page of repos
+  if (ghUser.public_repos > REPOS_PER_PAGE) {
     try {
       const secondPage = await githubFetch<any[]>(
-        `/user/repos?per_page=100&sort=updated&type=owner&page=2`,
+        `/user/repos?per_page=${REPOS_PER_PAGE}&sort=updated&type=owner&page=2`,
         accessToken,
       );
       allRepos = [...firstPageRepos, ...secondPage];
     } catch {
       // Non-fatal — proceed with what we have
     }
+
+    // If the user has more repos than our cap, flag it so the client
+    // can surface a disclaimer ("stats based on most recent 200 repos")
+    if (ghUser.public_repos > MAX_REPOS_FOR_ANALYSIS) {
+      statsAreCapped = true;
+    }
   }
 
-  // ── Language aggregation ──
+  // ── Language aggregation (own repos only, forks excluded) ──
   const languageBytes: Record<string, number> = {};
   for (const repo of allRepos) {
     if (repo.language && !repo.fork) {
@@ -173,9 +192,10 @@ async function buildInsights(accessToken: string): Promise<GitHubInsights> {
         : 0,
     }));
 
-  // ── Top repos by stars ──
-  const topRepos: GitHubRepo[] = allRepos
-    .filter((r) => !r.fork)
+  // ── Top repos by stars (own repos only, forks excluded) ──
+  const ownRepos = allRepos.filter((r) => !r.fork);
+
+  const topRepos: GitHubRepo[] = ownRepos
     .sort((a, b) => b.stargazers_count - a.stargazers_count)
     .slice(0, TOP_REPOS_COUNT)
     .map((r) => ({
@@ -189,14 +209,9 @@ async function buildInsights(accessToken: string): Promise<GitHubInsights> {
       updatedAt: r.updated_at,
     }));
 
-  // ── Aggregate totals ──
-  const totalStars = allRepos
-    .filter((r) => !r.fork)
-    .reduce((sum, r) => sum + r.stargazers_count, 0);
-
-  const totalForks = allRepos
-    .filter((r) => !r.fork)
-    .reduce((sum, r) => sum + r.forks_count, 0);
+  // ── Aggregate totals (own repos only, forks excluded) ──
+  const totalStars = ownRepos.reduce((sum, r) => sum + r.stargazers_count, 0);
+  const totalForks = ownRepos.reduce((sum, r) => sum + r.forks_count, 0);
 
   return {
     username: ghUser.login,
@@ -211,6 +226,7 @@ async function buildInsights(accessToken: string): Promise<GitHubInsights> {
     accountCreatedAt: ghUser.created_at,
     fetchedAt: new Date().toISOString(),
     aiSummary: null, // filled in after
+    statsAreCapped,
   };
 }
 

@@ -173,22 +173,19 @@ export default function GitHubInsightsScreen() {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (res.status === 400) {
-          const body = await res.json();
-          if (body.requiresAuth) {
+        // Read the body once — it can only be consumed once per response
+        const body = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          if (res.status === 400 && body.requiresAuth) {
             setRequiresConnect(true);
             return;
           }
-        }
-
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
           setError(body.message ?? 'Failed to load GitHub insights');
           return;
         }
 
-        const data: GitHubInsights = await res.json();
-        setInsights(data);
+        setInsights(body as GitHubInsights);
       } catch {
         setError('Network error — please check your connection');
       } finally {
@@ -341,6 +338,17 @@ export default function GitHubInsightsScreen() {
           Last updated {new Date(insights.fetchedAt).toLocaleString()} · Pull down to
           refresh
         </Text>
+
+        {/* Capped stats disclaimer */}
+        {insights.statsAreCapped ? (
+          <View style={styles.cappedNotice}>
+            <Icon name="information-outline" size={14} color={COLORS.warning} />
+            <Text style={styles.cappedNoticeText}>
+              Stats are based on your most recently updated 200 repos. Users with
+              200+ repos may see partial star, fork, and language counts.
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -594,5 +602,24 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.xs,
     textAlign: 'center',
     marginTop: SPACING.md,
+  },
+
+  // Capped stats disclaimer
+  cappedNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.xs,
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+    marginTop: SPACING.sm,
+  },
+  cappedNoticeText: {
+    flex: 1,
+    color: COLORS.warning,
+    fontSize: FONT_SIZE.xs,
+    lineHeight: 16,
   },
 });

@@ -85,7 +85,7 @@ async function buildApp() {
     request.user = { id: 'user-123' };
   });
 
-  app.register(githubInsightsRoutes, { prefix: '/api/analytics/github-insights' });
+  app.register(githubInsightsRoutes, { prefix: '/api/analytics' });
   await app.ready();
   return app;
 }
@@ -300,5 +300,50 @@ describe('GET /api/analytics/github-insights', () => {
     // forked-repo should not appear in topRepos
     const forkedRepo = body.topRepos.find((r: any) => r.name === 'forked-repo');
     expect(forkedRepo).toBeUndefined();
+  });
+
+  it('sets statsAreCapped=true when user has more than 200 repos', async () => {
+    const heavyUser = { ...mockGitHubUser, public_repos: 250 };
+
+    mockPrisma.oAuthToken.findUnique.mockResolvedValue({
+      accessToken: ENCRYPTED_TOKEN,
+      scopes: 'read:user',
+    });
+
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => heavyUser })
+      .mockResolvedValueOnce({ ok: true, json: async () => mockGitHubRepos })
+      .mockResolvedValueOnce({ ok: true, json: async () => mockGitHubRepos }), // page 2
+    );
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/analytics/github-insights',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().statsAreCapped).toBe(true);
+  });
+
+  it('sets statsAreCapped=false when user has 200 or fewer repos', async () => {
+    mockPrisma.oAuthToken.findUnique.mockResolvedValue({
+      accessToken: ENCRYPTED_TOKEN,
+      scopes: 'read:user',
+    });
+
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => mockGitHubUser }) // public_repos: 3
+      .mockResolvedValueOnce({ ok: true, json: async () => mockGitHubRepos }),
+    );
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/analytics/github-insights',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().statsAreCapped).toBe(false);
   });
 });

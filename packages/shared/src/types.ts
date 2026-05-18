@@ -183,11 +183,17 @@ export interface GitHubLanguageStat {
 export interface GitHubInsights {
   /** GitHub username */
   username: string;
-  /** Total public repositories */
+  /** Total public repositories (always the full count from GitHub profile) */
   totalRepos: number;
-  /** Total stars received across all repos */
+  /**
+   * Total stars received across analysed repos (own repos only, forks excluded).
+   * May be an undercount for users with more than 200 repos — check `statsAreCapped`.
+   */
   totalStars: number;
-  /** Total forks received across all repos */
+  /**
+   * Total forks received across analysed repos (own repos only, forks excluded).
+   * May be an undercount for users with more than 200 repos — check `statsAreCapped`.
+   */
   totalForks: number;
   /** Total followers */
   followers: number;
@@ -195,7 +201,11 @@ export interface GitHubInsights {
   following: number;
   /** Top 5 repos by star count */
   topRepos: GitHubRepo[];
-  /** Language breakdown sorted by usage */
+  /**
+   * Language breakdown sorted by usage.
+   * Computed from the most-recently-updated repos fetched (max 200).
+   * May be skewed for users with more than 200 repos — check `statsAreCapped`.
+   */
   languageStats: GitHubLanguageStat[];
   /** Primary (most-used) language */
   primaryLanguage: string | null;
@@ -205,4 +215,10 @@ export interface GitHubInsights {
   fetchedAt: string;
   /** AI-generated developer summary (null if AI key not configured) */
   aiSummary: string | null;
+  /**
+   * True when the user has more than 200 public repos and star/fork/language
+   * stats are therefore based on a subset (most recently updated 200 repos).
+   * The UI should surface a disclaimer when this is true.
+   */
+  statsAreCapped: boolean;
 }

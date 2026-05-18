@@ -90,7 +90,7 @@ export async function buildApp() {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-  await app.register(githubInsightsRoutes, { prefix: '/api/analytics/github-insights' });
+  await app.register(githubInsightsRoutes, { prefix: '/api/analytics' });
 
   // ─── Health Check ───
   app.get('/health', async () => ({
