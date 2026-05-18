@@ -8,6 +8,11 @@ interface OAuthCallbackQuery {
   state?: string;
 }
 
+interface ParsedOAuthState {
+  userId: string;
+  nonce: string;
+}
+
 export async function connectRoutes(app: FastifyInstance) {
   // ─── Status ───
 
@@ -15,7 +20,7 @@ export async function connectRoutes(app: FastifyInstance) {
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
-    
+
     const tokens = await app.prisma.oAuthToken.findMany({
       where: { userId },
       select: { platform: true, createdAt: true, scopes: true },
@@ -43,24 +48,28 @@ export async function connectRoutes(app: FastifyInstance) {
       scope: 'user:follow', // ONLY asking for follow scope to avoid full profile access
       state: Buffer.from(state).toString('base64'),
     });
-    
+
     return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
   });
 
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
-    
+
     if (!code || !state) {
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=missing_params`);
     }
 
     try {
       // Decode state to find which user requested the connect
-      const decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+      const decodedState = parseGoogleState(state);
+
+      if (!decodedState) {
+        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+      }
       const userId = decodedState.userId;
 
       if (!userId) {
-         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
+        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
       }
 
       // Exchange code for token
@@ -77,7 +86,7 @@ export async function connectRoutes(app: FastifyInstance) {
           redirect_uri: `${process.env.BACKEND_URL}/api/connect/github/callback`,
         }),
       });
-      
+
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
@@ -87,7 +96,7 @@ export async function connectRoutes(app: FastifyInstance) {
 
       // Encrypt and store the token
       const encryptedToken = app.encryption.encrypt(tokenData.access_token);
-      
+
       await app.prisma.oAuthToken.upsert({
         where: {
           userId_platform: {
@@ -110,16 +119,17 @@ export async function connectRoutes(app: FastifyInstance) {
       // Redirect back to app settings
       // If mobile, use custom scheme
       if (decodedState.nonce.startsWith('mobile_')) {
-         return reply.redirect(`${process.env.MOBILE_REDIRECT_URI}?connected=github`);
+        return reply.redirect(`${process.env.MOBILE_REDIRECT_URI}?connected=github`);
       }
-      
+
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=github`);
-      
+
     } catch (err) {
       app.log.error('GitHub connect error:', err);
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
     }
   });
+
 
   // ─── Disconnect ───
 
@@ -143,6 +153,20 @@ export async function connectRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Connection not found' });
     }
   });
+}
+
+function parseGoogleState(state: string): ParsedOAuthState | null {
+  try {
+    const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+
+    // validating the OAuth state structure which is expected
+    if (typeof decoded.userId !== "string" || typeof decoded.nonce !== "string") {
+      return null;
+    }
+    return decoded;
+  } catch {
+    return null;
+  }
 }
 
 function generateState(): string {

@@ -6,6 +6,9 @@
     <a href="https://github.com/Dev-Card/DevCard">
       <img src="https://img.shields.io/badge/GitHub-Dev--Card%2FDevCard-blue?logo=github&style=flat-square" alt="GitHub Repo" />
     </a>
+    <a href="https://discord.gg/QueQN83wn">
+      <img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white&style=flat-square" alt="Discord Server" />
+    </a>
   </p>
 </p>
 
