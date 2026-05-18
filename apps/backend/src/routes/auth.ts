@@ -1,5 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { randomBytes } from 'crypto';
+import { encrypt } from '../utils/encryption.js';
+
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
@@ -103,7 +105,7 @@ export async function authRoutes(app: FastifyInstance) {
       });
 
       // Save the authentication token for 'user:email read:user' so we have a basic platform connection
-      const encryptedToken = (app as any).encryption ? (app as any).encryption.encrypt(tokenData.access_token) : tokenData.access_token;
+      const encryptedToken = encrypt(tokenData.access_token);
       
       await app.prisma.oAuthToken.upsert({
         where: { userId_platform: { userId: user.id, platform: 'github' } },
