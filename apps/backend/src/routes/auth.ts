@@ -20,6 +20,15 @@ export async function authRoutes(app: FastifyInstance) {
     const clientState = (request.query as any).state || '';
     const state = clientState ? `${clientState}_${generateState()}` : generateState();
 
+    // Store state in a short-lived cookie so the callback can verify it
+    reply.setCookie('oauth_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 10 * 60,
+    });
+
     const params = new URLSearchParams({
       client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
       redirect_uri: redirectUri,
@@ -27,13 +36,20 @@ export async function authRoutes(app: FastifyInstance) {
       state,
     });
     const authUrl = `${GITHUB_AUTH_URL}?${params}`;
-    console.log('--- GITHUB OAUTH REDIRECT ---');
-    console.log('URL:', authUrl);
     return reply.redirect(authUrl);
   });
 
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
-    const { code } = request.query;
+    const { code, state } = request.query;
+
+    // Validate state to prevent CSRF attacks
+    const storedState = (request.cookies as any).oauth_state;
+    reply.clearCookie('oauth_state', { path: '/' });
+
+    if (!storedState || !state || state !== storedState) {
+      return reply.status(400).send({ error: 'Invalid OAuth state parameter.' });
+    }
+
     if (!code) {
       return reply.status(400).send({ error: 'Missing authorization code' });
     }
@@ -146,6 +162,15 @@ export async function authRoutes(app: FastifyInstance) {
     const clientState = (request.query as any).state || '';
     const state = clientState ? `${clientState}_${generateState()}` : generateState();
 
+    // Store state in a short-lived cookie so the callback can verify it
+    reply.setCookie('oauth_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 10 * 60,
+    });
+
     const params = new URLSearchParams({
       client_id: (process.env.GOOGLE_CLIENT_ID || '').trim(),
       redirect_uri: redirectUri,
@@ -155,13 +180,20 @@ export async function authRoutes(app: FastifyInstance) {
       access_type: 'offline',
     });
     const authUrl = `${GOOGLE_AUTH_URL}?${params}`;
-    console.log('--- GOOGLE OAUTH REDIRECT ---');
-    console.log('URL:', authUrl);
     return reply.redirect(authUrl);
   });
 
   app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
-    const { code } = request.query;
+    const { code, state } = request.query;
+
+    // Validate state to prevent CSRF attacks
+    const storedState = (request.cookies as any).oauth_state;
+    reply.clearCookie('oauth_state', { path: '/' });
+
+    if (!storedState || !state || state !== storedState) {
+      return reply.status(400).send({ error: 'Invalid OAuth state parameter.' });
+    }
+
     if (!code) {
       return reply.status(400).send({ error: 'Missing authorization code' });
     }
