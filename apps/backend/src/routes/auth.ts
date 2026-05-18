@@ -117,10 +117,10 @@ export async function authRoutes(app: FastifyInstance) {
         { expiresIn: '30d' }
       );
 
-      // For mobile app: redirect with token as query param
+      // For mobile app: redirect with token as URL fragment (not sent to servers, keeps token out of logs)
       const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
       if (request.query.state?.startsWith('mobile_')) {
-        return reply.redirect(`${mobileRedirect}?token=${token}`);
+        return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
       // For web: set cookie and redirect
@@ -222,7 +222,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       if (request.query.state?.startsWith('mobile_')) {
         const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
-        return reply.redirect(`${mobileRedirect}?token=${token}`);
+        return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
       reply.setCookie('token', token, {
