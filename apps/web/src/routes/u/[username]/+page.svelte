@@ -15,9 +15,46 @@
   };
 
   let mounted = $state(false);
+  let copyMessage = $state('');
+  let copyStatus = $state<'success' | 'error'>('success');
+  let copyMessageTimeout: ReturnType<typeof setTimeout> | undefined;
+
   onMount(() => {
     mounted = true;
+
+    return () => {
+      if (copyMessageTimeout) {
+        clearTimeout(copyMessageTimeout);
+      }
+    };
   });
+
+  function showCopyMessage(message: string, status: 'success' | 'error') {
+    copyMessage = message;
+    copyStatus = status;
+
+    if (copyMessageTimeout) {
+      clearTimeout(copyMessageTimeout);
+    }
+
+    copyMessageTimeout = setTimeout(() => {
+      copyMessage = '';
+    }, 3000);
+  }
+
+  async function copyProfileUrl() {
+    if (!navigator.clipboard?.writeText) {
+      showCopyMessage('Clipboard API unavailable. Copy the URL from your address bar.', 'error');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showCopyMessage('Profile link copied.', 'success');
+    } catch {
+      showCopyMessage('Could not copy link. Copy the URL from your address bar.', 'error');
+    }
+  }
 </script>
 
 <svelte:head>
@@ -96,7 +133,15 @@
 
     <div class="get-your-own">
       <p>Want a card like this?</p>
-      <a href="/" class="gradient-text">Create your DevCard ⚡</a>
+      <div class="profile-actions">
+        <a href="/" class="gradient-text get-devcard-link">Create your DevCard ⚡</a>
+        <button type="button" class="copy-link-button" onclick={copyProfileUrl}>
+          Copy Link
+        </button>
+      </div>
+      <p class="copy-message {copyStatus}" aria-live="polite">
+        {copyMessage}
+      </p>
     </div>
   {/if}
 </main>
@@ -301,9 +346,54 @@
     margin-bottom: 0.5rem;
   }
 
-  .get-your-own a {
+  .profile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  .get-devcard-link {
     font-weight: 700;
     font-size: 1.1rem;
+  }
+
+  .copy-link-button {
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    padding: 0.65rem 1rem;
+    transition: all 0.2s ease;
+  }
+
+  .copy-link-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+  }
+
+  .copy-link-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  .copy-message {
+    min-height: 1.2rem;
+    margin-top: 0.75rem;
+    margin-bottom: 0;
+    font-size: 0.85rem;
+  }
+
+  .copy-message.success {
+    color: var(--text-secondary);
+  }
+
+  .copy-message.error {
+    color: #ef4444;
   }
 
   .error-glass {
