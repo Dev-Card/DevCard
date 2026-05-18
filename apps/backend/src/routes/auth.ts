@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
@@ -287,5 +288,5 @@ export async function authRoutes(app: FastifyInstance) {
 }
 
 function generateState(): string {
-  return Math.random().toString(36).substring(2, 15);
+  return crypto.randomBytes(32).toString('hex');
 }
