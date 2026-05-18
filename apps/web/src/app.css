@@ -9,7 +9,9 @@
   --accent: #8b5cf6;
 
   /* Background */
-  --bg-primary: #f8fafc;
+  
+  --bg-primary: #f9fafb; /* new */
+
   --bg-secondary: #f1f5f9;
   --bg-card: #ffffff;
   --bg-elevated: #e2e8f0;
@@ -20,7 +22,7 @@
   --text-muted: #94a3b8;
 
   /* Border */
-  --border: #e2e8f0;
+  --border: #e5e7eb; /* new (cleaned duplicate) */
 
   /* Spacing */
   --radius: 12px;
@@ -50,6 +52,8 @@ html.dark {
   box-sizing: border-box;
 }
 
+
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--bg-primary);
@@ -67,4 +71,65 @@ a {
 
 a:hover {
   color: var(--primary-dark);
+}
+
+
+.hero {
+  margin-top: 40px;
+}
+
+
+.hero p {
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+
+/* : merged clean button */
+button {
+  background: var(--primary);
+  color: white;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  border: none;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  transition: all 0.25s ease;
+}
+
+
+button:hover {
+  transform: scale(1.03);
+}
+
+/* (dark mode fix) */
+html.dark button {
+  background: white;
+  color: black;
+}
+
+
+/* : proper grid */
+.grid {
+  display: grid;
+  gap: 24px;
+}
+
+
+.card {
+  background: var(--bg-card);
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
+}
+
+/*  */
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
 }
