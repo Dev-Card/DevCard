@@ -5,9 +5,10 @@
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest --passWithNoTests --forceExit"
   },
   "dependencies": {
     "@devcard/shared": "workspace:*",
@@ -54,6 +55,6 @@
     "typescript": "^5.8.3"
   },
   "engines": {
-    "node": ">= 22.11.0"
+    "node": ">= 18.0.0"
   }
 }

@@ -3,6 +3,9 @@
   <p align="center"><strong>One Tap. Every Profile. Every Platform.</strong></p>
   <p align="center">Open Source Developer Profile Exchange Platform</p>
   <p align="center">
+    <a href="https://github.com/Dev-Card/DevCard/actions/workflows/ci.yml">
+      <img src="https://github.com/Dev-Card/DevCard/actions/workflows/ci.yml/badge.svg" alt="CI" />
+    </a>
     <a href="https://github.com/Dev-Card/DevCard">
       <img src="https://img.shields.io/badge/GitHub-Dev--Card%2FDevCard-blue?logo=github&style=flat-square" alt="GitHub Repo" />
     </a>
@@ -52,7 +55,7 @@ Each exchange is manual, error-prone, and slow. DevCard fixes this.
 
 ### Prerequisites
 
-- Node.js >= 20
+- Node.js >= 18
 - pnpm >= 9
 - Docker & Docker Compose
 - React Native development environment ([setup guide](https://reactnative.dev/docs/environment-setup))
@@ -248,7 +251,6 @@ The following error cases are implemented:
 | Scenario | Status | Response |
 |----------|--------|----------|
 | **Create/Update Card** | 400 | `{ error: 'Validation failed', details: parsed.error.flatten() }` — when title or linkIds don't meet constraints |
-| **Create/Update Card** | 409 | `{ error: 'Username already taken'}` — when a user with the same username exists |
 | **Update Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
 | **Delete Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
 | **Set Default Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |

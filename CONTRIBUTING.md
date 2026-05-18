@@ -12,7 +12,7 @@
 
 ### Prerequisites
 
-- **Node.js** >= 20
+- **Node.js** >= 18
 - **pnpm** >= 9
 - **Docker** & Docker Compose
 - **React Native** dev environment — follow the [official setup guide](https://reactnative.dev/docs/environment-setup)
@@ -65,11 +65,13 @@ The mobile app uses Jest:
 pnpm --filter @devcard/mobile test
 ```
 #### apps/web
-Currently, the web app does not define a test script.
+The web app has a no-op test script (no tests yet).
 
 #### packages/shared
-The shared package does not include test scripts. It only provides linting and type checking.
-
+The shared package uses Vitest:
+```bash
+pnpm --filter @devcard/shared test
+```
 
 ## Project Structure
 
@@ -80,6 +82,41 @@ devcard/
 ├── apps/web/         # SvelteKit web backup
 └── packages/shared/  # Shared types, utils, platform registry
 ```
+
+## CI / Pipeline
+
+Every push to `main` and every pull request triggers the CI pipeline defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+The pipeline runs on Node.js 18 and 20 and executes these checks across all workspace packages:
+
+| Step | Command |
+|------|---------|
+| Install | `pnpm install --frozen-lockfile` |
+| Type check | `pnpm -r --if-present run typecheck` |
+| Lint | `pnpm -r --if-present run lint` |
+| Test | `pnpm -r --if-present run test` |
+| Upload coverage | Artifacts uploaded from `**/coverage/` |
+
+Before opening a PR, make sure these all pass locally:
+
+```bash
+pnpm -r --if-present run typecheck
+pnpm -r --if-present run lint
+pnpm -r --if-present run test
+```
+
+### PR Title Requirement
+
+PR titles are validated against the [Conventional Commits](https://www.conventionalcommits.org/) spec by [`.github/workflows/pr-title.yml`](.github/workflows/pr-title.yml).
+
+Your PR title **must** start with one of these prefixes:
+
+`feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `perf:`, `test:`, `build:`, `ci:`, `chore:`, `revert:`
+
+Examples of valid PR titles:
+- `feat: add QR code sharing screen`
+- `fix: correct card deletion 404 response`
+- `chore: update dependencies`
 
 ## Coding Standards
 
@@ -92,10 +129,9 @@ devcard/
 
 1. Create a feature branch from `main`: `git checkout -b feat/your-feature`
 2. Make your changes with clear, descriptive commits
-3. Ensure all tests pass: `pnpm test`
-4. Ensure linting passes: `pnpm lint`
-5. Open a PR against `main` with a clear description of the change
-6. Wait for review — maintainers will respond within 48 hours
+3. Ensure all checks pass locally (see [CI / Pipeline](#ci--pipeline) above)
+4. Open a PR against `main` — the title must follow Conventional Commits format
+5. Wait for review — maintainers will respond within 48 hours
 
 ## Reporting Issues
 
