@@ -4,7 +4,7 @@ import { decrypt } from '../utils/encryption.js';
 export async function followRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.authenticate);
 
-  // ─── Follow via API (Layer 1) ───
+  // Follow via API (Layer 1)
   // Currently supports: GitHub
 
   app.post('/:platform/:targetUsername', async (
@@ -32,10 +32,11 @@ export async function followRoutes(app: FastifyInstance) {
     const accessToken = decrypt(oauthToken.accessToken);
 
     try {
-      let result;
+      let followSucceeded = false;
+
       switch (platform) {
         case 'github':
-          result = await followGitHub(accessToken, targetUsername, reply);
+          followSucceeded = await followGitHub(accessToken, targetUsername, reply);
           break;
         default:
           return reply.status(400).send({
@@ -43,8 +44,8 @@ export async function followRoutes(app: FastifyInstance) {
           });
       }
 
-      // If follow succeeded (or was handled by the function without throwing), log it
-      if (reply.statusCode === 200 || reply.statusCode === 204) {
+      // Log only when the platform confirmed the follow succeeded
+      if (followSucceeded) {
         app.prisma.followLog.create({
           data: {
             followerId: userId,
@@ -55,11 +56,9 @@ export async function followRoutes(app: FastifyInstance) {
           },
         }).catch(err => app.log.error('Failed to log follow:', err));
       }
-
-      return result;
     } catch (err: any) {
       app.log.error(`Follow error for ${platform}:`, err);
-      
+
       app.prisma.followLog.create({
         data: {
           followerId: userId,
@@ -75,13 +74,14 @@ export async function followRoutes(app: FastifyInstance) {
   });
 }
 
-// ─── GitHub Follow (Layer 1) ───
+// GitHub Follow (Layer 1)
+// Returns true when GitHub confirms the follow (204), false otherwise.
 
 async function followGitHub(
   accessToken: string,
   targetUsername: string,
   reply: FastifyReply
-) {
+): Promise<boolean> {
   const response = await fetch(`https://api.github.com/user/following/${targetUsername}`, {
     method: 'PUT',
     headers: {
@@ -92,30 +92,34 @@ async function followGitHub(
   });
 
   if (response.status === 204) {
-    return reply.send({
+    reply.send({
       status: 'success',
       platform: 'github',
       targetUsername,
       message: `Now following ${targetUsername} on GitHub`,
     });
+    return true;
   }
 
   if (response.status === 401 || response.status === 403) {
-    return reply.status(401).send({
+    reply.status(401).send({
       error: 'GitHub token expired or insufficient permissions',
       requiresAuth: true,
     });
+    return false;
   }
 
   if (response.status === 404) {
-    return reply.status(404).send({
+    reply.status(404).send({
       error: `GitHub user '${targetUsername}' not found`,
     });
+    return false;
   }
 
   const errorBody = await response.text();
-  return reply.status(response.status).send({
+  reply.status(response.status).send({
     error: 'GitHub follow failed',
     details: errorBody,
   });
+  return false;
 }
