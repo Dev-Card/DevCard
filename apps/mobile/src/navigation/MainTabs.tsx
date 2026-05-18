@@ -14,6 +14,7 @@ import WebViewScreen from '../screens/WebViewScreen';
 
 import ConnectPlatformsScreen from '../screens/ConnectPlatformsScreen';
 import ViewsScreen from '../screens/ViewsScreen';
+import GitHubInsightsScreen from '../screens/GitHubInsightsScreen';
 
 // ─── Types ───
 
@@ -31,6 +32,7 @@ export type RootStackParamList = {
   WebViewConnect: { platform: string; profileUrl: string; displayName: string };
   ConnectPlatforms: undefined;
   Views: undefined;
+  GitHubInsights: undefined;
 };
 
 // ─── Tab Bar Icon ───
@@ -116,6 +118,11 @@ export default function MainTabs() {
         name="Views"
         component={ViewsScreen}
         options={{ title: 'Card Views Analytics', headerShown: true, headerStyle: { backgroundColor: COLORS.bgPrimary }, headerTintColor: COLORS.textPrimary }}
+      />
+      <Stack.Screen
+        name="GitHubInsights"
+        component={GitHubInsightsScreen}
+        options={{ title: 'GitHub Insights', headerShown: true, headerStyle: { backgroundColor: COLORS.bgPrimary }, headerTintColor: COLORS.textPrimary }}
       />
     </Stack.Navigator>
   );

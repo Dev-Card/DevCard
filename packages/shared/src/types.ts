@@ -158,3 +158,51 @@ export interface OAuthTokenInfo {
   connected: boolean;
   scopes: string;
 }
+
+// ─── GitHub Insights Types ───
+
+export interface GitHubRepo {
+  name: string;
+  description: string | null;
+  url: string;
+  stars: number;
+  forks: number;
+  language: string | null;
+  isForked: boolean;
+  updatedAt: string;
+}
+
+export interface GitHubLanguageStat {
+  language: string;
+  /** Percentage of total bytes across all repos (0–100) */
+  percentage: number;
+  /** Raw byte count */
+  bytes: number;
+}
+
+export interface GitHubInsights {
+  /** GitHub username */
+  username: string;
+  /** Total public repositories */
+  totalRepos: number;
+  /** Total stars received across all repos */
+  totalStars: number;
+  /** Total forks received across all repos */
+  totalForks: number;
+  /** Total followers */
+  followers: number;
+  /** Total following */
+  following: number;
+  /** Top 5 repos by star count */
+  topRepos: GitHubRepo[];
+  /** Language breakdown sorted by usage */
+  languageStats: GitHubLanguageStat[];
+  /** Primary (most-used) language */
+  primaryLanguage: string | null;
+  /** Account creation date */
+  accountCreatedAt: string;
+  /** ISO timestamp of when this data was fetched/cached */
+  fetchedAt: string;
+  /** AI-generated developer summary (null if AI key not configured) */
+  aiSummary: string | null;
+}

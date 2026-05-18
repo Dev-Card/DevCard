@@ -196,6 +196,14 @@ export default function HomeScreen({ navigation }: Props) {
 
           <TouchableOpacity
             style={styles.actionButton}
+            onPress={() => (navigation as any).navigate('GitHubInsights')}
+            activeOpacity={0.85}>
+            <Text style={styles.actionEmoji}>🐙</Text>
+            <Text style={styles.actionText}>GitHub</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => (navigation as any).navigate('DevCardView', { username: user?.username || '' })}
             activeOpacity={0.85}>
             <Text style={styles.actionEmoji}>👁️</Text>

@@ -29,6 +29,7 @@ model User {
   ownedViews    CardView[]     @relation("cardOwner")
   viewedCards   CardView[]     @relation("cardViewer")
   followLogs    FollowLog[]
+  githubInsightsCache GitHubInsightsCache?
 
   @@unique([provider, providerId])
   @@map("users")
@@ -123,4 +124,17 @@ model FollowLog {
   follower User @relation(fields: [followerId], references: [id], onDelete: Cascade)
 
   @@map("follow_logs")
+}
+
+model GitHubInsightsCache {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  payload   Json                              // serialized GitHubInsights
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("github_insights_cache")
 }
