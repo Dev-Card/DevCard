@@ -43,42 +43,39 @@ export async function authRoutes(app: FastifyInstance) {
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
-  // Store state in a short-lived signed cookie before redirecting
-  reply.setCookie('oauth_state', state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 600, // 10 minutes — plenty for a login round-trip
+    // Store state in a short-lived cookie so the callback can verify it
+    reply.setCookie('oauth_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 10 * 60,
+    });
+
+    const params = new URLSearchParams({
+      client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
+      redirect_uri: redirectUri,
+      scope: 'read:user user:email',
+      state,
+    });
+    const authUrl = `${GITHUB_AUTH_URL}?${params}`;
+    return reply.redirect(authUrl);
   });
 
-  const params = new URLSearchParams({
-    client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
-    redirect_uri: redirectUri,
-    scope: 'read:user user:email',
-    state,
-  });
-  const authUrl = `${GITHUB_AUTH_URL}?${params}`;
-  console.log('--- GITHUB OAUTH REDIRECT ---');
-  console.log('URL:', authUrl);
-  return reply.redirect(authUrl);
-});
+  app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+    const { code, state } = request.query;
 
-app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
-  const { code, state } = request.query;
+    // Validate state to prevent CSRF attacks
+    const storedState = (request.cookies as any).oauth_state;
+    reply.clearCookie('oauth_state', { path: '/' });
 
-  // ── CSRF check ──────────────────────────────────────────────────────────────
-  const storedState = (request.cookies as any)?.oauth_state;
-  if (!state || !storedState || state !== storedState) {
-    return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
-  }
-  // Clear the state cookie immediately — prevents replay
-  reply.clearCookie('oauth_state', { path: '/' });
-  // ────────────────────────────────────────────────────────────────────────────
+    if (!storedState || !state || state !== storedState) {
+      return reply.status(400).send({ error: 'Invalid OAuth state parameter.' });
+    }
 
-  if (!code) {
-    return reply.status(400).send({ error: 'Missing authorization code' });
-  }
+    if (!code) {
+      return reply.status(400).send({ error: 'Missing authorization code' });
+    }
 
     try {
       // Exchange code for token
@@ -194,43 +191,41 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
-  // Store state in a short-lived signed cookie before redirecting
-  reply.setCookie('oauth_state', state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 600,
+    // Store state in a short-lived cookie so the callback can verify it
+    reply.setCookie('oauth_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 10 * 60,
+    });
+
+    const params = new URLSearchParams({
+      client_id: (process.env.GOOGLE_CLIENT_ID || '').trim(),
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid email profile',
+      state,
+      access_type: 'offline',
+    });
+    const authUrl = `${GOOGLE_AUTH_URL}?${params}`;
+    return reply.redirect(authUrl);
   });
 
-  const params = new URLSearchParams({
-    client_id: (process.env.GOOGLE_CLIENT_ID || '').trim(),
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    scope: 'openid email profile',
-    state,
-    access_type: 'offline',
-  });
-  const authUrl = `${GOOGLE_AUTH_URL}?${params}`;
-  console.log('--- GOOGLE OAUTH REDIRECT ---');
-  console.log('URL:', authUrl);
-  return reply.redirect(authUrl);
-});
+  app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+    const { code, state } = request.query;
 
- app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
-  const { code, state } = request.query;
+    // Validate state to prevent CSRF attacks
+    const storedState = (request.cookies as any).oauth_state;
+    reply.clearCookie('oauth_state', { path: '/' });
 
-  // ── CSRF check ──────────────────────────────────────────────────────────────
-  const storedState = (request.cookies as any)?.oauth_state;
-  if (!state || !storedState || state !== storedState) {
-    return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
-  }
-  reply.clearCookie('oauth_state', { path: '/' });
-  // ────────────────────────────────────────────────────────────────────────────
+    if (!storedState || !state || state !== storedState) {
+      return reply.status(400).send({ error: 'Invalid OAuth state parameter.' });
+    }
 
-  if (!code) {
-    return reply.status(400).send({ error: 'Missing authorization code' });
-  }
+    if (!code) {
+      return reply.status(400).send({ error: 'Missing authorization code' });
+    }
 
     try {
       const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
