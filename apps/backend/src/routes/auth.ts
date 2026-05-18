@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-
+import { randomBytes } from 'crypto';
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
@@ -287,5 +287,5 @@ export async function authRoutes(app: FastifyInstance) {
 }
 
 function generateState(): string {
-  return Math.random().toString(36).substring(2, 15);
+  return randomBytes(32).toString('hex');
 }
