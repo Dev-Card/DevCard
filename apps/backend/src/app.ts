@@ -31,6 +31,10 @@ export async function buildApp() {
     },
   });
 
+  app.addHook('onRequest', async (request) => {
+    app.log.info({ method: request.method, path: request.url }, 'incoming request');
+  });
+
   // ─── Core Plugins ───
   await app.register(cors, {
     origin: process.env.PUBLIC_APP_URL || 'http://localhost:5173',
