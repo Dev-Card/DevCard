@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  username    String   @unique
+  displayName String   @map("display_name")
+  bio         String?
+  pronouns    String?
+  role        String?
+  company     String?
+  avatarUrl   String?  @map("avatar_url")
+  accentColor String   @default("#6366f1") @map("accent_color")
+  provider    String
+  providerId  String   @map("provider_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  platformLinks PlatformLink[]
+  cards         Card[]
+  oauthTokens   OAuthToken[]
+  ownedViews    CardView[]     @relation("cardOwner")
+  viewedCards   CardView[]     @relation("cardViewer")
+  followLogs    FollowLog[]
+  organizer     Event[]    
+  attendedEvents           EventAttendee[] 
+
+
+  @@unique([provider, providerId])
+  @@map("users")
+}
+
+model PlatformLink {
+  id           String     @id @default(uuid())
+  userId       String     @map("user_id")
+  platform     String
+  username     String
+  url          String
+  displayOrder Int        @default(0) @map("display_order")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardLinks CardLink[]
+
+  @@map("platform_links")
+}
+
+model Card {
+  id        String     @id @default(uuid())
+  userId    String     @map("user_id")
+  title     String
+  isDefault Boolean    @default(false) @map("is_default")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardLinks CardLink[]
+  views     CardView[]
+
+  @@map("cards")
+}
+
+model CardLink {
+  id             String @id @default(uuid())
+  cardId         String @map("card_id")
+  platformLinkId String @map("platform_link_id")
+  displayOrder   Int    @default(0) @map("display_order")
+
+  card         Card         @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  platformLink PlatformLink @relation(fields: [platformLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, platformLinkId])
+  @@map("card_links")
+}
+
+model OAuthToken {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  platform     String
+  accessToken  String    @map("access_token")
+  refreshToken String?   @map("refresh_token")
+  scopes       String
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@map("oauth_tokens")
+}
+
+model CardView {
+  id          String   @id @default(uuid())
+  cardId      String?  @map("card_id")       // null = default profile view
+  ownerId     String   @map("owner_id")      // card/profile owner
+  viewerId    String?  @map("viewer_id")     // null = anonymous web viewer
+  viewerIp    String?  @map("viewer_ip")
+  viewerAgent String?  @map("viewer_agent")
+  source      String   @default("qr")        // "qr" | "link" | "web" | "app"
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  card    Card? @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  owner   User  @relation("cardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  viewer  User? @relation("cardViewer", fields: [viewerId], references: [id], onDelete: SetNull)
+
+  @@map("card_views")
+}
+
+model FollowLog {
+  id             String   @id @default(uuid())
+  followerId     String   @map("follower_id")
+  targetUsername String   @map("target_username")
+  platform       String
+  status         String   @default("success")    // "success" | "error"
+  layer          String                          // "api" | "webview" | "link"
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  follower User @relation(fields: [followerId], references: [id], onDelete: Cascade)
+
+  @@map("follow_logs")
+}
+
+model Event {
+  id      String @id @default(uuid())
+  name    String
+  slug    String @unique
+  location String
+  description String?
+  organizerId String 
+  startDate DateTime 
+  endDate DateTime
+  isPublic Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  attendees EventAttendee[]
+
+  organizer User @relation(fields: [organizerId], references: [id])
+}
+
+model EventAttendee {
+  id    String @id @default(uuid())
+  userId String  
+  eventId String   
+  joinedAt DateTime 
+
+  event Event @relation(fields: [eventId] , references: [id])
+  user User @relation(fields: [userId],references: [id])
+
+  @@unique([userId, eventId])
+}

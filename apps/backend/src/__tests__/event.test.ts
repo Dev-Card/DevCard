@@ -3,6 +3,7 @@ import Fastify, { FastifyInstance } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import { eventRoutes } from '../routes/event';
 
+// ─── Shared mock data ────────────────────────────────────────────────────────
 
 const MOCK_USER_ID = 'user-uuid-001';
 const MOCK_OTHER_USER_ID = 'user-uuid-002';
@@ -12,6 +13,7 @@ const MOCK_EVENT = {
   name: 'DevCard Conf 2025',
   slug: 'devcard-conf-2025',
   description: 'Annual DevCard conference',
+  location: 'San Francisco, CA',
   organizerId: MOCK_USER_ID,
   startDate: new Date('2025-09-01T09:00:00Z'),
   endDate: new Date('2025-09-02T18:00:00Z'),
@@ -124,6 +126,7 @@ describe('Events API', () => {
     const validBody = {
       name: 'DevCard Conf 2025',
       description: 'Annual DevCard conference',
+      location: 'San Francisco, CA',
       startDate: '2025-09-01T09:00:00Z',
       endDate: '2025-09-02T18:00:00Z',
       isPublic: true,
@@ -139,12 +142,14 @@ describe('Events API', () => {
       const body = res.json();
       expect(body.slug).toBe('devcard-conf-2025');
       expect(body.organizerId).toBe(MOCK_USER_ID);
+      expect(body.location).toBe('San Francisco, CA');
 
       // Prisma was called with correct fields
       expect(prismaMock.event.create).toHaveBeenCalledOnce();
       const callArg = prismaMock.event.create.mock.calls[0][0].data;
       expect(callArg.name).toBe('DevCard Conf 2025');
       expect(callArg.organizerId).toBe(MOCK_USER_ID);
+      expect(callArg.location).toBe('San Francisco, CA');
     });
 
     it('401 — rejects unauthenticated request', async () => {
@@ -156,8 +161,24 @@ describe('Events API', () => {
       expect(res.json()).toMatchObject({ error: 'Unauthorized' });
     });
 
-    it('400 — rejects missing required fields', async () => {
-      const res = await createEvent(app, { name: 'Hi' }); // missing dates
+    it('400 — rejects missing required fields (no dates, no location)', async () => {
+      const res = await createEvent(app, { name: 'Hello World' }); // missing dates + location
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('400 — rejects missing location', async () => {
+      const { location: _omit, ...bodyWithoutLocation } = validBody;
+      const res = await createEvent(app, bodyWithoutLocation);
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('400 — rejects location shorter than 2 characters', async () => {
+      const res = await createEvent(app, { ...validBody, location: 'A' });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('400 — rejects location longer than 100 characters', async () => {
+      const res = await createEvent(app, { ...validBody, location: 'A'.repeat(101) });
       expect(res.statusCode).toBe(400);
     });
 
@@ -240,6 +261,7 @@ describe('Events API', () => {
       const body = res.json();
       expect(body.slug).toBe('devcard-conf-2025');
       expect(body.attendeesCount).toBe(42);
+      expect(body.location).toBe('San Francisco, CA');
       // organizerId is exposed (public info)
       expect(body.organizerId).toBe(MOCK_USER_ID);
     });
@@ -624,6 +646,7 @@ describe('Events API', () => {
 
   describe('Slug generation', () => {
     const baseBody = {
+      location: 'San Francisco, CA',
       startDate: '2025-09-01T09:00:00Z',
       endDate: '2025-09-02T18:00:00Z',
     };

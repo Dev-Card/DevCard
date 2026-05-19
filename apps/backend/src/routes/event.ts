@@ -5,6 +5,7 @@ type EventDetails = {
     id: string; 
     name: string; 
     slug: string; 
+    location: string; 
     description: string | null; 
     organizerId: string; 
     startDate: Date; 
@@ -40,6 +41,7 @@ export async function eventRoutes(app:FastifyInstance) {
             name: string,
             description?: string, 
             startDate: string, 
+            location: string,
             endDate: string, 
             isPublic?: boolean
     }}>, reply: FastifyReply) => {
@@ -55,7 +57,7 @@ export async function eventRoutes(app:FastifyInstance) {
             return reply.status(400).send({error: 'Bad request'})
         }
         
-        const {name, description, startDate, endDate, isPublic} = parsed.data
+        const {name, description, startDate, endDate, isPublic ,location} = parsed.data
 
         let cleanSlug = name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]+/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '')
         let finalSlug = cleanSlug; 
@@ -79,6 +81,7 @@ export async function eventRoutes(app:FastifyInstance) {
                     name, 
                     description, 
                     slug: finalSlug, 
+                    location: location,
                     startDate: startDateObj, 
                     endDate: endDateObj, 
                     isPublic: isPublic ?? true, 
@@ -118,6 +121,7 @@ export async function eventRoutes(app:FastifyInstance) {
             name: details.name, 
             slug: details.slug, 
             description: details.description,
+            location: details.location,
             organizerId: details.organizerId, 
             startDate: details.startDate,
             endDate: details.endDate, 
@@ -208,14 +212,6 @@ export async function eventRoutes(app:FastifyInstance) {
     })
 
     app.get('/api/events/:slug/attendees', async(request: FastifyRequest<{Params: {slug: string}, Querystring: {page?:string; limit?: string}}>, reply: FastifyReply) => {
-        // let decoded; 
-        // try {
-        //     decoded = await request.jwtVerify() as any; 
-        // } catch (error) {
-        //     return reply.status(401).send({error: 'Unauthorized'});
-        // }
-        // const userId = decoded.id; 
-
         const paramsSlug = request.params.slug; 
         const page = Math.max(1, Number(request.query.page) || 1); 
         const limit = Math.min(50, Number(request.query.limit) || 10); 
