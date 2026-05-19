@@ -104,3 +104,39 @@ a {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px var(--primary-glow);
 }
+
+/* ---------- Custom themed scrollbar (issue #151) ---------- */
+
+/* Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) var(--bg-secondary);
+}
+
+/* WebKit (Chromium, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border-radius: 999px;
+  border: 2px solid var(--bg-secondary);
+  background-clip: padding-box;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--accent), var(--primary));
+  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--bg-secondary);
+}
