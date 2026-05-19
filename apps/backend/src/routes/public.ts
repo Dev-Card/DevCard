@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+import { dispatchWebhook } from '../utils/webhookDispatch.js';
 
 type PublicProfileLink = {
   id: string;
@@ -108,6 +109,15 @@ export async function publicRoutes(app: FastifyInstance) {
           source: (request.query as any)?.source || 'link',
         },
       }).catch(err => app.log.error('Failed to log view:', err));
+
+      // Dispatch webhook for card/profile view
+      dispatchWebhook(app.prisma, user.id, 'card.viewed', {
+        event: 'card.viewed',
+        cardId: null,
+        viewerId,
+        source: (request.query as any)?.source || 'link',
+        timestamp: new Date().toISOString(),
+      }).catch(err => app.log.error('Webhook dispatch failed:', err));
     }
 
     const response: UsernamePublicProfileResponse = {
@@ -231,6 +241,15 @@ export async function publicRoutes(app: FastifyInstance) {
           source: (request.query as any)?.source || 'qr',
         },
       }).catch(err => app.log.error('Failed to log card view:', err));
+
+      // Dispatch webhook for card view
+      dispatchWebhook(app.prisma, user.id, 'card.viewed', {
+        event: 'card.viewed',
+        cardId: card.id,
+        viewerId,
+        source: (request.query as any)?.source || 'qr',
+        timestamp: new Date().toISOString(),
+      }).catch(err => app.log.error('Webhook dispatch failed:', err));
     }
 
 
@@ -292,4 +311,7 @@ export async function publicRoutes(app: FastifyInstance) {
       .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
       .send(png);
   });
+
+  // TODO: Hook dispatchWebhook(app.prisma, userId, 'contact.saved', { ... })
+  // into the contact save route once that feature is implemented.
 }

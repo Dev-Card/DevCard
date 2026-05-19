@@ -32,6 +32,7 @@ model User {
   organizer     Event[]    
   attendedEvents           EventAttendee[] 
 
+  webhookEndpoints WebhookEndpoint[]
 
   @@unique([provider, providerId])
   @@map("users")
