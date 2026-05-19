@@ -3,48 +3,49 @@
 :root {
   /* Primary Palette */
   --primary: #6366f1;
-  --primary-glow: rgba(99, 102, 241, 0.5);
+  --primary-glow: rgba(99, 102, 241, 0.4);
   --accent: #a855f7;
-  --accent-glow: rgba(168, 85, 247, 0.4);
-  
+  --accent-glow: rgba(168, 85, 247, 0.35);
+
   /* Backgrounds */
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
-  --bg-glass: rgba(255, 255, 255, 0.7);
+  --bg-page: #f5f8ff;
+  --bg-glass: rgba(255, 255, 255, 0.75);
   --bg-card: #ffffff;
-  
+
   /* Text */
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  
+  --text-muted: #64748b;
+
   /* Effects */
-  --border: rgba(226, 232, 240, 0.8);
-  --border-glass: rgba(255, 255, 255, 0.3);
+  --border: rgba(226, 232, 240, 0.9);
+  --border-glass: rgba(255, 255, 255, 0.35);
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  
-  --radius: 12px;
-  --radius-lg: 20px;
-  --radius-xl: 32px;
-  
-  --theme-transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-md: 0 6px 18px -8px rgb(0 0 0 / 0.12), 0 4px 14px -12px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 12px 24px -10px rgb(0 0 0 / 0.15), 0 6px 12px -14px rgb(0 0 0 / 0.08);
+
+  --radius: 14px;
+  --radius-lg: 26px;
+  --radius-xl: 34px;
+
+  --theme-transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 html.dark {
   --bg-primary: #020617;
   --bg-secondary: #0f172a;
-  --bg-glass: rgba(15, 23, 42, 0.6);
+  --bg-page: #050b18;
+  --bg-glass: rgba(15, 23, 42, 0.72);
   --bg-card: #0f172a;
-  
+
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-muted: #64748b;
-  
-  --border: rgba(30, 41, 59, 0.8);
-  --border-glass: rgba(255, 255, 255, 0.1);
+
+  --border: rgba(30, 41, 59, 0.85);
+  --border-glass: rgba(255, 255, 255, 0.12);
 }
 
 * {
@@ -55,7 +56,7 @@ html.dark {
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: var(--bg-primary);
+  background: radial-gradient(circle at top, rgba(99, 102, 241, 0.08), transparent 22%), var(--bg-page);
   color: var(--text-primary);
   transition: var(--theme-transition);
   -webkit-font-smoothing: antialiased;
@@ -66,7 +67,7 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
 a {
@@ -75,10 +76,20 @@ a {
   transition: var(--theme-transition);
 }
 
+button,
+.btn-primary,
+.btn-secondary {
+  transition: transform 0.24s ease, box-shadow 0.24s ease, background-color 0.24s ease, border-color 0.24s ease, color 0.24s ease;
+}
+
+button {
+  font: inherit;
+}
+
 .glass {
   background: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--border-glass);
 }
 
@@ -90,19 +101,50 @@ a {
 }
 
 .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: linear-gradient(135deg, var(--primary), var(--accent));
   color: white;
-  padding: 0.8rem 1.6rem;
-  border-radius: var(--radius);
-  font-weight: 600;
-  box-shadow: 0 4px 15px var(--primary-glow);
+  padding: 0.95rem 1.85rem;
+  border-radius: calc(var(--radius) * 1.2);
+  font-weight: 700;
+  box-shadow: 0 18px 35px -18px rgba(99, 102, 241, 0.9);
   border: none;
   cursor: pointer;
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--primary-glow);
+  box-shadow: 0 22px 40px -16px rgba(99, 102, 241, 0.9);
+}
+
+.btn-primary:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.35);
+  outline-offset: 3px;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.75rem;
+  border-radius: calc(var(--radius) * 1.2);
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.btn-secondary:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.18);
+  outline-offset: 3px;
 }
 
 /* ---------- Custom themed scrollbar (issue #151) ---------- */
