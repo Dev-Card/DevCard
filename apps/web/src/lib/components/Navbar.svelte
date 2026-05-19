@@ -4,7 +4,13 @@
   import { fly, fade } from 'svelte/transition';
   import { page } from '$app/state';
 
-  let theme = $state('light');
+  // Read theme synchronously from the class already applied by the
+  // blocking script in app.html — avoids a flash or state mismatch.
+  let theme = $state(
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+      ? 'dark'
+      : 'light'
+  );
   let isScrolled = $state(false);
   let isMobileMenuOpen = $state(false);
   let activeSection = $state('');
@@ -12,13 +18,19 @@
   const user = $derived(page.data.user);
 
   onMount(() => {
-    const saved = localStorage.getItem('devcard-theme');
-    if (saved) {
-      theme = saved;
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      theme = 'dark';
-    }
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    // Theme is already applied by the blocking script in app.html.
+    // We only need to wire up the system preference change listener here.
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+      // Only follow system changes if the user hasn't set a manual preference
+      if (!localStorage.getItem('devcard-theme')) {
+        theme = e.matches ? 'dark' : 'light';
+        document.documentElement.classList.toggle('dark', e.matches);
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
 
     const handleScroll = () => {
       isScrolled = window.scrollY > 20;
@@ -37,11 +49,12 @@
     document.querySelectorAll('section[id]').forEach(section => observer.observe(section));
 
     return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
       window.removeEventListener('scroll', handleScroll);
       observer.disconnect();
     };
   });
-
+  
   function toggleTheme() {
     theme = theme === 'light' ? 'dark' : 'light';
     document.documentElement.classList.toggle('dark', theme === 'dark');
