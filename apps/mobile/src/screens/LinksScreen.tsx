@@ -70,7 +70,7 @@ export default function LinksScreen() {
         setUsernameInput('');
         fetchLinks();
       }
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Failed to add link');
     }
   };
@@ -88,7 +88,7 @@ export default function LinksScreen() {
               headers: { Authorization: `Bearer ${token}` },
             });
             fetchLinks();
-          } catch (err) {
+          } catch {
             Alert.alert('Error', 'Failed to remove link');
           }
         },

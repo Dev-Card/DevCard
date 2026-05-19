@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,12 @@ import {
   Linking,
   Clipboard,
   StatusBar,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
 import { Skeleton } from '../components/Skeleton';
+import ProfileLink from '../components/ProfileLink';
 import { PLATFORMS, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -57,11 +57,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [followStates, setFollowStates] = useState<FollowState>({});
 
-  useEffect(() => {
-    fetchProfile();
-  }, [username]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/u/${username}`);
       if (res.ok) {
@@ -72,7 +68,11 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [username]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   // ─── Hybrid Follow Engine ───
 
@@ -186,7 +186,11 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
             <View style={styles.cardMid}>
               <Skeleton width={70} height={70} borderRadius={35} />
               <View style={styles.mainInfo}>
-                <Skeleton width="80%" height={24} style={{ marginBottom: 8 }} />
+                <Skeleton
+                  width="80%"
+                  height={24}
+                  style={styles.headerSkeletonLine}
+                />
                 <Skeleton width="60%" height={16} />
               </View>
             </View>
@@ -198,12 +202,20 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
 
           {/* Tiles Skeleton */}
           <View style={styles.tilesSection}>
-            <Skeleton width={120} height={14} style={{ marginBottom: 12 }} />
+            <Skeleton
+              width={120}
+              height={14}
+              style={styles.tilesSkeletonLabel}
+            />
             {[1, 2, 3].map(i => (
               <View key={i} style={styles.platformTile}>
                 <Skeleton width={40} height={40} borderRadius={10} />
-                <View style={[styles.tileInfo, { marginLeft: 16 }]}>
-                  <Skeleton width="50%" height={16} style={{ marginBottom: 6 }} />
+                <View style={styles.tileInfo}>
+                  <Skeleton
+                    width="50%"
+                    height={16}
+                    style={styles.tileSkeletonLine}
+                  />
                   <Skeleton width="30%" height={12} />
                 </View>
                 <Skeleton width={72} height={30} borderRadius={8} />
@@ -288,44 +300,16 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         <View style={styles.tilesSection}>
           <Text style={styles.tilesLabel}>Digital Touchpoints</Text>
           {profile.links.map(link => {
-            const platform = PLATFORMS[link.platform];
             const state = followStates[link.id] || 'idle';
             return (
-              <TouchableOpacity
+              <ProfileLink
                 key={link.id}
-                style={[
-                  styles.platformTile,
-                  state === 'success' && styles.tileDone,
-                ]}
+                platform={link.platform}
+                username={link.username}
+                status={state}
+                actionLabel={getButtonLabel(link)}
                 onPress={() => handlePlatformAction(link)}
-                activeOpacity={0.8}
-                disabled={state === 'loading'}>
-                <View style={[styles.tileIcon, { backgroundColor: platform?.color || COLORS.primary }]}>
-                  <Text style={styles.tileIconText}>
-                    {platform?.name.charAt(0) || '?'}
-                  </Text>
-                </View>
-                <View style={styles.tileInfo}>
-                  <Text style={styles.tilePlatform}>{platform?.name || link.platform}</Text>
-                  <Text style={styles.tileUsername}>{link.username}</Text>
-                </View>
-                <View style={[
-                  styles.tileAction,
-                  state === 'success' && styles.tileActionDone,
-                  state === 'loading' && styles.tileActionLoading,
-                ]}>
-                  {state === 'loading' ? (
-                    <ActivityIndicator size="small" color={COLORS.white} />
-                  ) : (
-                    <Text style={[
-                      styles.tileActionText,
-                      state === 'success' && styles.tileActionTextDone,
-                    ]}>
-                      {getButtonLabel(link)}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
+              />
             );
           })}
         </View>
@@ -466,6 +450,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   tilesSection: { gap: SPACING.sm },
+  headerSkeletonLine: { marginBottom: 8 },
+  tilesSkeletonLabel: { marginBottom: 12 },
+  tileSkeletonLine: { marginBottom: 6 },
   tilesLabel: {
     fontSize: FONT_SIZE.sm, color: COLORS.textMuted, fontWeight: '600',
     textTransform: 'uppercase', letterSpacing: 1, marginBottom: SPACING.xs,

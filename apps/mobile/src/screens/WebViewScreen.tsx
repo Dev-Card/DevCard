@@ -30,7 +30,7 @@ type Props = {
  * - Clean close button to dismiss
  */
 export default function WebViewScreen({ navigation, route }: Props) {
-  const { platform, profileUrl, displayName } = route.params;
+  const { profileUrl, displayName } = route.params;
   const webViewRef = useRef<WebView>(null);
 
   return (
@@ -69,7 +69,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
             <Text style={styles.loadingText}>Loading {displayName}...</Text>
           </View>
         )}
-        onNavigationStateChange={(navState) => {
+        onNavigationStateChange={() => {
           // If user navigates away from the profile page,
           // they likely completed the action
           // We could auto-close here in the future

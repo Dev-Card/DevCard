@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -42,11 +42,7 @@ export default function HomeScreen({ navigation }: Props) {
     ? `${APP_URL}/devcard/${user.defaultCardId}`
     : `${APP_URL}/u/${user?.username}`;
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [profileRes, analyticsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/profiles/me`, {
@@ -67,7 +63,11 @@ export default function HomeScreen({ navigation }: Props) {
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const onRefresh = async () => {
     setRefreshing(true);

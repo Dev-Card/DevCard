@@ -52,6 +52,24 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   );
 }
 
+const renderHomeIcon = ({ focused }: { focused: boolean }) => (
+  <TabIcon name="Home" focused={focused} />
+);
+const renderLinksIcon = ({ focused }: { focused: boolean }) => (
+  <TabIcon name="Links" focused={focused} />
+);
+const renderCardsIcon = ({ focused }: { focused: boolean }) => (
+  <TabIcon name="Cards" focused={focused} />
+);
+const renderSettingsIcon = ({ focused }: { focused: boolean }) => (
+  <TabIcon name="Settings" focused={focused} />
+);
+const renderScanIcon = () => (
+  <View style={styles.scanButton}>
+    <Text style={styles.scanEmoji}>📷</Text>
+  </View>
+);
+
 // ─── Tab Navigator ───
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
@@ -59,32 +77,41 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
 function TabNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarIcon: ({ focused }) => (
-          <TabIcon name={route.name} focused={focused} />
-        ),
-      })}>
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Links" component={LinksScreen} />
+      }}>
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ tabBarIcon: renderHomeIcon }}
+      />
+      <Tab.Screen
+        name="Links"
+        component={LinksScreen}
+        options={{ tabBarIcon: renderLinksIcon }}
+      />
       <Tab.Screen
         name="Scan"
         component={ScanScreen}
         options={{
           tabBarLabel: '',
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.scanButton}>
-              <Text style={styles.scanEmoji}>📷</Text>
-            </View>
-          ),
+          tabBarIcon: renderScanIcon,
         }}
       />
-      <Tab.Screen name="Cards" component={CardsScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen
+        name="Cards"
+        component={CardsScreen}
+        options={{ tabBarIcon: renderCardsIcon }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ tabBarIcon: renderSettingsIcon }}
+      />
     </Tab.Navigator>
   );
 }

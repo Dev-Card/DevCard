@@ -93,7 +93,7 @@ export default function CardsScreen() {
         setSelectedLinkIds([]);
         fetchData();
       }
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Failed to create card');
     }
   };
