@@ -28,7 +28,12 @@ export type MainTabsParamList = {
 export type RootStackParamList = {
   MainTabs: undefined;
   DevCardView: { username: string };
-  WebViewConnect: { platform: string; profileUrl: string; displayName: string };
+  WebViewConnect: {
+    platform: string;
+    url: string;
+    platformName: string;
+    username?: string;
+  };
   ConnectPlatforms: undefined;
   Views: undefined;
 };

@@ -89,8 +89,33 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         break;
 
       case 'webview':
-        // Layer 2: WebView connect
-        handleWebViewConnect(link);
+        // Fetch follow endpoint to resolve URL for WebView
+        setFollowStates(prev => ({ ...prev, [link.id]: 'loading' }));
+        try {
+          const res = await fetch(
+            `${API_BASE_URL}/api/follow/${link.platform}/${link.username}`,
+            {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
+          if (res.ok) {
+            const data = await res.json();
+            if (data.strategy === 'webview') {
+              handleWebViewConnect(link, data.url);
+            } else {
+              setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
+            }
+          } else {
+            // Graceful fallback to frontend local resolution
+            handleWebViewConnect(link);
+          }
+        } catch {
+          // Graceful fallback on network/API failure
+          setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
+          handleWebViewConnect(link);
+        }
         break;
 
       case 'copy':
@@ -141,16 +166,17 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
   };
 
   // Layer 2: WebView-based connect
-  const handleWebViewConnect = (link: PlatformLink) => {
+  const handleWebViewConnect = (link: PlatformLink, resolvedUrl?: string) => {
     const webViewUrl = getWebViewUrl(link.platform, link.username);
     const profileUrl = link.url || getProfileUrl(link.platform, link.username);
-    const url = webViewUrl || profileUrl;
+    const url = resolvedUrl || webViewUrl || profileUrl;
 
     if (url) {
       navigation.navigate('WebViewConnect', {
         platform: link.platform,
-        profileUrl: url,
-        displayName: PLATFORMS[link.platform]?.name || link.platform,
+        url,
+        platformName: PLATFORMS[link.platform]?.name || link.platform,
+        username: link.username,
       });
     }
   };
@@ -166,7 +192,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
     const platform = PLATFORMS[link.platform];
     switch (platform?.followStrategy) {
       case 'api': return 'Follow';
-      case 'webview': return 'Connect';
+      case 'webview': return link.platform === 'linkedin' ? 'Connect on LinkedIn' : 'Connect';
       case 'copy': return 'Copy';
       case 'link': return 'View';
       default: return 'Open';

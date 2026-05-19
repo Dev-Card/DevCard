@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { decrypt } from '../utils/encryption.js';
+import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 
 export async function followRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.authenticate);
@@ -13,6 +14,17 @@ export async function followRoutes(app: FastifyInstance) {
   ) => {
     const userId = (request.user as any).id;
     const { platform, targetUsername } = request.params;
+
+    // LinkedIn requires a WebView flow because the public API does not allow
+    // programmatic connection requests.
+    const platformDef = getPlatform(platform);
+    if (platform === 'linkedin' && platformDef?.followStrategy === 'webview') {
+      const url = getWebViewUrl(platform, targetUsername) || getProfileUrl(platform, targetUsername);
+      return reply.send({
+        strategy: 'webview',
+        url,
+      });
+    }
 
     // Get stored OAuth token for this platform
     const oauthToken = await app.prisma.oAuthToken.findUnique({
