@@ -186,10 +186,10 @@ export async function authRoutes(app: FastifyInstance) {
       // Generate JWT
       const token = signAuthToken(app, user);
 
-      // For mobile app: redirect with token as query param
+      // For mobile app: redirect with token as URL fragment (not sent to servers, keeps token out of logs)
       const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
       if (request.query.state?.startsWith('mobile_')) {
-        return reply.redirect(`${mobileRedirect}?token=${token}`);
+        return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
       // For web: set cookie and redirect
@@ -282,7 +282,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       if (request.query.state?.startsWith('mobile_')) {
         const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
-        return reply.redirect(`${mobileRedirect}?token=${token}`);
+        return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
       setAuthCookie(reply, token);
@@ -341,7 +341,7 @@ export async function authRoutes(app: FastifyInstance) {
 }
 
 function generateState(): string {
-  return Math.random().toString(36).substring(2, 15);
+  return randomBytes(32).toString('hex');
 }
 
 const userSelect = {
