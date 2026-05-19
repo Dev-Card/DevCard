@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+Dimport type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 
 export async function cardRoutes(app: FastifyInstance) {
@@ -100,6 +100,14 @@ export async function cardRoutes(app: FastifyInstance) {
     if (parsed.data.linkIds) {
       // Remove existing links
       await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
+
+      // Verify all linkIds belong to the current user — prevents IDOR
+      const validLinks = await app.prisma.platformLink.findMany({
+        where: { id: { in: parsed.data.linkIds }, userId },
+      });
+      if (validLinks.length !== parsed.data.linkIds.length) {
+        return reply.status(403).send({ error: 'One or more links do not belong to you' });
+      }
       // Add new links
       await app.prisma.cardLink.createMany({
         data: parsed.data.linkIds.map((linkId, index) => ({
