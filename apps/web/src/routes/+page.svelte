@@ -311,4 +311,43 @@
       align-items: center;
     }
   }
+
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+  border: none;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.5);
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-elevated);
+  transform: translateY(-2px);
+  border-color: var(--primary);
+}
+
+html.dark .btn-secondary {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+html.dark .btn-secondary:hover {
+  background: #334155;
+}
+
+
+
 </style>
+
