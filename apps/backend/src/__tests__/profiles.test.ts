@@ -29,7 +29,7 @@ const mockPrisma = {
 
 async function buildApp() {
   const app = Fastify();
-  app.decorate('prisma', mockPrisma);
+  app.decorate('prisma', mockPrisma as any);
   app.decorate('authenticate', async (request: any) => {
     request.user = { id: 'user-123' };
   });

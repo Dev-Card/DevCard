@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { API_BASE_URL } from '../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface User {
   id: string;
@@ -33,14 +34,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Load token from secure storage on app start
-    setIsLoading(false);
+    const loadToken = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('devcard_auth_token');
+        if (storedToken) {
+          setToken(storedToken);
+          const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
+            headers: { Authorization: `Bearer ${storedToken}` },
+          });
+          if (res.ok) {
+            const userData = await res.json();
+            setUser(userData);
+          } else {
+            await AsyncStorage.removeItem('devcard_auth_token');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load token:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadToken();
   }, []);
 
   const login = async (newToken: string) => {
     setToken(newToken);
-    // TODO: Save token to secure storage
     try {
+      await AsyncStorage.setItem('devcard_auth_token', newToken);
       const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
         headers: { Authorization: `Bearer ${newToken}` },
       });
@@ -56,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setToken(null);
     setUser(null);
-    // TODO: Clear token from secure storage
+    AsyncStorage.removeItem('devcard_auth_token').catch(err => {
+      console.error('Failed to clear token:', err);
+    });
   };
 
   const refreshUser = async () => {

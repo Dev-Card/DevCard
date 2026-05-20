@@ -57,9 +57,9 @@ export async function analyticsRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/views', {
+  app.get<{ Querystring: { page?: string; cardId?: string } }>('/views', {
     preHandler: [app.authenticate],
-  }, async (request: FastifyRequest<{ Querystring: { page?: string, cardId?: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const userId = (request.user as any).id;
     const page = parseInt(request.query.page || '1', 10);
     const limit = 20;
