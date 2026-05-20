@@ -1,4 +1,4 @@
-Dimport type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 
 export async function cardRoutes(app: FastifyInstance) {
