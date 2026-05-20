@@ -144,7 +144,22 @@ export async function cardRoutes(app: FastifyInstance) {
     }
 
     await app.prisma.card.delete({ where: { id } });
-    return reply.status(204).send();
+
+if (existing.isDefault) {
+  const nextCard = await app.prisma.card.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  if (nextCard) {
+    await app.prisma.card.update({
+      where: { id: nextCard.id },
+      data: { isDefault: true },
+    });
+  }
+}
+
+return reply.status(204).send();
   });
 
   // ─── Set Default Card ───
