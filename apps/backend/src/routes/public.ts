@@ -7,6 +7,7 @@ type PublicProfileLink = {
   username: string; 
   url: string; 
   displayOrder: number; 
+  followed?: boolean;
 }
 
 type UsernamePublicProfileResponse =  {
@@ -26,6 +27,7 @@ type PublicProfileCardLink = {
   platform: string;
   username: string; 
   url: string; 
+  followed?: boolean;
 }
 
 type CardPublicProfileResponse = {
@@ -85,18 +87,14 @@ export async function publicRoutes(app: FastifyInstance) {
     try {
       if (request.headers.authorization) {
         const decoded = await request.jwtVerify() as any;
-        if (decoded?.id !== user.id) {
-          viewerId = decoded.id; // Only log if they aren't the owner
-        }
-      } else {
-        viewerId = null; // Unauthenticated viewer
+        viewerId = decoded?.id || null;
       }
     } catch (e) {
       // Ignored if invalid token
     }
 
     // Don't track if the owner is viewing their own profile
-    if (viewerId !== user.id) {
+    if (viewerId && viewerId !== user.id) {
       // Background view tracking
       app.prisma.cardView.create({
         data: {
@@ -108,6 +106,30 @@ export async function publicRoutes(app: FastifyInstance) {
           source: (request.query as any)?.source || 'link',
         },
       }).catch(err => app.log.error('Failed to log view:', err));
+    }
+
+    // Fetch viewer's successful follow logs for this profile's links
+    let followedLinkIds: string[] = [];
+    if (viewerId && user.platformLinks.length > 0) {
+      const successfulFollows = await app.prisma.followLog.findMany({
+        where: {
+          followerId: viewerId,
+          status: 'success',
+          OR: user.platformLinks.map(link => ({
+            platform: link.platform,
+            targetUsername: link.username,
+          })),
+        },
+      });
+
+      followedLinkIds = user.platformLinks
+        .filter(link =>
+          successfulFollows.some(f =>
+            f.platform === link.platform &&
+            f.targetUsername.toLowerCase() === link.username.toLowerCase()
+          )
+        )
+        .map(link => link.id);
     }
 
     const response: UsernamePublicProfileResponse = {
@@ -125,6 +147,7 @@ export async function publicRoutes(app: FastifyInstance) {
         username: link.username,
         url: link.url,
         displayOrder: link.displayOrder,
+        followed: followedLinkIds.includes(link.id),
       })),
     }
 

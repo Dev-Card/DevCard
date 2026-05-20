@@ -24,4 +24,5 @@ Due to LinkedIn's modern API restrictions preventing programmatic connection req
 5. **State Detection**:
    - URL State Polling: The engine inspects URL transitions containing `invite-sent` or similar sub-routes.
    - DOM Observation: The injected Javascript queries for structural indicators of successful invitation (e.g. "Pending" button state or toaster text) and posts a serialized message back to the native layer.
-6. **Robust Fallback**: If network or WebView loading times out (>10s), the engine gracefully falls back to native deep links (`linkedin://profile?id={username}`) or launches the default browser.
+6. **Robust Fallback**: If network or WebView loading times out (>10s), the engine gracefully falls back to native deep links (`linkedin://profile?id={username}`) or launches the default browser with an interactive custom in-app overlay.
+7. **Telemetry Logging**: Upon client-side success (detected via state changes or DOM indicators), the mobile app makes a `POST /api/follow/:platform/:targetUsername/log` request to the backend. This writes a record to the `FollowLog` database table for auditing and analytics tracking.
