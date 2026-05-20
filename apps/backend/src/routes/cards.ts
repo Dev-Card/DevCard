@@ -131,7 +131,7 @@ export async function cardRoutes(app: FastifyInstance) {
 
   // ─── Delete Card ───
 
-  app.delete('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+ app.delete('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const { id } = request.params;
 
@@ -143,23 +143,27 @@ export async function cardRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Card not found' });
     }
 
-    await app.prisma.card.delete({ where: { id } });
+    try {
+      await app.prisma.card.delete({ where: { id } });
 
-if (existing.isDefault) {
-  const nextCard = await app.prisma.card.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
-  });
+      if (existing.isDefault) {
+        const nextCard = await app.prisma.card.findFirst({
+          where: { userId },
+          orderBy: { createdAt: 'asc' },
+        });
 
-  if (nextCard) {
-    await app.prisma.card.update({
-      where: { id: nextCard.id },
-      data: { isDefault: true },
-    });
-  }
-}
+        if (nextCard) {
+          await app.prisma.card.update({
+            where: { id: nextCard.id },
+            data: { isDefault: true },
+          });
+        }
+      }
 
-return reply.status(204).send();
+      return reply.status(204).send();
+    } catch (error) {
+      return reply.status(500).send({ error: 'Failed to delete card' });
+    }
   });
 
   // ─── Set Default Card ───
