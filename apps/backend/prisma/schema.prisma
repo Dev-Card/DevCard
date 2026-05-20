@@ -23,14 +23,14 @@ model User {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  platformLinks PlatformLink[]
-  cards         Card[]
-  oauthTokens   OAuthToken[]
-  ownedViews    CardView[]     @relation("cardOwner")
-  viewedCards   CardView[]     @relation("cardViewer")
-  followLogs    FollowLog[]
-
-  engagementEvents EngagementEvent[]
+  platformLinks  PlatformLink[]
+  cards          Card[]
+  oauthTokens    OAuthToken[]
+  ownedViews     CardView[]        @relation("cardOwner")
+  viewedCards    CardView[]        @relation("cardViewer")
+  followLogs     FollowLog[]
+  organizer      Event[]
+  attendedEvents EventAttendee[]
 
   @@unique([provider, providerId])
   @@map("users")
@@ -101,7 +101,7 @@ model CardView {
   cardId      String?  @map("card_id") // null = default profile view
   ownerId     String   @map("owner_id") // card/profile owner
   viewerId    String?  @map("viewer_id") // null = anonymous web viewer
-  viewerIp    String?  @map("viewer_ip")
+  viewerIp    String?  @map("viewer_ip") // SHA-256 hash of viewer IP
   viewerAgent String?  @map("viewer_agent")
   source      String   @default("qr") // "qr" | "link" | "web" | "app"
   createdAt   DateTime @default(now()) @map("created_at")
@@ -127,42 +127,30 @@ model FollowLog {
   @@map("follow_logs")
 }
 
-enum EventType {
-  PROFILE_VIEW
-  CARD_VIEW
-  LINK_CLICK
-  FOLLOW_ATTEMPT
-  FOLLOW_SUCCESS
-  QR_SCAN
-  SHARE_ACTION
-  COPY_LINK
+model Event {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  location    String
+  description String?
+  organizerId String
+  startDate   DateTime
+  endDate     DateTime
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  attendees   EventAttendee[]
+
+  organizer User @relation(fields: [organizerId], references: [id])
 }
 
-model EngagementEvent {
-  id String @id @default(uuid())
+model EventAttendee {
+  id       String   @id @default(uuid())
+  userId   String
+  eventId  String
+  joinedAt DateTime
 
-  userId   String  @map("user_id")
-  viewerId String? @map("viewer_id")
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
 
-  cardId String? @map("card_id")
-
-  eventType EventType @map("event_type")
-
-  platform String?
-  source   String?
-
-  ipHash    String? @map("ip_hash")
-  userAgent String? @map("user_agent")
-
-  metadata Json?
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([eventType])
-  @@index([createdAt])
-  @@index([userId, eventType])
-  @@map("engagement_events")
+  @@unique([userId, eventId])
 }

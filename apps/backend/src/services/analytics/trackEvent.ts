@@ -1,58 +1,25 @@
-import crypto from 'crypto';
-import { PrismaClient, Prisma } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
+import { hashIp } from '../../utils/hashIp.js';
 
-type TrackEventInput = {
-    userId: string;
-
-    viewerId?: string;
-    cardId?: string;
-
-    eventType:
-    | 'PROFILE_VIEW'
-    | 'CARD_VIEW'
-    | 'LINK_CLICK'
-    | 'FOLLOW_ATTEMPT'
-    | 'FOLLOW_SUCCESS'
-    | 'QR_SCAN'
-    | 'SHARE_ACTION'
-    | 'COPY_LINK';
-
-    platform?: string;
-    source?: string;
-
-    ip?: string;
-    userAgent?: string;
-
-    metadata?: Prisma.InputJsonValue;
+export type TrackViewInput = {
+  ownerId: string;
+  cardId?: string | null;
+  viewerId?: string | null;
+  ip?: string;
+  userAgent?: string;
+  source?: string;
 };
 
-export async function trackEvent(
-    prisma: PrismaClient,
-    data: TrackEventInput
-) {
-    const ipHash = data.ip
-        ? crypto
-            .createHash('sha256')
-            .update(data.ip)
-            .digest('hex')
-        : null;
-
-    return prisma.engagementEvent.create({
-        data: {
-            userId: data.userId,
-
-            viewerId: data.viewerId,
-            cardId: data.cardId,
-
-            eventType: data.eventType,
-
-            platform: data.platform,
-            source: data.source,
-
-            ipHash,
-            userAgent: data.userAgent,
-
-            metadata: data.metadata
-        }
-    });
+/** Records a profile or card view via the existing CardView model. */
+export async function trackEvent(prisma: PrismaClient, data: TrackViewInput) {
+  return prisma.cardView.create({
+    data: {
+      ownerId: data.ownerId,
+      cardId: data.cardId ?? null,
+      viewerId: data.viewerId ?? null,
+      viewerIp: hashIp(data.ip),
+      viewerAgent: data.userAgent ?? null,
+      source: data.source ?? 'link',
+    },
+  });
 }

@@ -1,6 +1,12 @@
 # Contributing to DevCard
 
-Thank you for your interest in contributing to DevCard! This guide will help you get started.
+<p align="center">
+  <a href="https://discord.gg/QueQN83wn">
+    <img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white&style=flat-square" alt="Discord Server" />
+  </a>
+</p>
+
+**Join the community** — ask questions, get help, discuss ideas, and meet other contributors on our [Discord server](https://discord.gg/QueQN83wn).
 
 ## Development Setup
 

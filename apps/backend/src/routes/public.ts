@@ -61,14 +61,18 @@ type PublicQuery = {
   source?: string;
 };
 
+type JwtPayload = {
+  id: string;
+};
+
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───
   /**
    * GET /api/public/:username
    * Returns the public profile information for a user.
   */
-  app.get('/:username', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
-    const query = request.query as PublicQuery;
+  app.get('/:username', async (request: FastifyRequest<{ Params: { username: string }; Querystring: PublicQuery }>, reply: FastifyReply) => {
+    const { source } = request.query;
     const { username } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -84,56 +88,30 @@ export async function publicRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'User not found' });
     }
 
-    // Try to extract viewer from Authorization header (soft auth)
-    let viewerId = null;
+    let viewerId: string | null = null;
     try {
       if (request.headers.authorization) {
-        const decoded = await request.jwtVerify() as any;
-        if (decoded?.id !== user.id) {
-          viewerId = decoded.id; // Only log if they aren't the owner
+        const decoded = await request.jwtVerify<JwtPayload>();
+        if (decoded.id !== user.id) {
+          viewerId = decoded.id;
         }
-      } else {
-        viewerId = null; // Unauthenticated viewer
       }
-    } catch (e) {
+    } catch {
       // Ignored if invalid token
     }
 
-    // Don't track if the owner is viewing their own profile
     if (viewerId !== user.id) {
-      app.prisma.cardView.create({
-        data: {
-          ownerId: user.id,
-          cardId: null,
-          viewerId,
-          viewerIp: request.ip || null,
-          viewerAgent: request.headers['user-agent'] || null,
-          source: query.source || 'link',
-        },
-      }).catch(err => app.log.error('Failed to log view:', err));
-
       trackEvent(app.prisma, {
-        userId: user.id,
-
-        viewerId: viewerId || undefined,
-
-        eventType: 'PROFILE_VIEW',
-
-        source: query.source || 'link',
-
-        ip: request.ip || undefined,
-
+        ownerId: user.id,
+        cardId: null,
+        viewerId,
+        ip: request.ip,
         userAgent:
           typeof request.headers['user-agent'] === 'string'
             ? request.headers['user-agent']
             : undefined,
-
-        metadata: {
-          username: user.username,
-        },
-      }).catch(err =>
-        app.log.error('Failed to track engagement event:', err)
-      );
+        source: source || 'link',
+      }).catch((err) => app.log.error('Failed to log view:', err));
     }
 
     const response: UsernamePublicProfileResponse = {
@@ -211,8 +189,8 @@ export async function publicRoutes(app: FastifyInstance) {
    * Returns full owner profile + specific card data.
    * Used when viewing a card through username + cardId (e.g. QR code scans).
   */
-  app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
-    const query = request.query as PublicQuery;
+  app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string }; Querystring: PublicQuery }>, reply: FastifyReply) => {
+    const { source } = request.query;
     const { username, cardId } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -237,27 +215,30 @@ export async function publicRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Card not found' });
     }
 
-    let viewerId = null;
+    let viewerId: string | null = null;
     try {
       if (request.headers.authorization) {
-        const decoded = await request.jwtVerify() as any;
-        if (decoded?.id !== user.id) {
+        const decoded = await request.jwtVerify<JwtPayload>();
+        if (decoded.id !== user.id) {
           viewerId = decoded.id;
         }
       }
-    } catch (e) { }
+    } catch {
+      // Ignored if invalid token
+    }
 
     if (viewerId !== user.id) {
-      app.prisma.cardView.create({
-        data: {
-          ownerId: user.id,
-          cardId: card.id,
-          viewerId,
-          viewerIp: request.ip || null,
-          viewerAgent: request.headers['user-agent'] || null,
-          source: query.source || 'qr',
-        },
-      }).catch(err => app.log.error('Failed to log card view:', err));
+      trackEvent(app.prisma, {
+        ownerId: user.id,
+        cardId: card.id,
+        viewerId,
+        ip: request.ip,
+        userAgent:
+          typeof request.headers['user-agent'] === 'string'
+            ? request.headers['user-agent']
+            : undefined,
+        source: source || 'qr',
+      }).catch((err) => app.log.error('Failed to log card view:', err));
     }
 
 
