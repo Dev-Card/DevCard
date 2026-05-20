@@ -18,6 +18,8 @@ import { PLATFORMS } from '@devcard/shared';
 import { APP_URL, API_BASE_URL } from '../config';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
+import ProfileLink from '../components/ProfileLink';
+import { Linking } from 'react-native';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList>;
@@ -38,7 +40,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [showQR, setShowQR] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const profileUrl = user?.defaultCardId 
+  const profileUrl = user?.defaultCardId
     ? `${APP_URL}/devcard/${user.defaultCardId}`
     : `${APP_URL}/u/${user?.username}`;
 
@@ -133,95 +135,99 @@ export default function HomeScreen({ navigation }: Props) {
 
           {user?.bio && <Text style={styles.bio}>{user.bio}</Text>}
 
-          {/* Platform Links Summary */}
-          <View style={styles.linksSummary}>
+          {/* Platform Links */}
+          <View style={styles.linksContainer}>
             {links.slice(0, 4).map(link => {
               const platform = PLATFORMS[link.platform];
+
               return (
-                <View key={link.id} style={styles.linkBadge}>
-                  <Text style={styles.linkBadgeText}>
-                    {platform?.name || link.platform}
-                  </Text>
-                </View>
+                <ProfileLink
+                  key={link.id}
+                  platform={platform?.name || link.platform}
+                  username={link.username}
+                  url={link.url}
+                  onPress={() => Linking.openURL(link.url)}
+                />
               );
             })}
-            {links.length > 4 && (
-              <View style={styles.linkBadge}>
-                <Text style={styles.linkBadgeText}>+{links.length - 4}</Text>
-              </View>
-            )}
           </View>
-        </View>
-
-        {/* QR Code Section */}
-        <TouchableOpacity
-          style={styles.qrSection}
-          onPress={() => setShowQR(!showQR)}
-          activeOpacity={0.85}>
-          {showQR ? (
-            <View style={styles.qrContainer}>
-              <QRCode
-                value={profileUrl}
-                size={200}
-                color={COLORS.textPrimary}
-                backgroundColor={COLORS.bgCard}
-              />
-              <Text style={styles.qrHint}>Scan to open your DevCard</Text>
-            </View>
-          ) : (
-            <View style={styles.qrToggle}>
-              <Text style={styles.qrToggleEmoji}>📱</Text>
-              <Text style={styles.qrToggleText}>Tap to show QR code</Text>
+          {links.length > 4 && (
+            <View style={styles.linkBadge}>
+              <Text style={styles.linkBadgeText}>+{links.length - 4}</Text>
             </View>
           )}
+        </View>
+      </View>
+
+      {/* QR Code Section */}
+      <TouchableOpacity
+        style={styles.qrSection}
+        onPress={() => setShowQR(!showQR)}
+        activeOpacity={0.85}>
+        {showQR ? (
+          <View style={styles.qrContainer}>
+            <QRCode
+              value={profileUrl}
+              size={200}
+              color={COLORS.textPrimary}
+              backgroundColor={COLORS.bgCard}
+            />
+            <Text style={styles.qrHint}>Scan to open your DevCard</Text>
+          </View>
+        ) : (
+          <View style={styles.qrToggle}>
+            <Text style={styles.qrToggleEmoji}>📱</Text>
+            <Text style={styles.qrToggleText}>Tap to show QR code</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* Action Buttons */}
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleShare}
+          activeOpacity={0.85}>
+          <Text style={styles.actionEmoji}>📤</Text>
+          <Text style={styles.actionText}>Share Card</Text>
         </TouchableOpacity>
 
-        {/* Action Buttons */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleShare}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>📤</Text>
-            <Text style={styles.actionText}>Share Card</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => (navigation as any).navigate('Views')}
+          activeOpacity={0.85}>
+          <Text style={styles.actionEmoji}>📈</Text>
+          <Text style={styles.actionText}>Analytics</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => (navigation as any).navigate('Views')}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>📈</Text>
-            <Text style={styles.actionText}>Analytics</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => (navigation as any).navigate('DevCardView', { username: user?.username || '' })}
+          activeOpacity={0.85}>
+          <Text style={styles.actionEmoji}>👁️</Text>
+          <Text style={styles.actionText}>Preview</Text>
+        </TouchableOpacity>
+      </View>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => (navigation as any).navigate('DevCardView', { username: user?.username || '' })}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>👁️</Text>
-            <Text style={styles.actionText}>Preview</Text>
-          </TouchableOpacity>
+      {/* Stats */}
+      <View style={styles.stats}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{links.length}</Text>
+          <Text style={styles.statLabel}>Links</Text>
         </View>
-
-        {/* Stats */}
-        <View style={styles.stats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{links.length}</Text>
-            <Text style={styles.statLabel}>Links</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{analytics?.totalViews || 0}</Text>
-            <Text style={styles.statLabel}>Views</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{analytics?.followsCount || 0}</Text>
-            <Text style={styles.statLabel}>Follows</Text>
-          </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{analytics?.totalViews || 0}</Text>
+          <Text style={styles.statLabel}>Views</Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{analytics?.followsCount || 0}</Text>
+          <Text style={styles.statLabel}>Follows</Text>
+        </View>
+      </View>
+    </ScrollView>
+    </SafeAreaView >
   );
 }
 
@@ -299,4 +305,8 @@ const styles = StyleSheet.create({
   statNumber: { fontSize: FONT_SIZE.xl, fontWeight: '800', color: COLORS.primary },
   statLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, marginTop: 4 },
   statDivider: { width: 1, backgroundColor: COLORS.border },
+  linksContainer: {
+  marginTop: SPACING.md,
+  gap: SPACING.sm,
+},
 });
