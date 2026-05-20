@@ -41,12 +41,14 @@ Each exchange is manual, error-prone, and slow. DevCard fixes this.
 - 🔗 **Universal Profile Aggregation** — GitHub, LinkedIn, Twitter/X, GitLab, Devfolio, and 10+ more platforms
 - 📱 **QR Code Sharing** — Show your QR, they scan, done
 - ⚡ **One-Screen Multi-Platform Connect** — Follow on GitHub, Connect on LinkedIn, all from one card
+- 📥 **vCard Export & Contact Saving** — Save developer contact cards (.vcf) natively with one tap to your phone book
 - 📈 **Advanced Analytics** — Track who viewed your card, when, and from where (Web, QR, App)
 - 🔌 **Per-Platform OAuth Integrations** — Securely connect accounts for "Silent Follows"
 - 🎯 **Context Cards** — Different cards for different situations (Professional, Hackathon, Community)
 - 🌐 **Web Backup** — Receivers don't need the app — works in any browser
 - 🔒 **Privacy-First** — No tracking, no data selling, your data stays yours
 - 🛠️ **Open Source** — Apache 2.0 licensed, community-governed
+
 
 ## Quick Start
 
@@ -273,6 +275,31 @@ New to open source? We've got you covered! Check out our [Good First Issues](htt
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions, coding standards, and PR process.
 
+## vCard Export Support
+
+DevCard supports exporting contact cards in the industry-standard `.vcf` (vCard 3.0) format directly from both Svelte web and React Native mobile applications. This allows seamless integration with native OS contact books.
+
+### Supported Fields
+
+The shared generator maps the following profile attributes dynamically:
+- **Full Name (`FN` / `N`)**: Parsed and split into first and last names.
+- **Organization (`ORG`)**: Maps to the user's `company`.
+- **Title (`TITLE`)**: Maps to the user's `role`.
+- **Email (`EMAIL`)**: Automatically checks and extracts public email from profile settings and connected platform links.
+- **Phone (`TEL`)**: Automatically parses public phone/WhatsApp URLs and numbers from custom touchpoints.
+- **Bio/Notes (`NOTE`)**: Combines personal bio, pronouns, and role description, with proper character escaping.
+- **Avatar (`PHOTO`)**: Embeds profile picture via high-performance native image URL loading.
+- **Touchpoints (`URL`)**: Appends up to 10+ social/profile links as separate labelled URL entries.
+
+### Platform Compatibility
+
+Verified and tested on the following native contact managers and apps:
+- **iOS Contacts** (Native contact save flow via Blob + Mobile Safari)
+- **Android Contacts** (Native Google Contacts save flow via Mobile Chrome and Native Share Sheet)
+- **Apple Contacts & macOS** (Seamless importing of `.vcf` files)
+- **Google Contacts** (Standard desktop web and mobile compatibility)
+- **Microsoft Outlook** (Clean parsing and field population)
+
 ## License
 
 DevCard is licensed under the [Apache License 2.0](./LICENSE).
@@ -282,3 +309,4 @@ DevCard is licensed under the [Apache License 2.0](./LICENSE).
 <p align="center">
   Built with ❤️ by the developer community, for the developer community.
 </p>
+

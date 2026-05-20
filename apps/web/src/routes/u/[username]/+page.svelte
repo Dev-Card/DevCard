@@ -1,5 +1,6 @@
 <script lang="ts">
   import { PLATFORMS, getProfileUrl } from '@devcard/shared';
+  import { SaveContactButton } from '$lib';
   import { onMount } from 'svelte';
 
   let { data } = $props();
@@ -100,6 +101,8 @@
         {#if profile.bio}
           <p class="bio">{profile.bio}</p>
         {/if}
+        
+        <SaveContactButton {profile} />
       </header>
 
       <div class="links-grid">

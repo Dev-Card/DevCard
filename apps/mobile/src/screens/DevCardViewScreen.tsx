@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
 import { Skeleton } from '../components/Skeleton';
+import { SaveContactButton } from '../components/SaveContactButton';
 import { PLATFORMS, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -283,6 +284,9 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
             </View>
           </View>
         </View>
+
+        {/* Save Contact Action */}
+        <SaveContactButton profile={profile} />
 
         {/* Platform Tiles Section */}
         <View style={styles.tilesSection}>
