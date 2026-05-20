@@ -15,7 +15,12 @@ type ProfileLinkProps = {
   url: string;
   onPress?: () => void;
 };
-
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZE,
+  BORDER_RADIUS,
+} from '../theme/tokens';
 export default function ProfileLink({
   platform,
   username,
@@ -48,24 +53,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#161616',
-    marginBottom: 12,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.bgCard,
+    marginBottom: SPACING.sm,
   },
+
   platform: {
-    fontSize: 16,
+    fontSize: FONT_SIZE.md,
     fontWeight: '600',
-    color: '#ffffff',
+    color: COLORS.textPrimary,
   },
+
   username: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#a1a1aa',
+    marginTop: SPACING.xs,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted,
   },
+
   link: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.sm,
     fontWeight: '600',
-    color: '#4f8cff',
+    color: COLORS.primary,
   },
 });

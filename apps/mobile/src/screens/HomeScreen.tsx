@@ -19,7 +19,7 @@ import { APP_URL, API_BASE_URL } from '../config';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
 import ProfileLink from '../components/ProfileLink';
-import { Linking } from 'react-native';
+
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList>;
@@ -146,7 +146,6 @@ export default function HomeScreen({ navigation }: Props) {
                   platform={platform?.name || link.platform}
                   username={link.username}
                   url={link.url}
-                  onPress={() => Linking.openURL(link.url)}
                 />
               );
             })}
