@@ -1,5 +1,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+type NfcPayloadResponse = {
+  type: 'URI';
+  payload: string;
+};
 
 const nfcQuerySchema = z.object({
   card: z.string().uuid('Invalid card ID format').optional(),
@@ -60,13 +64,13 @@ export async function nfcRoutes(app: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to fetch card details' });
       }
 
-      return reply.send({
+     return reply.send<NfcPayloadResponse>({
         type: 'URI',
         payload: `https://devcard.dev/${username}?card=${cardId}`,
       });
     }
 
-    return reply.send({
+    return reply.send<NfcPayloadResponse>({
       type: 'URI',
       payload: `https://devcard.dev/${username}`,
     });
