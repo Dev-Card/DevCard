@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+Dimport type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 
 export async function cardRoutes(app: FastifyInstance) {
@@ -100,6 +100,8 @@ export async function cardRoutes(app: FastifyInstance) {
     if (parsed.data.linkIds) {
       // Remove existing links
       await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
+
+      
       // Add new links
       await app.prisma.cardLink.createMany({
         data: parsed.data.linkIds.map((linkId, index) => ({
