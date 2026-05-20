@@ -57,7 +57,9 @@ type UsernameCardPublicProfileResponse = {
   links: PublicProfileCardLink[]
 }
 
-
+type PublicQuery = {
+  source?: string;
+};
 
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───
@@ -66,6 +68,7 @@ export async function publicRoutes(app: FastifyInstance) {
    * Returns the public profile information for a user.
   */
   app.get('/:username', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
+    const query = request.query as PublicQuery;
     const { username } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -105,7 +108,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerId,
           viewerIp: request.ip || null,
           viewerAgent: request.headers['user-agent'] || null,
-          source: (request.query as any)?.source || 'link',
+          source: query.source || 'link',
         },
       }).catch(err => app.log.error('Failed to log view:', err));
 
@@ -116,7 +119,7 @@ export async function publicRoutes(app: FastifyInstance) {
 
         eventType: 'PROFILE_VIEW',
 
-        source: (request.query as any)?.source || 'link',
+        source: query.source || 'link',
 
         ip: request.ip || undefined,
 
@@ -209,6 +212,7 @@ export async function publicRoutes(app: FastifyInstance) {
    * Used when viewing a card through username + cardId (e.g. QR code scans).
   */
   app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
+    const query = request.query as PublicQuery;
     const { username, cardId } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -251,7 +255,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerId,
           viewerIp: request.ip || null,
           viewerAgent: request.headers['user-agent'] || null,
-          source: (request.query as any)?.source || 'qr',
+          source: query.source || 'qr',
         },
       }).catch(err => app.log.error('Failed to log card view:', err));
     }
@@ -287,8 +291,8 @@ export async function publicRoutes(app: FastifyInstance) {
     Querystring: { format?: string; size?: string };
   }>, reply: FastifyReply) => {
     const { username } = request.params;
-    const format = (request.query as any).format || 'png';
-    const size = parseInt((request.query as any).size || '400', 10);
+    const format = request.query.format || 'png';
+    const size = parseInt(request.query.size || '400', 10);
 
     // Verify user exists
     const user = await app.prisma.user.findUnique({

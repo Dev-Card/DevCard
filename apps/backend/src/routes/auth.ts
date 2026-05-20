@@ -12,12 +12,17 @@ interface OAuthCallbackQuery {
   state?: string;
 }
 
+type AuthQuery = {
+  state?: string;
+};
+
 export async function authRoutes(app: FastifyInstance) {
   // ─── GitHub OAuth ───
 
   app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
-    const clientState = (request.query as any).state || '';
+    const query = request.query as AuthQuery;
+    const clientState = query.state || '';
     const state = clientState ? `${clientState}_${generateState()}` : generateState();
 
     const params = new URLSearchParams({
@@ -143,7 +148,8 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.get('/google', async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
-    const clientState = (request.query as any).state || '';
+    const query = request.query as AuthQuery;
+    const clientState = query.state || '';
     const state = clientState ? `${clientState}_${generateState()}` : generateState();
 
     const params = new URLSearchParams({
