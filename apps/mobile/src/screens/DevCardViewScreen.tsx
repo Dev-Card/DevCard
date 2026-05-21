@@ -50,6 +50,45 @@ interface ProfileData {
 
 type FollowState = Record<string, 'idle' | 'loading' | 'success' | 'error'>;
 
+// ─── Platform Emoji Icon Map ───
+const PLATFORM_EMOJI: Record<string, string> = {
+  github: '🐙',
+  linkedin: 'in',
+  twitter: '𝕏',
+  gitlab: '🦊',
+  devfolio: '🏗️',
+  npm: '📦',
+  devto: '👩‍💻',
+  hashnode: '📝',
+  medium: 'M',
+  leetcode: '🏆',
+  hackerrank: '⚔️',
+  stackoverflow: '💬',
+  discord: '🎮',
+  telegram: '✈️',
+  email: '✉️',
+  portfolio: '🌐',
+  custom: '🔗',
+};
+
+// ─── Brand-colored action buttons ───
+const PLATFORM_BTN_COLOR: Record<string, string> = {
+  github: '#238636',
+  linkedin: '#0A66C2',
+  twitter: '#1D9BF0',
+  gitlab: '#FC6D26',
+  devfolio: '#3770FF',
+  npm: '#CB3837',
+  devto: '#3B49DF',
+  leetcode: '#FFA116',
+  hackerrank: '#00B86B',
+  stackoverflow: '#F58025',
+  discord: '#5865F2',
+  telegram: '#26A5E4',
+  email: '#EA4335',
+  portfolio: '#6366F1',
+};
+
 export default function DevCardViewScreen({ navigation, route }: Props) {
   const { username } = route.params;
   const { token } = useAuth();
@@ -61,11 +100,33 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
     fetchProfile();
   }, [username]);
 
+  const successLinkId = route.params?.followSuccessLinkId;
+  useEffect(() => {
+    if (successLinkId) {
+      setFollowStates(prev => ({ ...prev, [successLinkId]: 'success' }));
+      navigation.setParams({ followSuccessLinkId: undefined } as any);
+    }
+  }, [successLinkId]);
+
   const fetchProfile = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/u/${username}`);
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/u/${username}`, { headers });
       if (res.ok) {
-        setProfile(await res.json());
+        const data = await res.json();
+        setProfile(data);
+        const initialFollowStates: FollowState = {};
+        if (data.links) {
+          data.links.forEach((link: any) => {
+            if (link.followed) {
+              initialFollowStates[link.id] = 'success';
+            }
+          });
+        }
+        setFollowStates(initialFollowStates);
       }
     } catch (err) {
       console.error('Failed to fetch profile:', err);
@@ -84,17 +145,37 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
 
     switch (strategy) {
       case 'api':
-        // Layer 1: Silent API follow
         await handleApiFollow(link);
         break;
 
       case 'webview':
-        // Layer 2: WebView connect
-        handleWebViewConnect(link);
+        setFollowStates(prev => ({ ...prev, [link.id]: 'loading' }));
+        try {
+          const res = await fetch(
+            `${API_BASE_URL}/api/follow/${link.platform}/${link.username}`,
+            {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
+          if (res.ok) {
+            const data = await res.json();
+            if (data.strategy === 'webview') {
+              handleWebViewConnect(link, data.url);
+            } else {
+              setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
+            }
+          } else {
+            handleWebViewConnect(link);
+          }
+        } catch {
+          setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
+          handleWebViewConnect(link);
+        }
         break;
 
       case 'copy':
-        // Copy to clipboard (Discord)
         Clipboard.setString(link.username);
         Alert.alert('Copied!', `${link.username} copied to clipboard`);
         setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
@@ -102,7 +183,6 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
 
       case 'link':
       default:
-        // Layer 3: Open in browser/app
         const url = link.url || getProfileUrl(link.platform, link.username);
         if (url) {
           Linking.openURL(url).catch(() =>
@@ -129,8 +209,21 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
       } else {
         const data = await res.json();
         if (data.requiresAuth) {
-          // Fall back to WebView if token missing
-          handleWebViewConnect(link);
+          // Reset loading BEFORE opening fallback so button doesn't get stuck
+          setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
+          // For platforms without a webview URL (e.g. GitHub), open in system browser
+          const webViewUrl = getWebViewUrl(link.platform, link.username);
+          if (webViewUrl) {
+            handleWebViewConnect(link);
+          } else {
+            // Open GitHub / other API-only platforms in the default browser
+            const profileUrl = link.url || getProfileUrl(link.platform, link.username);
+            if (profileUrl) {
+              Linking.openURL(profileUrl).catch(() =>
+                Alert.alert('Error', `Could not open ${link.platform} profile`)
+              );
+            }
+          }
         } else {
           setFollowStates(prev => ({ ...prev, [link.id]: 'error' }));
         }
@@ -140,17 +233,36 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
     }
   };
 
+  // Reset a "Done" tile — clears follow log from backend and resets local state
+  const handleResetFollowState = async (link: PlatformLink) => {
+    try {
+      await fetch(
+        `${API_BASE_URL}/api/follow/${link.platform}/${link.username}/log`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+    } catch {
+      // Ignore network errors — still reset local state
+    }
+    setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
+  };
+
   // Layer 2: WebView-based connect
-  const handleWebViewConnect = (link: PlatformLink) => {
+  const handleWebViewConnect = (link: PlatformLink, resolvedUrl?: string) => {
     const webViewUrl = getWebViewUrl(link.platform, link.username);
     const profileUrl = link.url || getProfileUrl(link.platform, link.username);
-    const url = webViewUrl || profileUrl;
+    const url = resolvedUrl || webViewUrl || profileUrl;
 
     if (url) {
       navigation.navigate('WebViewConnect', {
         platform: link.platform,
-        profileUrl: url,
-        displayName: PLATFORMS[link.platform]?.name || link.platform,
+        url,
+        platformName: PLATFORMS[link.platform]?.name || link.platform,
+        username: link.username,
+        linkId: link.id,
+        cardOwnerUsername: username,
       });
     }
   };
@@ -171,6 +283,13 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
       case 'link': return 'View';
       default: return 'Open';
     }
+  };
+
+  const getButtonColor = (link: PlatformLink, state: string): string => {
+    if (state === 'success') return COLORS.success;
+    if (state === 'loading') return COLORS.primaryDark;
+    if (state === 'error') return '#DC2626';
+    return PLATFORM_BTN_COLOR[link.platform] || COLORS.primary;
   };
 
   if (loading) {
@@ -201,12 +320,12 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
             <Skeleton width={120} height={14} style={{ marginBottom: 12 }} />
             {[1, 2, 3].map(i => (
               <View key={i} style={styles.platformTile}>
-                <Skeleton width={40} height={40} borderRadius={10} />
+                <Skeleton width={44} height={44} borderRadius={12} />
                 <View style={[styles.tileInfo, { marginLeft: 16 }]}>
                   <Skeleton width="50%" height={16} style={{ marginBottom: 6 }} />
                   <Skeleton width="30%" height={12} />
                 </View>
-                <Skeleton width={72} height={30} borderRadius={8} />
+                <Skeleton width={72} height={32} borderRadius={8} />
               </View>
             ))}
           </View>
@@ -239,20 +358,26 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Profile Card — PREMIUM REDESIGN */}
-        <View style={[styles.premiumHeaderCard, { borderColor: profile.accentColor || COLORS.primary }]}>
+        {/* Profile Card */}
+        <View style={[styles.premiumHeaderCard, { borderColor: (profile.accentColor || COLORS.primary) + 'AA' }]}>
+          {/* Gradient layers */}
+          <View style={styles.cardGlowTop} />
           <View style={styles.cardGlass} />
-          
+
+          {/* Top row: brand + contactless */}
           <View style={styles.cardTop}>
             <View style={styles.brandRow}>
-              <View style={styles.miniChip} />
+              <View style={[styles.miniChip, { backgroundColor: profile.accentColor || '#94A3B8' }]} />
               <Text style={styles.brandText}>DevCard PRO</Text>
             </View>
-            <Text style={styles.contactless}>📶</Text>
+            <View style={[styles.cardBadge, { borderColor: (profile.accentColor || '#FFD700') + '55', backgroundColor: (profile.accentColor || '#FFD700') + '11' }]}>
+              <Text style={[styles.badgeText, { color: profile.accentColor || 'rgba(255,215,0,0.8)' }]}>PLATINUM</Text>
+            </View>
           </View>
 
+          {/* Middle: avatar + name/role */}
           <View style={styles.cardMid}>
-            <View style={styles.avatarContainer}>
+            <View style={[styles.avatarRing, { borderColor: (profile.accentColor || COLORS.primary) + '88' }]}>
               {profile.avatarUrl ? (
                 <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
               ) : (
@@ -264,67 +389,102 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
               )}
             </View>
             <View style={styles.mainInfo}>
-              <Text style={styles.profileName}>{profile.displayName}</Text>
-              <Text style={styles.profileRole}>
-                {profile.role}{profile.company ? ` @ ${profile.company}` : ''}
-              </Text>
+              <Text style={styles.profileName} numberOfLines={1}>{profile.displayName}</Text>
+              {(profile.role || profile.company) && (
+                <Text style={styles.profileRole} numberOfLines={2}>
+                  {profile.role}{profile.company ? ` @ ${profile.company}` : ''}
+                </Text>
+              )}
               {profile.pronouns && (
                 <Text style={styles.pronouns}>{profile.pronouns}</Text>
               )}
             </View>
           </View>
 
-          <View style={styles.cardBottom}>
-            <View style={styles.bioContainer}>
-              {profile.bio && <Text style={styles.bioText} numberOfLines={2}>{profile.bio}</Text>}
+          {/* Bottom: bio + divider */}
+          {profile.bio ? (
+            <View style={styles.cardBottom}>
+              <View style={styles.cardDivider} />
+              <Text style={styles.bioText} numberOfLines={2}>{profile.bio}</Text>
             </View>
-            <View style={styles.cardBadge}>
-              <Text style={styles.badgeText}>PLATINUM</Text>
-            </View>
-          </View>
+          ) : null}
         </View>
 
         {/* Platform Tiles Section */}
         <View style={styles.tilesSection}>
-          <Text style={styles.tilesLabel}>Digital Touchpoints</Text>
+          <View style={styles.tilesHeader}>
+            <Text style={styles.tilesLabel}>Digital Touchpoints</Text>
+            <View style={styles.tilesCount}>
+              <Text style={styles.tilesCountText}>{profile.links.length}</Text>
+            </View>
+          </View>
+
           {profile.links.map(link => {
             const platform = PLATFORMS[link.platform];
             const state = followStates[link.id] || 'idle';
+            const btnColor = getButtonColor(link, state);
+            const isDone = state === 'success';
             return (
               <TouchableOpacity
                 key={link.id}
-                style={[
-                  styles.platformTile,
-                  state === 'success' && styles.tileDone,
-                ]}
+                style={[styles.platformTile, isDone && styles.tileDone]}
                 onPress={() => handlePlatformAction(link)}
-                activeOpacity={0.8}
+                onLongPress={() => {
+                  if (isDone) {
+                    Alert.alert(
+                      'Reset connection?',
+                      `This will clear the "Done" status for ${platform?.name || link.platform}.`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Reset',
+                          style: 'destructive',
+                          onPress: () => handleResetFollowState(link),
+                        },
+                      ]
+                    );
+                  }
+                }}
+                activeOpacity={isDone ? 0.9 : 0.8}
                 disabled={state === 'loading'}>
-                <View style={[styles.tileIcon, { backgroundColor: platform?.color || COLORS.primary }]}>
-                  <Text style={styles.tileIconText}>
-                    {platform?.name.charAt(0) || '?'}
-                  </Text>
-                </View>
-                <View style={styles.tileInfo}>
-                  <Text style={styles.tilePlatform}>{platform?.name || link.platform}</Text>
-                  <Text style={styles.tileUsername}>{link.username}</Text>
-                </View>
+
+                {/* Icon */}
                 <View style={[
-                  styles.tileAction,
-                  state === 'success' && styles.tileActionDone,
-                  state === 'loading' && styles.tileActionLoading,
+                  styles.tileIcon,
+                  styles.tileIconBorder,
+                  {
+                    backgroundColor: isDone
+                      ? 'rgba(34,197,94,0.12)'
+                      : (platform?.color || COLORS.primary) + '22',
+                    borderColor: isDone
+                      ? COLORS.success
+                      : (platform?.color || COLORS.primary) + '66',
+                  },
                 ]}>
-                  {state === 'loading' ? (
-                    <ActivityIndicator size="small" color={COLORS.white} />
+                  {isDone ? (
+                    <Text style={styles.tileIconDoneText}>✓</Text>
                   ) : (
-                    <Text style={[
-                      styles.tileActionText,
-                      state === 'success' && styles.tileActionTextDone,
-                    ]}>
-                      {getButtonLabel(link)}
+                    <Text style={[styles.tileIconText, { color: platform?.color || COLORS.white }]}>
+                      {PLATFORM_EMOJI[link.platform] || platform?.name.charAt(0) || '?'}
                     </Text>
                   )}
                 </View>
+
+                {/* Info */}
+                <View style={styles.tileInfo}>
+                  <Text style={styles.tilePlatform}>{platform?.name || link.platform}</Text>
+                  <Text style={styles.tileUsername} numberOfLines={1}>{link.username}</Text>
+                </View>
+
+                {/* Action Button */}
+                <View style={[styles.tileAction, { backgroundColor: btnColor }]}>
+                  {state === 'loading' ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <Text style={styles.tileActionText}>{getButtonLabel(link)}</Text>
+                  )}
+                </View>
+
               </TouchableOpacity>
             );
           })}
@@ -332,6 +492,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
 
         {/* Footer */}
         <View style={styles.footer}>
+          <View style={styles.footerDivider} />
           <Text style={styles.footerText}>Powered by DevCard ⚡</Text>
         </View>
       </ScrollView>
@@ -344,159 +505,122 @@ const styles = StyleSheet.create({
   closeBtn: {
     position: 'absolute', top: 50, right: 20, zIndex: 10,
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: COLORS.bgElevated, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
   },
   closeBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.md },
   scrollContent: { padding: SPACING.lg, paddingTop: SPACING.xxl },
   premiumHeaderCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 24,
-    padding: SPACING.xl,
+    backgroundColor: '#0B1120',
+    borderRadius: 20,
+    padding: SPACING.lg,
     borderWidth: 1,
     ...SHADOWS.card,
     marginBottom: SPACING.xl,
     position: 'relative',
     overflow: 'hidden',
-    aspectRatio: 1.58,
-    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  cardGlowTop: {
+    position: 'absolute',
+    top: -40,
+    left: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(99,102,241,0.12)',
   },
   cardGlass: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(255,255,255,0.015)',
   },
   cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  miniChip: {
-    width: 30,
-    height: 20,
-    borderRadius: 4,
-    backgroundColor: '#94A3B8',
-    opacity: 0.5,
-  },
-  brandText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 2,
-  },
-  contactless: {
-    fontSize: 20,
-    opacity: 0.4,
-  },
-  cardMid: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.lg,
-  },
-  avatarContainer: {
-    ...SHADOWS.card,
-    shadowOpacity: 0.3,
-  },
-  avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  miniChip: { width: 28, height: 18, borderRadius: 4, opacity: 0.7 },
+  brandText: { color: 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: '800', letterSpacing: 2.5 },
+  cardMid: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  avatarRing: {
+    borderRadius: 38,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.1)',
+    padding: 2,
   },
-  avatarPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
-  mainInfo: {
-    flex: 1,
-  },
+  avatar: { width: 64, height: 64, borderRadius: 32 },
+  avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 28, fontWeight: '800', color: COLORS.white },
+  mainInfo: { flex: 1, gap: 3 },
   profileName: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.white,
-    letterSpacing: 0.5,
+    fontSize: 20, fontWeight: '800', color: COLORS.white, letterSpacing: 0.2,
   },
   profileRole: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    marginTop: 2,
+    fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: '500', lineHeight: 15,
   },
-  pronouns: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    marginTop: 4,
-    fontStyle: 'italic',
+  pronouns: { fontSize: 10, color: COLORS.textMuted, fontStyle: 'italic' },
+  cardBottom: { gap: SPACING.xs },
+  cardDivider: {
+    height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginBottom: 2,
   },
-  cardBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  bioContainer: {
-    flex: 1,
-    marginRight: SPACING.md,
-  },
-  bioText: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.4)',
-    lineHeight: 14,
-  },
+  bioText: { fontSize: 10.5, color: 'rgba(255,255,255,0.38)', lineHeight: 15 },
   cardBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.1)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
+    borderWidth: 1,
   },
-  badgeText: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: 'rgba(255,255,255,0.6)',
-    letterSpacing: 1.5,
-  },
+  badgeText: { fontSize: 8, fontWeight: '900', letterSpacing: 1.5 },
+
+  // ─── Tiles ───
   tilesSection: { gap: SPACING.sm },
-  tilesLabel: {
-    fontSize: FONT_SIZE.sm, color: COLORS.textMuted, fontWeight: '600',
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: SPACING.xs,
+  tilesHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: SPACING.xs,
   },
+  tilesLabel: {
+    fontSize: FONT_SIZE.xs, color: COLORS.textMuted, fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: 1.5,
+  },
+  tilesCount: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+  },
+  tilesCountText: { fontSize: 11, fontWeight: '700', color: COLORS.textMuted },
   platformTile: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: COLORS.bgCard, borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
+    gap: SPACING.sm,
   },
-  tileDone: { borderColor: COLORS.success, backgroundColor: 'rgba(34, 197, 94, 0.05)' },
+  tileDone: {
+    borderColor: COLORS.success + '55',
+    backgroundColor: 'rgba(34, 197, 94, 0.06)',
+  },
   tileIcon: {
-    width: 40, height: 40, borderRadius: 10,
+    width: 44, height: 44, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
-  tileIconText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZE.md },
-  tileInfo: { flex: 1, marginLeft: SPACING.md },
+  tileIconBorder: { borderWidth: 1 },
+  tileIconText: { fontWeight: '800', fontSize: 16, letterSpacing: -0.5 },
+  tileIconDoneText: { fontWeight: '800', fontSize: 18, color: COLORS.success },
+  tileInfo: { flex: 1 },
   tilePlatform: { fontSize: FONT_SIZE.md, fontWeight: '600', color: COLORS.textPrimary },
   tileUsername: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, marginTop: 1 },
   tileAction: {
-    backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.sm,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
-    minWidth: 72, alignItems: 'center',
+    borderRadius: BORDER_RADIUS.sm,
+    paddingHorizontal: SPACING.md, paddingVertical: 7,
+    minWidth: 72, alignItems: 'center', justifyContent: 'center',
   },
-  tileActionDone: { backgroundColor: COLORS.success },
-  tileActionLoading: { backgroundColor: COLORS.primaryDark },
-  tileActionText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZE.sm },
-  tileActionTextDone: {},
+  tileActionText: { color: COLORS.white, fontWeight: '700', fontSize: 13 },
+
+  // ─── Error / Footer ───
   errorState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorEmoji: { fontSize: 48, marginBottom: SPACING.md },
   errorText: { fontSize: FONT_SIZE.lg, color: COLORS.textPrimary, fontWeight: '600' },
   backLink: { color: COLORS.primary, fontSize: FONT_SIZE.md, marginTop: SPACING.md },
   footer: { alignItems: 'center', paddingVertical: SPACING.xl },
-  footerText: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted },
+  footerDivider: {
+    width: 40, height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: SPACING.md,
+  },
+  footerText: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, letterSpacing: 0.5 },
 });

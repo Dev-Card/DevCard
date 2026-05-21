@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { randomBytes } from 'crypto';
+
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
@@ -13,12 +14,28 @@ interface OAuthCallbackQuery {
 }
 
 export async function authRoutes(app: FastifyInstance) {
+  // ─── Developer Login Bypass ───
+  app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = await app.prisma.user.findUnique({
+      where: { username: 'devcard-demo' },
+    });
+    if (!user) {
+      return reply.status(404).send({ error: 'Demo user not seeded' });
+    }
+    const token = app.jwt.sign(
+      { id: user.id, username: user.username },
+      { expiresIn: '30d' }
+    );
+    return { token };
+  });
+
   // ─── GitHub OAuth ───
 
   app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
     const clientState = (request.query as any).state || '';
-    const state = clientState ? `${clientState}_${generateState()}` : generateState();
+    const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
+    const state = buildOAuthState(clientState, mobileRedirectUri);
 
     const params = new URLSearchParams({
       client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
@@ -102,15 +119,6 @@ export async function authRoutes(app: FastifyInstance) {
         },
       });
 
-      // Save the authentication token for 'user:email read:user' so we have a basic platform connection
-      const encryptedToken = (app as any).encryption ? (app as any).encryption.encrypt(tokenData.access_token) : tokenData.access_token;
-      
-      await app.prisma.oAuthToken.upsert({
-        where: { userId_platform: { userId: user.id, platform: 'github' } },
-        update: { accessToken: encryptedToken, scopes: 'read:user user:email' },
-        create: { userId: user.id, platform: 'github', accessToken: encryptedToken, scopes: 'read:user user:email' },
-      });
-
       // Generate JWT
       const token = app.jwt.sign(
         { id: user.id, username: user.username },
@@ -118,8 +126,8 @@ export async function authRoutes(app: FastifyInstance) {
       );
 
       // For mobile app: redirect with token as URL fragment (not sent to servers, keeps token out of logs)
-      const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
       if (request.query.state?.startsWith('mobile_')) {
+        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
@@ -134,7 +142,8 @@ export async function authRoutes(app: FastifyInstance) {
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      app.log.error('GitHub auth error:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      app.log.error({ err, message }, 'GitHub auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -144,7 +153,8 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/google', async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
     const clientState = (request.query as any).state || '';
-    const state = clientState ? `${clientState}_${generateState()}` : generateState();
+    const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
+    const state = buildOAuthState(clientState, mobileRedirectUri);
 
     const params = new URLSearchParams({
       client_id: (process.env.GOOGLE_CLIENT_ID || '').trim(),
@@ -221,7 +231,7 @@ export async function authRoutes(app: FastifyInstance) {
       );
 
       if (request.query.state?.startsWith('mobile_')) {
-        const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
+        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
@@ -235,7 +245,8 @@ export async function authRoutes(app: FastifyInstance) {
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      app.log.error('Google auth error:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      app.log.error({ err, message }, 'Google auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -288,4 +299,34 @@ export async function authRoutes(app: FastifyInstance) {
 
 function generateState(): string {
   return randomBytes(32).toString('hex');
+}
+
+function buildOAuthState(clientState: string, mobileRedirectUri: string): string {
+  if (!clientState) {
+    return generateState();
+  }
+
+  if (clientState.startsWith('mobile_') && mobileRedirectUri) {
+    const encodedRedirect = Buffer.from(mobileRedirectUri, 'utf8').toString('base64url');
+    return `${clientState}.${encodedRedirect}.${generateState()}`;
+  }
+
+  return `${clientState}.${generateState()}`;
+}
+
+function getMobileRedirectUri(state?: string): string | null {
+  if (!state?.startsWith('mobile_')) {
+    return null;
+  }
+
+  const encodedRedirect = state.split('.')[1];
+  if (!encodedRedirect) {
+    return null;
+  }
+
+  try {
+    return Buffer.from(encodedRedirect, 'base64url').toString('utf8');
+  } catch {
+    return null;
+  }
 }
