@@ -5,6 +5,7 @@ import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
+import rateLimit from '@fastify/rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -62,6 +63,10 @@ export async function buildApp() {
 
   await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+  });
 
   // Static file serving for uploads
   await app.register(fastifyStatic, {

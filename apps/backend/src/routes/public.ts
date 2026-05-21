@@ -62,6 +62,14 @@ type UsernameCardPublicProfileResponse = {
 
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───
+  app.get('/:username', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
   /**
    * GET /api/public/:username
    * Returns the public profile information for a user.
@@ -162,7 +170,14 @@ export async function publicRoutes(app: FastifyInstance) {
   */
   // ─── Shared Card View (Direct) ───
 
-  app.get('/card/:cardId', async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
+  app.get('/card/:cardId', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
     const { cardId } = request.params;
 
     const card = await app.prisma.card.findUnique({
@@ -203,6 +218,14 @@ export async function publicRoutes(app: FastifyInstance) {
   });
 
   // ─── Public Card View ───
+  app.get('/:username/card/:cardId', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
   /**
    * GET /api/public/:username/card/:cardId
    * Returns full owner profile + specific card data.
@@ -282,7 +305,14 @@ export async function publicRoutes(app: FastifyInstance) {
 
   // ─── QR Code Generation ───
 
-  app.get('/:username/qr', async (request: FastifyRequest<{
+  app.get('/:username/qr', {
+    config: {
+      rateLimit: {
+        max: 50, // Lower limit for QR generation as it's more resource intensive
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{
     Params: { username: string };
     Querystring: { format?: string; size?: string };
   }>, reply: FastifyReply) => {
