@@ -1,9 +1,65 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 
+type PublicProfileLink = {
+  id: string;
+  platform: string;
+  username: string; 
+  url: string; 
+  displayOrder: number; 
+}
+
+type UsernamePublicProfileResponse =  {
+  username: string; 
+  displayName: string;
+  bio: string | null; 
+  pronouns: string | null; 
+  role: string | null; 
+  company: string | null;
+  avatarUrl: string | null; 
+  accentColor: string;
+  links: PublicProfileLink[]
+} 
+
+type PublicProfileCardLink = {
+  id: string;
+  platform: string;
+  username: string; 
+  url: string; 
+}
+
+type CardPublicProfileResponse = {
+  id: string; 
+  title: string; 
+  owner: {
+    username: string; 
+    displayName: string; 
+    bio: string | null;
+    avatarUrl: string | null;
+    accentColor: string; 
+  }; 
+  links: PublicProfileCardLink[]
+}
+
+type UsernameCardPublicProfileResponse = {
+  title: string; 
+  owner: {
+    username: string; 
+    displayName: string;
+    bio: string | null; 
+    pronouns: string | null; 
+    role: string | null; 
+    company: string | null;
+    avatarUrl: string | null; 
+    accentColor: string;
+  }; 
+  links: PublicProfileCardLink[]
+}
+
+
+
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───
-
   app.get('/:username', {
     config: {
       rateLimit: {
@@ -12,6 +68,11 @@ export async function publicRoutes(app: FastifyInstance) {
       }
     }
   }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
+  /**
+   * GET /api/public/:username
+   * Returns the public profile information for a user.
+  */
+  app.get('/:username', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -57,7 +118,7 @@ export async function publicRoutes(app: FastifyInstance) {
       }).catch(err => app.log.error('Failed to log view:', err));
     }
 
-    return {
+    const response: UsernamePublicProfileResponse = {
       username: user.username,
       displayName: user.displayName,
       bio: user.bio,
@@ -73,9 +134,17 @@ export async function publicRoutes(app: FastifyInstance) {
         url: link.url,
         displayOrder: link.displayOrder,
       })),
-    };
+    }
+
+    return response; 
+
   });
 
+  /**
+   * GET /api/public/card/:cardId
+   * Returns public data for a shared card via its direct link.
+   * Used for standalone card sharing (minimal owner info).
+  */
   // ─── Shared Card View (Direct) ───
 
   app.get('/card/:cardId', {
@@ -103,7 +172,7 @@ export async function publicRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Card not found' });
     }
 
-    return {
+    const response: CardPublicProfileResponse = {
       id: card.id,
       title: card.title,
       owner: {
@@ -119,11 +188,13 @@ export async function publicRoutes(app: FastifyInstance) {
         username: cl.platformLink.username,
         url: cl.platformLink.url,
       })),
-    };
+    }
+
+    return response; 
+
   });
 
   // ─── Public Card View ───
-
   app.get('/:username/card/:cardId', {
     config: {
       rateLimit: {
@@ -132,6 +203,12 @@ export async function publicRoutes(app: FastifyInstance) {
       }
     }
   }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
+  /**
+   * GET /api/public/:username/card/:cardId
+   * Returns full owner profile + specific card data.
+   * Used when viewing a card through username + cardId (e.g. QR code scans).
+  */
+  app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
     const { username, cardId } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -179,7 +256,8 @@ export async function publicRoutes(app: FastifyInstance) {
       }).catch(err => app.log.error('Failed to log card view:', err));
     }
 
-    return {
+
+    const response: UsernameCardPublicProfileResponse = {
       title: card.title,
       owner: {
         username: user.username,
@@ -198,7 +276,8 @@ export async function publicRoutes(app: FastifyInstance) {
         url: cl.platformLink.url,
         displayOrder: cl.displayOrder,
       })),
-    };
+    }
+    return response; 
   });
 
   // ─── QR Code Generation ───
