@@ -8,6 +8,9 @@ import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
+import rateLimit from '@fastify/rate-limit';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
@@ -15,11 +18,12 @@ import { analyticsRoutes } from './routes/analytics.js';
 import { authRoutes } from './routes/auth.js';
 import { cardRoutes } from './routes/cards.js';
 import { connectRoutes } from './routes/connect.js';
+import { analyticsRoutes } from './routes/analytics.js';
+import { nfcRoutes } from './routes/nfc.js';
 import { eventRoutes } from './routes/event.js';
 import { followRoutes } from './routes/follow.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
-
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -63,6 +67,10 @@ export async function buildApp() {
 
   await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+  });
 
   // Static file serving for uploads
   await app.register(fastifyStatic, {
@@ -92,8 +100,8 @@ export async function buildApp() {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-  await app.register(eventRoutes, {prefix: '/api/events'})
-
+await app.register(nfcRoutes, { prefix: '/api/nfc' });
+    await app.register(eventRoutes, { prefix: '/api/events' });
   // ─── Health Check ───
   app.get('/health', async () => ({
     status: 'ok',

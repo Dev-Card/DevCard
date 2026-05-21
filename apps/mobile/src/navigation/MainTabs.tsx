@@ -12,8 +12,8 @@ import ScanScreen from '../screens/ScanScreen';
 import DevCardViewScreen from '../screens/DevCardViewScreen';
 import WebViewScreen from '../screens/WebViewScreen';
 
-import ConnectPlatformsScreen from '../screens/ConnectPlatformsScreen';
-import ViewsScreen from '../screens/ViewsScreen';
+import { ConnectPlatformsScreen } from '../screens/ConnectPlatformsScreen';
+import { ViewsScreen } from '../screens/ViewsScreen';
 
 // ─── Types ───
 
@@ -25,10 +25,21 @@ export type MainTabsParamList = {
   Settings: undefined;
 };
 
+// Standalone type for WebViewConnect route params — exported for reuse in
+// WebViewScreen, DevCardViewScreen, or any future screen that navigates here.
+export type WebViewConnectParams = {
+  platform: string;
+  url: string;
+  platformName: string;
+  username?: string;
+  linkId?: string;
+  cardOwnerUsername: string;
+};
+
 export type RootStackParamList = {
   MainTabs: undefined;
-  DevCardView: { username: string };
-  WebViewConnect: { platform: string; profileUrl: string; displayName: string };
+  DevCardView: { username: string; followSuccessLinkId?: string };
+  WebViewConnect: WebViewConnectParams;
   ConnectPlatforms: undefined;
   Views: undefined;
 };

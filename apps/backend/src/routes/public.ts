@@ -8,6 +8,7 @@ type PublicProfileLink = {
   username: string; 
   url: string; 
   displayOrder: number; 
+  followed?: boolean;
 }
 
 type UsernamePublicProfileResponse =  {
@@ -27,6 +28,7 @@ type PublicProfileCardLink = {
   platform: string;
   username: string; 
   url: string; 
+  followed?: boolean;
 }
 
 type CardPublicProfileResponse = {
@@ -61,6 +63,14 @@ type UsernameCardPublicProfileResponse = {
 
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───
+  app.get('/:username', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
   /**
    * GET /api/public/:username
    * Returns the public profile information for a user.
@@ -86,18 +96,14 @@ export async function publicRoutes(app: FastifyInstance) {
     try {
       if (request.headers.authorization) {
         const decoded = await request.jwtVerify() as any;
-        if (decoded?.id !== user.id) {
-          viewerId = decoded.id; // Only log if they aren't the owner
-        }
-      } else {
-        viewerId = null; // Unauthenticated viewer
+        viewerId = decoded?.id || null;
       }
     } catch (e) {
       // Ignored if invalid token
     }
 
     // Don't track if the owner is viewing their own profile
-    if (viewerId !== user.id) {
+    if (viewerId && viewerId !== user.id) {
       // Background view tracking
       app.prisma.cardView.create({
         data: {
@@ -109,6 +115,30 @@ export async function publicRoutes(app: FastifyInstance) {
           source: (request.query as any)?.source || 'link',
         },
       }).catch(err => app.log.error('Failed to log view:', err));
+    }
+
+    // Fetch viewer's successful follow logs for this profile's links
+    let followedLinkIds: string[] = [];
+    if (viewerId && user.platformLinks.length > 0) {
+      const successfulFollows = await app.prisma.followLog.findMany({
+        where: {
+          followerId: viewerId,
+          status: 'success',
+          OR: user.platformLinks.map(link => ({
+            platform: link.platform,
+            targetUsername: link.username,
+          })),
+        },
+      });
+
+      followedLinkIds = user.platformLinks
+        .filter(link =>
+          successfulFollows.some(f =>
+            f.platform === link.platform &&
+            f.targetUsername.toLowerCase() === link.username.toLowerCase()
+          )
+        )
+        .map(link => link.id);
     }
 
     const response: UsernamePublicProfileResponse = {
@@ -126,6 +156,7 @@ export async function publicRoutes(app: FastifyInstance) {
         username: link.username,
         url: link.url,
         displayOrder: link.displayOrder,
+        followed: followedLinkIds.includes(link.id),
       })),
     }
 
@@ -140,7 +171,14 @@ export async function publicRoutes(app: FastifyInstance) {
   */
   // ─── Shared Card View (Direct) ───
 
-  app.get('/card/:cardId', async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
+  app.get('/card/:cardId', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
     const { cardId } = request.params;
 
     const card = await app.prisma.card.findUnique({
@@ -181,6 +219,14 @@ export async function publicRoutes(app: FastifyInstance) {
   });
 
   // ─── Public Card View ───
+  app.get('/:username/card/:cardId', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
   /**
    * GET /api/public/:username/card/:cardId
    * Returns full owner profile + specific card data.
@@ -260,7 +306,14 @@ export async function publicRoutes(app: FastifyInstance) {
 
   // ─── QR Code Generation ───
 
-  app.get('/:username/qr', async (request: FastifyRequest<{
+  app.get('/:username/qr', {
+    config: {
+      rateLimit: {
+        max: 50, // Lower limit for QR generation as it's more resource intensive
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request: FastifyRequest<{
     Params: { username: string };
     Querystring: { format?: string; size?: string };
   }>, reply: FastifyReply) => {
