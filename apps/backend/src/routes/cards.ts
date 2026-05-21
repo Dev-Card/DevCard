@@ -100,6 +100,8 @@ export async function cardRoutes(app: FastifyInstance) {
     if (parsed.data.linkIds) {
       // Remove existing links
       await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
+
+      
       // Add new links
       await app.prisma.cardLink.createMany({
         data: parsed.data.linkIds.map((linkId, index) => ({
