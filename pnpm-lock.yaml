@@ -259,7 +259,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.0.0
-        version: 2.1.9(@types/node@22.19.15)(terser@5.46.0)
+        version: 2.1.9(@types/node@22.19.15)(lightningcss@1.32.0)(terser@5.46.0)
 
 packages:
 
