@@ -1,6 +1,7 @@
 import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 import type { PlatformLink } from '@devcard/shared';
+import { getErrorMessage } from '../utils/error.util.js';
 type PublicProfileLink = {
   id: string;
   platform: string;
@@ -65,15 +66,6 @@ interface CardLinkWithPlatform {
   platformLink: PlatformLink;
 }
 
-// Helper to safely extract error messages
-function getErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  try {
-    return String(err);
-  } catch {
-    return 'Unknown error';
-  }
-}
 
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───
