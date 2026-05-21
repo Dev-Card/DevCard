@@ -63,7 +63,7 @@ export async function connectRoutes(app: FastifyInstance) {
 
     try {
       // Decode state to find which user requested the connect
-      const decodedState = parseGoogleState(state);
+      const decodedState = parseOAuthState(state);
 
       if (!decodedState) {
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
@@ -158,7 +158,7 @@ export async function connectRoutes(app: FastifyInstance) {
   });
 }
 
-function parseGoogleState(state: string): ParsedOAuthState | null {
+function parseOAuthState(state: string): ParsedOAuthState | null {
   try {
     const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
 
