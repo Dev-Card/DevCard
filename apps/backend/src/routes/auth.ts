@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { randomBytes } from 'crypto';
+import { encrypt } from '../utils/encryption.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -118,6 +119,19 @@ export async function authRoutes(app: FastifyInstance) {
           providerId: String(githubUser.id),
         },
       });
+
+      // Save the authentication token for 'user:email read:user' so we have a basic platform connection.
+      // Failure here is non-fatal — the user can still authenticate; the token can be reconnected later.
+      try {
+        const encryptedToken = encrypt(tokenData.access_token);
+        await app.prisma.oAuthToken.upsert({
+          where: { userId_platform: { userId: user.id, platform: 'github' } },
+          update: { accessToken: encryptedToken, scopes: 'read:user user:email' },
+          create: { userId: user.id, platform: 'github', accessToken: encryptedToken, scopes: 'read:user user:email' },
+        });
+      } catch (err) {
+        app.log.error({ err, userId: user.id }, 'Failed to persist GitHub OAuth token — authentication proceeds');
+      }
 
       // Generate JWT
       const token = app.jwt.sign(
