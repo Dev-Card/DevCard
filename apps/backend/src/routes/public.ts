@@ -1,6 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
-
 type PublicProfileLink = {
   id: string;
   platform: string;
@@ -113,7 +112,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: (request.query as any)?.source || 'link',
         },
-      }).catch(err => app.log.error('Failed to log view:', err));
+      }).catch((err: unknown) => app.log.error('Failed to log view: %s', err instanceof Error ? err.message : String(err)));
     }
 
     // Fetch viewer's successful follow logs for this profile's links
@@ -149,7 +148,7 @@ export async function publicRoutes(app: FastifyInstance) {
       company: user.company,
       avatarUrl: user.avatarUrl,
       accentColor: user.accentColor,
-      links: user.platformLinks.map((link) => ({
+      links: user.platformLinks.map((link: { id: string; platform: string; username: string; url: string; displayOrder: number }) => ({
         id: link.id,
         platform: link.platform,
         username: link.username,
@@ -205,7 +204,7 @@ export async function publicRoutes(app: FastifyInstance) {
         avatarUrl: card.user.avatarUrl,
         accentColor: card.user.accentColor,
       },
-      links: card.cardLinks.map((cl) => ({
+      links: card.cardLinks.map((cl: any) => ({
         id: cl.platformLink.id,
         platform: cl.platformLink.platform,
         username: cl.platformLink.username,
@@ -276,7 +275,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: (request.query as any)?.source || 'qr',
         },
-      }).catch(err => app.log.error('Failed to log card view:', err));
+      }).catch((err: unknown) => app.log.error('Failed to log view: ' + (err instanceof Error ? err.message : String(err))));
     }
 
 
@@ -292,7 +291,7 @@ export async function publicRoutes(app: FastifyInstance) {
         avatarUrl: user.avatarUrl,
         accentColor: user.accentColor,
       },
-      links: card.cardLinks.map((cl) => ({
+      links: card.cardLinks.map((cl: any) => ({
         id: cl.platformLink.id,
         platform: cl.platformLink.platform,
         username: cl.platformLink.username,
