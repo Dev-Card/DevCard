@@ -4,10 +4,13 @@ import type { FastifyInstance } from 'fastify';
 
 declare module 'fastify' {
   interface FastifyInstance {
-    prisma: PrismaClient;
+    prisma: PrismaClient;        
+    authenticate(
+      request: FastifyRequest,  
+      reply: FastifyReply       
+    ): Promise<void>;
   }
 }
-
 export const prismaPlugin = fp(async (app: FastifyInstance) => {
   const prisma = new PrismaClient({
     log: process.env.NODE_ENV !== 'production' ? ['query', 'error', 'warn'] : ['error'],

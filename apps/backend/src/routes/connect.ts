@@ -170,5 +170,5 @@ function parseGoogleState(state: string): ParsedOAuthState | null {
 }
 
 function generateState(): string {
-  return Math.random().toString(36).substring(2, 15);
+  return randomBytes(32).toString('hex');
 }
