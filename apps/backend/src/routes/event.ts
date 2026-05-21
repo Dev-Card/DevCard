@@ -270,7 +270,7 @@ export async function eventRoutes(app:FastifyInstance) {
         }
 
          
-        const attendees = event.attendees.map(attendee => ({
+        const attendees = event.attendees.map((attendee: EventWithAttendees['attendees'][number]) => ({
             id: attendee.user.id,
             username: attendee.user.username,
             displayName: attendee.user.displayName,
