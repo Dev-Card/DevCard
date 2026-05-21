@@ -69,12 +69,14 @@
 <div class="bg-gradient" style="--accent: {profile?.accentColor || '#6366f1'}"></div>
 
 <main class="profile-container {mounted ? 'loaded' : ''}">
-  {#if error || !profile}
+ {#if error || !profile}
+    <div class="top-bar">
+      <a href="/" class="home-btn">← Return Home</a>
+    </div>
     <div class="error-glass glass">
       <div class="error-emoji">😕</div>
       <h1>Profile not found</h1>
       <p>This DevCard has vanished into the digital void.</p>
-      <a href="/" class="btn-primary">Return Home</a>
     </div>
   {:else}
     <div class="profile-card glass" style="--accent: {profile.accentColor}">
@@ -429,5 +431,29 @@
     .link-tile { padding: 0.95rem; }
     .tile-content { margin-left: 0.9rem; }
     .card-footer { text-align: left; }
+  }
+  .top-bar {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .home-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    color: #f8fafc;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: background 0.2s ease;
+  }
+
+  .home-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
   }
 </style>
