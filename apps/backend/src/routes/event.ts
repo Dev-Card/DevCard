@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createEventSchema, joinEventSchema} from '../validations/event.validation';
+import { Prisma } from '@prisma/client';
 
 type EventDetails = {
     id: string; 
@@ -34,6 +35,27 @@ type PaginatedAttendeesResponse = {
     total: number;       
   };
 }
+
+type EventWithAttendees = Prisma.EventGetPayload<{
+  include: {
+    attendees: {
+      include: {
+        user: {
+          select: {
+            id: true;
+            username: true;
+            displayName: true;
+            bio: true;
+            pronouns: true;
+            company: true;
+            avatarUrl: true;
+            accentColor: true;
+          };
+        };
+      };
+    };
+  };
+}>;
 
 export async function eventRoutes(app:FastifyInstance) {
     app.post('/api/events' , async(request: FastifyRequest<{
@@ -241,7 +263,7 @@ export async function eventRoutes(app:FastifyInstance) {
                     orderBy: {joinedAt: 'desc'}
                 }
             }, 
-        })
+        })as EventWithAttendees | null;
 
         if(!event){
             return reply.status(404).send({error: 'Event not found'})
