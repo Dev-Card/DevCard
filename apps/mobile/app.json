@@ -1,4 +1,5 @@
 {
   "name": "DevCard",
-  "displayName": "DevCard"
+  "displayName": "DevCard",
+  "scheme": "devcard"
 }
