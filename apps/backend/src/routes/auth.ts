@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-
+import { randomBytes } from 'crypto';
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
@@ -117,10 +117,10 @@ export async function authRoutes(app: FastifyInstance) {
         { expiresIn: '30d' }
       );
 
-      // For mobile app: redirect with token as query param
+      // For mobile app: redirect with token as URL fragment (not sent to servers, keeps token out of logs)
       const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
       if (request.query.state?.startsWith('mobile_')) {
-        return reply.redirect(`${mobileRedirect}?token=${token}`);
+        return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
       // For web: set cookie and redirect
@@ -222,7 +222,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       if (request.query.state?.startsWith('mobile_')) {
         const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
-        return reply.redirect(`${mobileRedirect}?token=${token}`);
+        return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
       reply.setCookie('token', token, {
@@ -287,5 +287,5 @@ export async function authRoutes(app: FastifyInstance) {
 }
 
 function generateState(): string {
-  return Math.random().toString(36).substring(2, 15);
+  return randomBytes(32).toString('hex');
 }
