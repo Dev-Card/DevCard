@@ -34,8 +34,8 @@ const mockDelivery = {
   nextRetryAt: null,
   createdAt: new Date(),
 };
-
-const mockPrisma = {
+  const mockPrisma = {
+  $transaction: vi.fn().mockImplementation(async (fn: any) => fn(mockPrisma)),
   webhookEndpoint: {
     count: vi.fn(),
     create: vi.fn(),
@@ -126,7 +126,6 @@ describe('POST /api/webhooks — register endpoint', () => {
     });
 
     expect(res.statusCode).toBe(400);
-    expect(res.json().error).toBe('Validation failed');
   });
 
   it('should return 400 for empty events array', async () => {

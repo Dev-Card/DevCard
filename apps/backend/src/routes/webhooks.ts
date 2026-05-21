@@ -27,7 +27,22 @@ export async function webhookRoutes(app: FastifyInstance) {
    * Max 5 endpoints per user. Auto-generates and encrypts a secret.
    * Returns the plaintext secret once — user must store it.
    */
-  app.post('/', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['url', 'events'],
+        properties: {
+          url: { type: 'string', format: 'uri' },
+          events: {
+            type: 'array',
+            items: { type: 'string', enum: ['card.viewed', 'contact.saved'] },
+            minItems: 1,
+          },
+        },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const parsed = createWebhookSchema.safeParse(request.body);
 
@@ -38,39 +53,45 @@ export async function webhookRoutes(app: FastifyInstance) {
       });
     }
 
-    // Enforce max 5 endpoints per user
-    const existingCount = await app.prisma.webhookEndpoint.count({
-      where: { userId },
-    });
+    try {
+      const endpoint = await app.prisma.$transaction(async (tx: any) => {
+        const existingCount = await tx.webhookEndpoint.count({
+          where: { userId },
+        });
 
-    if (existingCount >= 5) {
-      return reply.status(409).send({
-        error: 'Maximum of 5 webhook endpoints allowed per user',
+        if (existingCount >= 5) {
+          throw Object.assign(new Error('Maximum of 5 webhook endpoints allowed per user'), { statusCode: 409 });
+        }
+
+        const plaintextSecret = crypto.randomBytes(32).toString('hex');
+        const encryptedSecret = encrypt(plaintextSecret);
+
+        const created = await tx.webhookEndpoint.create({
+          data: {
+            userId,
+            url: parsed.data.url,
+            secret: encryptedSecret,
+            events: parsed.data.events,
+          },
+        });
+
+        return { ...created, plaintextSecret };
       });
+
+      return reply.status(201).send({
+        id: endpoint.id,
+        url: endpoint.url,
+        events: endpoint.events,
+        isActive: endpoint.isActive,
+        createdAt: endpoint.createdAt,
+        secret: endpoint.plaintextSecret,
+      });
+    } catch (err: any) {
+      if (err.statusCode === 409) {
+        return reply.status(409).send({ error: err.message });
+      }
+      throw err;
     }
-
-    // Generate a random secret and encrypt it for storage
-    const plaintextSecret = crypto.randomBytes(32).toString('hex');
-    const encryptedSecret = encrypt(plaintextSecret);
-
-    const endpoint = await app.prisma.webhookEndpoint.create({
-      data: {
-        userId,
-        url: parsed.data.url,
-        secret: encryptedSecret,
-        events: parsed.data.events,
-      },
-    });
-
-    return reply.status(201).send({
-      id: endpoint.id,
-      url: endpoint.url,
-      events: endpoint.events,
-      isActive: endpoint.isActive,
-      createdAt: endpoint.createdAt,
-      // Return the plaintext secret only at creation time
-      secret: plaintextSecret,
-    });
   });
 
   // ─── List Webhook Endpoints ───
@@ -79,8 +100,18 @@ export async function webhookRoutes(app: FastifyInstance) {
    * Returns all webhook endpoints for the authenticated user.
    * The secret field is never returned.
    */
-  app.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+        },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
+    const limit = Math.min(100, parseInt((request.query as any).limit || '20', 10));
 
     const endpoints = await app.prisma.webhookEndpoint.findMany({
       where: { userId },
@@ -92,6 +123,7 @@ export async function webhookRoutes(app: FastifyInstance) {
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
+      take: limit,
     });
 
     return endpoints;
