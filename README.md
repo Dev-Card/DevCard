@@ -52,7 +52,7 @@ Each exchange is manual, error-prone, and slow. DevCard fixes this.
 
 ### Prerequisites
 
-- Node.js >= 20
+- Node.js >= 22.11.0 (required for the full monorepo; use `nvm` or `volta` to manage versions)
 - pnpm >= 9
 - Docker & Docker Compose
 - React Native development environment ([setup guide](https://reactnative.dev/docs/environment-setup))

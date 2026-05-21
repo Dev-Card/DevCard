@@ -12,7 +12,7 @@
 
 ### Prerequisites
 
-- **Node.js** >= 20
+- **Node.js** >= 22.11.0 (required for the full monorepo; use `nvm` or `volta` to manage versions)
 - **pnpm** >= 9
 - **Docker** & Docker Compose
 - **React Native** dev environment — follow the [official setup guide](https://reactnative.dev/docs/environment-setup)
@@ -68,7 +68,18 @@ pnpm --filter @devcard/mobile test
 Currently, the web app does not define a test script.
 
 #### packages/shared
-The shared package does not include test scripts. It only provides linting and type checking.
+The `@devcard/shared` package includes unit tests run with Vitest. To run them:
+
+```bash
+pnpm --filter @devcard/shared test
+```
+
+It also provides linting and type checking via:
+
+```bash
+pnpm --filter @devcard/shared lint
+pnpm --filter @devcard/shared typecheck
+```
 
 
 ## Project Structure
