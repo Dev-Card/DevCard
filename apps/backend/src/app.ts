@@ -1,23 +1,24 @@
-import Fastify from 'fastify';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
-import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import Fastify from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
-import { authRoutes } from './routes/auth.js';
-import { profileRoutes } from './routes/profiles.js';
-import { cardRoutes } from './routes/cards.js';
-import { publicRoutes } from './routes/public.js';
-import { followRoutes } from './routes/follow.js';
-import { connectRoutes } from './routes/connect.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { authRoutes } from './routes/auth.js';
+import { cardRoutes } from './routes/cards.js';
+import { connectRoutes } from './routes/connect.js';
 import { eventRoutes } from './routes/event.js';
+import { followRoutes } from './routes/follow.js';
+import { profileRoutes } from './routes/profiles.js';
+import { publicRoutes } from './routes/public.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

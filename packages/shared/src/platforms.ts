@@ -270,20 +270,20 @@ export function getPlatform(id: string): PlatformDef | undefined {
 /** Get the profile URL for a given platform and username */
 export function getProfileUrl(platformId: string, username: string): string {
   const platform = PLATFORMS[platformId];
-  if (!platform) return '';
+  if (!platform) {return '';}
   return platform.urlPattern.replace(/{username}/g, username);
 }
 
 /** Get the WebView URL for Layer 2 platforms */
 export function getWebViewUrl(platformId: string, username: string): string | null {
   const platform = PLATFORMS[platformId];
-  if (!platform?.webViewUrlPattern) return null;
+  if (!platform?.webViewUrlPattern) {return null;}
   return platform.webViewUrlPattern.replace(/{username}/g, username);
 }
 
 /** Get the deep link URL for mobile */
 export function getDeepLinkUrl(platformId: string, username: string): string | null {
   const platform = PLATFORMS[platformId];
-  if (!platform?.deepLinkPattern) return null;
+  if (!platform?.deepLinkPattern) {return null;}
   return platform.deepLinkPattern.replace(/{username}/g, username);
 }

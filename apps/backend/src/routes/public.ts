@@ -1,5 +1,6 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 type PublicProfileLink = {
   id: string;

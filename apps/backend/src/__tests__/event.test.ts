@@ -1,7 +1,9 @@
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Fastify, { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+
 import { eventRoutes } from '../routes/event';
+
+import type { PrismaClient } from '@prisma/client';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -64,7 +66,7 @@ const prismaMock = {
 //
 // This mirrors the real app setup without touching a real DB or real JWT keys.
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });

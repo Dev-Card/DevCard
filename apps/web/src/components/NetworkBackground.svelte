@@ -1,43 +1,27 @@
 <script>
-  import '../app.css';
   import { onMount } from 'svelte';
 
-  let { children } = $props();
   let canvas;
   const numberOfParticles = 65;
   let particlesArray = [];
-  
-  // Track mouse coordinates globally across the browser screen window viewport
-  let mouse = { x: null, y: null, radius: 150 };
-
-  let currentTheme = $state('dark');
-  $effect(() => {
-    if (typeof document !== 'undefined') {
-      const observer = new MutationObserver(() => {
-        currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-      });
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-      currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-      return () => observer.disconnect();
-    }
-  });
+  let mouse = { x: null, y: null, radius: 180 };
 
   onMount(() => {
     const ctx = canvas.getContext('2d');
-    
+
     function setCanvasSize() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     }
     setCanvasSize();
-    
-    // Bind listeners to the absolute top-level window so mouse movements aren't blocked by child elements
     window.addEventListener('resize', setCanvasSize);
+
     window.addEventListener('mousemove', (e) => {
       mouse.x = e.clientX;
       mouse.y = e.clientY;
     });
-    window.addEventListener('mouseleave', () => {
+
+    window.addEventListener('mouseout', () => {
       mouse.x = null;
       mouse.y = null;
     });
@@ -47,41 +31,43 @@
         this.x = Math.random() * canvas.width;
         this.y = Math.random() * canvas.height;
         this.size = Math.random() * 2.5 + 1;
-        this.speedX = (Math.random() - 0.5) * 0.4;
-        this.speedY = (Math.random() - 0.5) * 0.4;
+        this.speedX = (Math.random() - 0.5) * 0.35;
+        this.speedY = (Math.random() - 0.5) * 0.35;
       }
       update() {
         this.x += this.speedX;
         this.y += this.speedY;
+
         if (this.x > canvas.width || this.x < 0) this.speedX = -this.speedX;
         if (this.y > canvas.height || this.y < 0) this.speedY = -this.speedY;
       }
       draw() {
-        ctx.fillStyle = currentTheme === 'dark' ? 'rgba(192, 132, 252, 0.35)' : 'rgba(124, 58, 237, 0.25)';
+        ctx.fillStyle = 'rgba(192, 132, 252, 0.35)'; // Dark theme node color
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
-    for (let i = 0; i < numberOfParticles; i++) { 
-      particlesArray.push(new Particle()); 
+    for (let i = 0; i < numberOfParticles; i++) {
+      particlesArray.push(new Particle());
     }
 
     function animate() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      let baseOpacity = currentTheme === 'dark' ? 0.15 : 0.12;
-      let lineColor = currentTheme === 'dark' ? '168, 85, 247' : '139, 92, 246';
+      
+      let baseOpacity = 0.15;
+      let lineColor = '168, 85, 247'; // Lavender lines
 
       for (let a = 0; a < particlesArray.length; a++) {
         particlesArray[a].update();
         particlesArray[a].draw();
-        
-        // 1. Draw interconnected network web mesh lines
+
         for (let b = a; b < particlesArray.length; b++) {
           let dx = particlesArray[a].x - particlesArray[b].x;
           let dy = particlesArray[a].y - particlesArray[b].y;
           let distance = Math.sqrt(dx * dx + dy * dy);
+
           if (distance < 120) {
             ctx.strokeStyle = `rgba(${lineColor}, ${(1 - distance/120) * baseOpacity})`;
             ctx.lineWidth = 0.9;
@@ -92,15 +78,12 @@
           }
         }
 
-        // 2. NEW/RESTORED: Draw reactive magnetic interaction strands straight to the mouse tracker
         if (mouse.x !== null && mouse.y !== null) {
           let mdx = particlesArray[a].x - mouse.x;
           let mdy = particlesArray[a].y - mouse.y;
           let mDistance = Math.sqrt(mdx * mdx + mdy * mdy);
-          
           if (mDistance < mouse.radius) {
-            // Brightens and connects lines as your pointer passes overhead
-            ctx.strokeStyle = `rgba(${lineColor}, ${(1 - mDistance/mouse.radius) * (baseOpacity * 2.5)})`;
+            ctx.strokeStyle = `rgba(${lineColor}, ${(1 - mDistance/mouse.radius) * (baseOpacity * 2.2)})`;
             ctx.lineWidth = 1.1;
             ctx.beginPath();
             ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
@@ -111,22 +94,16 @@
       }
       requestAnimationFrame(animate);
     }
+
     animate();
-    
+
     return () => {
       window.removeEventListener('resize', setCanvasSize);
     };
   });
 </script>
 
-<svelte:head>
-  <meta name="theme-color" content="#0f0f1a" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><text y=%2224%22 font-size=%2224%22>⚡</text></svg>" />
-</svelte:head>
-
 <canvas bind:this={canvas} id="bg-network-canvas"></canvas>
-
-{@render children()}
 
 <style>
   #bg-network-canvas {
@@ -135,7 +112,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    z-index: -1; 
-    pointer-events: none; /* Allows mouse clicks to click right through to buttons behind it */
+    z-index: 0;
+    pointer-events: none;
   }
 </style>

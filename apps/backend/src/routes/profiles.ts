@@ -1,10 +1,12 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getProfileUrl } from '@devcard/shared';
+
 import {
   updateProfileSchema,
   createLinkSchema,
   reorderLinksSchema,
 } from '../utils/validators.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 export async function profileRoutes(app: FastifyInstance) {
   // All profile routes require auth

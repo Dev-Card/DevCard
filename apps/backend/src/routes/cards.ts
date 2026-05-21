@@ -1,5 +1,6 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 export async function cardRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.authenticate);

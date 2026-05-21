@@ -1,5 +1,6 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { decrypt } from '../utils/encryption.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 export async function followRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.authenticate);
