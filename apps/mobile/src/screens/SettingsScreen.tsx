@@ -15,7 +15,10 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../config';
 
+import { useNavigation } from '@react-navigation/native';
+
 export default function SettingsScreen() {
+  const navigation = useNavigation<any>();
   const { user, token, refreshUser, logout } = useAuth();
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [bio, setBio] = useState(user?.bio || '');

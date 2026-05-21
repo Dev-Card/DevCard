@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { decrypt } from '../utils/encryption.js';
+import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 
 export async function followRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.authenticate);
@@ -13,6 +14,16 @@ export async function followRoutes(app: FastifyInstance) {
   ) => {
     const userId = (request.user as any).id;
     const { platform, targetUsername } = request.params;
+
+    // Use WebView follow strategy if configured for the platform (e.g. LinkedIn, Twitter/X)
+    const platformDef = getPlatform(platform);
+    if (platformDef?.followStrategy === 'webview') {
+      const url = getWebViewUrl(platform, targetUsername) || getProfileUrl(platform, targetUsername);
+      return reply.send({
+        strategy: 'webview',
+        url,
+      });
+    }
 
     // Get stored OAuth token for this platform
     const oauthToken = await app.prisma.oAuthToken.findUnique({
@@ -75,6 +86,54 @@ try {
 
       return reply.status(500).send({ error: 'Follow action failed', message: err.message });
     }
+  });
+
+  // Log follow/connect event for Layer 2/3/4 strategies
+  app.post('/:platform/:targetUsername/log', async (
+    request: FastifyRequest<{
+      Params: { platform: string; targetUsername: string };
+      Body: { status?: string; layer?: string };
+    }>,
+    reply: FastifyReply
+  ) => {
+    const userId = (request.user as any).id;
+    const { platform, targetUsername } = request.params;
+    const { status = 'success', layer = 'webview' } = request.body || {};
+
+    try {
+      const log = await app.prisma.followLog.create({
+        data: {
+          followerId: userId,
+          targetUsername,
+          platform,
+          status,
+          layer,
+        },
+      });
+      return reply.send({ status: 'success', logId: log.id });
+    } catch (err: any) {
+      app.log.error('Failed to log follow:', err);
+      return reply.status(500).send({ error: 'Failed to log follow event' });
+    }
+  });
+
+  // ─── Clear follow log (reset Done state) ───
+  app.delete('/:platform/:targetUsername/log', async (
+    request: FastifyRequest<{ Params: { platform: string; targetUsername: string } }>,
+    reply: FastifyReply
+  ) => {
+    const userId = (request.user as any).id;
+    const { platform, targetUsername } = request.params;
+
+    await app.prisma.followLog.deleteMany({
+      where: {
+        followerId: userId,
+        platform,
+        targetUsername,
+      },
+    });
+
+    return reply.send({ status: 'cleared' });
   });
 }
 

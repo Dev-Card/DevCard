@@ -9,6 +9,7 @@ import {
   StatusBar,
   Image,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
@@ -37,6 +38,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [analytics, setAnalytics] = useState<any>(null);
   const [showQR, setShowQR] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchUsername, setSearchUsername] = useState('');
 
   const profileUrl = user?.defaultCardId 
     ? `${APP_URL}/devcard/${user.defaultCardId}`
@@ -203,6 +205,36 @@ export default function HomeScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
+        {/* Search / Lookup */}
+        <View style={styles.searchSection}>
+          <Text style={styles.searchLabel}>🔍 View a DevCard</Text>
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Enter username..."
+              placeholderTextColor={COLORS.textMuted}
+              value={searchUsername}
+              onChangeText={setSearchUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="go"
+              onSubmitEditing={() => {
+                const u = searchUsername.trim();
+                if (u) (navigation as any).navigate('DevCardView', { username: u });
+              }}
+            />
+            <TouchableOpacity
+              style={styles.searchBtn}
+              onPress={() => {
+                const u = searchUsername.trim();
+                if (u) (navigation as any).navigate('DevCardView', { username: u });
+              }}
+            >
+              <Text style={styles.searchBtnText}>Go →</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Stats */}
         <View style={styles.stats}>
           <View style={styles.statItem}>
@@ -299,4 +331,30 @@ const styles = StyleSheet.create({
   statNumber: { fontSize: FONT_SIZE.xl, fontWeight: '800', color: COLORS.primary },
   statLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, marginTop: 4 },
   statDivider: { width: 1, backgroundColor: COLORS.border },
+  // Search
+  searchSection: {
+    marginBottom: SPACING.lg,
+  },
+  searchLabel: {
+    fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.textSecondary,
+    marginBottom: SPACING.sm, letterSpacing: 0.3,
+  },
+  searchRow: {
+    flexDirection: 'row', gap: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md, paddingVertical: 12,
+    color: COLORS.textPrimary, fontSize: FONT_SIZE.md,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  searchBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.lg,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  searchBtnText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZE.md },
 });
