@@ -6,6 +6,23 @@ import {
   reorderLinksSchema,
 } from '../utils/validators.js';
 
+async function invalidateOgCache(app: FastifyInstance, userId: string) {
+  if (app.redis && app.redis.status === 'ready') {
+    try {
+      const user = await app.prisma.user.findUnique({
+        where: { id: userId },
+        select: { username: true },
+      });
+      if (user) {
+        await app.redis.del(`og:${user.username.toLowerCase()}`);
+        app.log.info(`[OG Cache] Invalidated cache for @${user.username}`);
+      }
+    } catch (err) {
+      app.log.error('[OG Cache] Failed to invalidate cache:', err as any);
+    }
+  }
+}
+
 export async function profileRoutes(app: FastifyInstance) {
   // All profile routes require auth
   app.addHook('preHandler', app.authenticate);
@@ -82,6 +99,8 @@ export async function profileRoutes(app: FastifyInstance) {
       },
     });
 
+    await invalidateOgCache(app, userId);
+
     return updated;
   });
 
@@ -113,6 +132,8 @@ export async function profileRoutes(app: FastifyInstance) {
         displayOrder: (maxOrder._max.displayOrder ?? -1) + 1,
       },
     });
+
+    await invalidateOgCache(app, userId);
 
     return reply.status(201).send(link);
   });
@@ -147,6 +168,8 @@ export async function profileRoutes(app: FastifyInstance) {
       },
     });
 
+    await invalidateOgCache(app, userId);
+
     return updated;
   });
 
@@ -165,6 +188,7 @@ export async function profileRoutes(app: FastifyInstance) {
     }
 
     await app.prisma.platformLink.delete({ where: { id } });
+    await invalidateOgCache(app, userId);
     return reply.status(204).send();
   });
 
@@ -186,6 +210,8 @@ export async function profileRoutes(app: FastifyInstance) {
         })
       )
     );
+
+    await invalidateOgCache(app, userId);
 
     return { message: 'Links reordered' };
   });

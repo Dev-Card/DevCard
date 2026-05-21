@@ -1,5 +1,13 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+import { loadFonts } from '../utils/fonts.js';
+import satori from 'satori';
+import { Resvg } from '@resvg/resvg-js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 type PublicProfileLink = {
   id: string;
@@ -107,7 +115,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: (request.query as any)?.source || 'link',
         },
-      }).catch(err => app.log.error('Failed to log view:', err));
+      }).catch((err: any) => app.log.error('Failed to log view:', err));
     }
 
     const response: UsernamePublicProfileResponse = {
@@ -119,7 +127,7 @@ export async function publicRoutes(app: FastifyInstance) {
       company: user.company,
       avatarUrl: user.avatarUrl,
       accentColor: user.accentColor,
-      links: user.platformLinks.map((link) => ({
+      links: user.platformLinks.map((link: any) => ({
         id: link.id,
         platform: link.platform,
         username: link.username,
@@ -167,7 +175,7 @@ export async function publicRoutes(app: FastifyInstance) {
         avatarUrl: card.user.avatarUrl,
         accentColor: card.user.accentColor,
       },
-      links: card.cardLinks.map((cl) => ({
+      links: card.cardLinks.map((cl: any) => ({
         id: cl.platformLink.id,
         platform: cl.platformLink.platform,
         username: cl.platformLink.username,
@@ -230,7 +238,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: (request.query as any)?.source || 'qr',
         },
-      }).catch(err => app.log.error('Failed to log card view:', err));
+      }).catch((err: any) => app.log.error('Failed to log card view:', err));
     }
 
 
@@ -246,7 +254,7 @@ export async function publicRoutes(app: FastifyInstance) {
         avatarUrl: user.avatarUrl,
         accentColor: user.accentColor,
       },
-      links: card.cardLinks.map((cl) => ({
+      links: card.cardLinks.map((cl: any) => ({
         id: cl.platformLink.id,
         platform: cl.platformLink.platform,
         username: cl.platformLink.username,
@@ -291,5 +299,489 @@ export async function publicRoutes(app: FastifyInstance) {
       .header('Content-Type', 'image/png')
       .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
       .send(png);
+  });
+
+  // ─── Dynamic OG Image Generation ───
+  /**
+   * GET /api/u/:username/og-image
+   * Generates a dynamic premium PNG preview card for the user's public profile.
+   * Leverages Redis cache if available.
+   */
+  app.get('/:username/og-image', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
+    const { username } = request.params;
+
+    // Check Redis cache first
+    const cacheKey = `og:${username.toLowerCase()}`;
+    if (app.redis && app.redis.status === 'ready') {
+      try {
+        const cached = await app.redis.getBuffer(cacheKey);
+        if (cached) {
+          app.log.info(`[OG Image] Serving cached preview for @${username}`);
+          return reply
+            .header('Content-Type', 'image/png')
+            .header('Cache-Control', 'public, max-age=3600')
+            .send(cached);
+        }
+      } catch (err) {
+        app.log.error('Redis cache fetch error:', err as any);
+      }
+    }
+
+    // Fetch user profile from DB
+    const userProfile = await app.prisma.user.findUnique({
+      where: { username },
+      include: {
+        platformLinks: {
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+
+    if (!userProfile) {
+      return reply.status(404).send({ error: 'User not found' });
+    }
+
+    // Resolve avatar and convert to base64 Data URI
+    let avatarBase64: string | null = null;
+    if (userProfile.avatarUrl) {
+      try {
+        if (userProfile.avatarUrl.startsWith('/uploads/') || userProfile.avatarUrl.includes('/uploads/')) {
+          // Resolve local uploads safely
+          const relativePath = userProfile.avatarUrl.startsWith('/uploads/')
+            ? userProfile.avatarUrl
+            : userProfile.avatarUrl.substring(userProfile.avatarUrl.indexOf('/uploads/'));
+          const localPath = path.join(__dirname, '..', '..', relativePath);
+          if (fs.existsSync(localPath)) {
+            const fileBuffer = fs.readFileSync(localPath);
+            const ext = path.extname(localPath).replace('.', '');
+            avatarBase64 = `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${fileBuffer.toString('base64')}`;
+          }
+        }
+
+        // Resolve absolute URLs
+        if (!avatarBase64 && userProfile.avatarUrl.startsWith('http')) {
+          const avatarRes = await fetch(userProfile.avatarUrl, { signal: AbortSignal.timeout(2000) });
+          if (avatarRes.ok) {
+            const arrayBuffer = await avatarRes.arrayBuffer();
+            const mime = avatarRes.headers.get('content-type') || 'image/png';
+            avatarBase64 = `data:${mime};base64,${Buffer.from(arrayBuffer).toString('base64')}`;
+          }
+        }
+      } catch (err) {
+        app.log.warn(`Failed to resolve avatar for OG image generation: ${err}`);
+      }
+    }
+
+    try {
+      // Load fonts dynamically (regular and bold)
+      const fonts = await loadFonts();
+
+      // Render to SVG via satori
+      const svg = await (satori as any)(
+        {
+          type: 'div',
+          props: {
+            style: {
+              height: '100%',
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              backgroundColor: '#030712',
+              color: '#ffffff',
+              fontFamily: 'Inter',
+              padding: '60px 80px',
+              position: 'relative',
+            },
+            children: [
+              // Radial glow top center
+              {
+                type: 'div',
+                props: {
+                  style: {
+                    position: 'absolute',
+                    top: '-150px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '800px',
+                    height: '400px',
+                    borderRadius: '100%',
+                    background: `radial-gradient(circle, ${userProfile.accentColor || '#6366f1'} 0%, transparent 70%)`,
+                    opacity: '0.25',
+                    display: 'flex',
+                  }
+                }
+              },
+              // Header row
+              {
+                type: 'div',
+                props: {
+                  style: {
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                  },
+                  children: [
+                    {
+                      type: 'div',
+                      props: {
+                        style: {
+                          display: 'flex',
+                          alignItems: 'center',
+                          fontSize: '28px',
+                          fontWeight: 'bold',
+                          letterSpacing: '-0.5px',
+                        },
+                        children: [
+                          {
+                            type: 'span',
+                            props: {
+                              style: {
+                                color: userProfile.accentColor || '#6366f1',
+                                marginRight: '8px',
+                              },
+                              children: '⚡'
+                            }
+                          },
+                          {
+                            type: 'span',
+                            props: {
+                              children: 'DevCard'
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      type: 'div',
+                      props: {
+                        style: {
+                          display: 'flex',
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                          borderRadius: '999px',
+                          padding: '8px 16px',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          color: '#9ca3af',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                        },
+                        children: 'Verified Developer Profile'
+                      }
+                    }
+                  ]
+                }
+              },
+              // Main row
+              {
+                type: 'div',
+                props: {
+                  style: {
+                    display: 'flex',
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    marginTop: '40px',
+                    marginBottom: '40px',
+                  },
+                  children: [
+                    // Profile Info
+                    {
+                      type: 'div',
+                      props: {
+                        style: {
+                          display: 'flex',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          flex: '1',
+                        },
+                        children: [
+                          // Avatar
+                          {
+                            type: 'div',
+                            props: {
+                              style: {
+                                position: 'relative',
+                                display: 'flex',
+                                width: '160px',
+                                height: '160px',
+                                borderRadius: '40px',
+                                border: `3px solid ${userProfile.accentColor || '#6366f1'}`,
+                                overflow: 'hidden',
+                                marginRight: '36px',
+                              },
+                              children: avatarBase64
+                                ? [
+                                    {
+                                      type: 'img',
+                                      props: {
+                                        src: avatarBase64,
+                                        style: {
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: 'cover',
+                                        }
+                                      }
+                                    }
+                                  ]
+                                : [
+                                    {
+                                      type: 'div',
+                                      props: {
+                                        style: {
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          width: '100%',
+                                          height: '100%',
+                                          backgroundColor: userProfile.accentColor || '#6366f1',
+                                          color: '#ffffff',
+                                          fontSize: '64px',
+                                          fontWeight: 'bold',
+                                        },
+                                        children: userProfile.displayName.charAt(0).toUpperCase(),
+                                      }
+                                    }
+                                  ]
+                            }
+                          },
+                          // Text info
+                          {
+                            type: 'div',
+                            props: {
+                              style: {
+                                display: 'flex',
+                                flexDirection: 'column',
+                                maxWidth: '480px',
+                              },
+                              children: [
+                                {
+                                  type: 'span',
+                                  props: {
+                                    style: {
+                                      fontSize: '42px',
+                                      fontWeight: 'bold',
+                                      color: '#ffffff',
+                                      marginBottom: '6px',
+                                    },
+                                    children: userProfile.displayName
+                                  }
+                                },
+                                {
+                                  type: 'span',
+                                  props: {
+                                    style: {
+                                      fontSize: '22px',
+                                      color: '#9ca3af',
+                                      marginBottom: '16px',
+                                    },
+                                    children: `@${userProfile.username}`
+                                  }
+                                },
+                                {
+                                  type: 'span',
+                                  props: {
+                                    style: {
+                                      fontSize: '18px',
+                                      color: '#d1d5db',
+                                      lineHeight: '1.6',
+                                    },
+                                    children: userProfile.bio 
+                                      ? (userProfile.bio.length > 120 ? `${userProfile.bio.substring(0, 117)}...` : userProfile.bio)
+                                      : 'Active developer sharing platform cards.'
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    // Right connected platforms
+                    {
+                      type: 'div',
+                      props: {
+                        style: {
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-end',
+                          width: '380px',
+                        },
+                        children: [
+                          {
+                            type: 'span',
+                            props: {
+                              style: {
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                color: '#9ca3af',
+                                marginBottom: '16px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px',
+                              },
+                              children: 'Connected Platforms'
+                            }
+                          },
+                          {
+                            type: 'div',
+                            props: {
+                              style: {
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                justifyContent: 'flex-end',
+                                gap: '12px',
+                                width: '100%',
+                              },
+                              children: userProfile.platformLinks.length > 0
+                                ? userProfile.platformLinks.slice(0, 6).map((link: any) => {
+                                    const platformName = link.platform.charAt(0).toUpperCase() + link.platform.slice(1);
+                                    return {
+                                      type: 'div',
+                                      props: {
+                                        style: {
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                                          borderRadius: '12px',
+                                          padding: '10px 18px',
+                                          color: '#ffffff',
+                                          fontSize: '18px',
+                                          fontWeight: '600',
+                                        },
+                                        children: [
+                                          {
+                                            type: 'div',
+                                            props: {
+                                              style: {
+                                                width: '10px',
+                                                height: '10px',
+                                                borderRadius: '50%',
+                                                backgroundColor: userProfile.accentColor || '#6366f1',
+                                                marginRight: '10px',
+                                              }
+                                            }
+                                          },
+                                          {
+                                            type: 'span',
+                                            children: platformName
+                                          }
+                                        ]
+                                      }
+                                    };
+                                  })
+                                : [
+                                    {
+                                      type: 'div',
+                                      props: {
+                                        style: {
+                                          display: 'flex',
+                                          color: '#9ca3af',
+                                          fontSize: '18px',
+                                          fontStyle: 'italic',
+                                        },
+                                        children: 'No public links added yet.'
+                                      }
+                                    }
+                                  ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              // Footer
+              {
+                type: 'div',
+                props: {
+                  style: {
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                    paddingTop: '24px',
+                  },
+                  children: [
+                    {
+                      type: 'span',
+                      props: {
+                        style: {
+                          fontSize: '18px',
+                          color: '#9ca3af',
+                        },
+                        children: 'Build your developer presence at devcard.dev'
+                      }
+                    },
+                    {
+                      type: 'span',
+                      props: {
+                        style: {
+                          fontSize: '20px',
+                          fontWeight: 'bold',
+                          color: userProfile.accentColor || '#6366f1',
+                        },
+                        children: `devcard.dev/u/${userProfile.username}`
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          width: 1200,
+          height: 630,
+          fonts: [
+            {
+              name: 'Inter',
+              data: fonts.regular,
+              weight: 400,
+              style: 'normal',
+            },
+            {
+              name: 'Inter',
+              data: fonts.bold,
+              weight: 700,
+              style: 'normal',
+            }
+          ]
+        }
+      );
+
+      // Render SVG to PNG using resvg-js
+      const resvg = new Resvg(svg, {
+        background: '#030712',
+        fitTo: {
+          mode: 'width',
+          value: 1200,
+        },
+      });
+      const pngBuffer = resvg.render().asPng();
+
+      // Cache the result in Redis with 1 hour TTL
+      if (app.redis && app.redis.status === 'ready') {
+        try {
+          await app.redis.setex(cacheKey, 3600, pngBuffer);
+          app.log.info(`[OG Image] Cached generated preview for @${username}`);
+        } catch (err) {
+          app.log.error('Redis cache save error:', err as any);
+        }
+      }
+
+      return reply
+        .header('Content-Type', 'image/png')
+        .header('Cache-Control', 'public, max-age=3600')
+        .send(pngBuffer);
+
+    } catch (err: any) {
+      app.log.error('Error generating OG image:', err);
+      return reply.status(500).send({ error: 'Failed to generate OG image', details: err?.message || err });
+    }
   });
 }

@@ -59,10 +59,33 @@
 
 <svelte:head>
   {#if profile}
+    {@const platformSummary = profile.links.length > 0 
+      ? `Connect with ${profile.displayName} on ${profile.links.map(l => PLATFORMS[l.platform]?.name || l.platform).slice(0, 3).join(', ')}${profile.links.length > 3 ? ` and ${profile.links.length - 3} other platforms` : ''}.`
+      : 'Active developer sharing platform cards.'}
+    {@const fullDescription = profile.bio ? `${profile.bio} | ${platformSummary}` : platformSummary}
+    {@const ogImageUrl = `${data.backendUrl}/api/u/${profile.username}/og-image`}
+    {@const pageUrl = `${data.publicAppUrl}/u/${profile.username}`}
+
     <title>{profile.displayName} | DevCard</title>
-    <meta name="description" content="{profile.bio || `${profile.displayName}'s developer profiles`}" />
+    <meta name="description" content={fullDescription} />
+    <link rel="canonical" href={pageUrl} />
+
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="{profile.displayName} | DevCard" />
+    <meta property="og:description" content={fullDescription} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:type" content="profile" />
+    <meta property="og:site_name" content="DevCard" />
+
+    <!-- Twitter Card Metadata -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{profile.displayName} | DevCard" />
+    <meta name="twitter:description" content={fullDescription} />
+    <meta name="twitter:image" content={ogImageUrl} />
   {:else}
     <title>User Not Found | DevCard</title>
+    <meta name="description" content="This DevCard has vanished into the digital void." />
   {/if}
 </svelte:head>
 
