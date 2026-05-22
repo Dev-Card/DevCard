@@ -18,7 +18,8 @@ function AppContent() {
       console.log('--- DEEP LINK RECEIVED ---');
       console.log('URL:', event.url);
       const url = new URL(event.url);
-      const token = url.searchParams.get('token');
+      const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+      const token = url.searchParams.get('token') || hashParams.get('token');
       if (token) {
         console.log('Token found, logging in...');
         login(token);
