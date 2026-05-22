@@ -70,11 +70,10 @@ export async function publicRoutes(app: FastifyInstance) {
       }
     }
   }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
-  /**
-   * GET /api/public/:username
-   * Returns the public profile information for a user.
-  */
-  app.get('/:username', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
+    /**
+     * GET /api/public/:username
+     * Returns the public profile information for a user.
+    */
     const { username } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -159,8 +158,7 @@ export async function publicRoutes(app: FastifyInstance) {
       })),
     }
 
-    return response; 
-
+    return response;
   });
 
   /**
@@ -226,12 +224,11 @@ export async function publicRoutes(app: FastifyInstance) {
       }
     }
   }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
-  /**
-   * GET /api/public/:username/card/:cardId
-   * Returns full owner profile + specific card data.
-   * Used when viewing a card through username + cardId (e.g. QR code scans).
-  */
-  app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
+    /**
+     * GET /api/public/:username/card/:cardId
+     * Returns full owner profile + specific card data.
+     * Used when viewing a card through username + cardId (e.g. QR code scans).
+    */
     const { username, cardId } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -300,7 +297,7 @@ export async function publicRoutes(app: FastifyInstance) {
         displayOrder: cl.displayOrder,
       })),
     }
-    return response; 
+    return response;
   });
 
   // ─── QR Code Generation ───
