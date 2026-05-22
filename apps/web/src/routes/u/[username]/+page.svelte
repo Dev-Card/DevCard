@@ -154,7 +154,7 @@
     right: 0;
     bottom: 0;
     background: radial-gradient(circle at 50% 0%, var(--accent), transparent 50%),
-                #020617;
+                var(--bg-page);
     opacity: 0.18;
     z-index: -1;
   }
@@ -180,11 +180,13 @@
     max-width: 540px;
     border-radius: var(--radius-xl);
     padding: 2.5rem 2rem;
-    box-shadow: 0 26px 60px -20px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow-lg);
     position: relative;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid var(--border-glass);
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 
   .profile-header {
@@ -233,8 +235,8 @@
     align-items: center;
     justify-content: center;
     padding: 0.45rem 1rem;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--btn-secondary-bg);
+    border: 1px solid var(--btn-secondary-border);
     border-radius: 999px;
     font-size: 0.9rem;
     font-weight: 700;
@@ -261,9 +263,9 @@
     align-items: center;
     padding: 1rem;
     border-radius: calc(var(--radius) * 1.1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.06);
-    box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    box-shadow: var(--shadow-sm);
     transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
     animation: slideIn 0.5s ease-out forwards;
     animation-delay: var(--delay);
@@ -272,9 +274,10 @@
 
   .link-tile:hover,
   .link-tile:focus-visible {
-    background: rgba(255, 255, 255, 0.13);
+    background: var(--bg-primary);
     transform: translateY(-2px);
-    border-color: rgba(99, 102, 241, 0.35);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md);
   }
 
   .link-tile:focus-visible {
@@ -332,7 +335,7 @@
   .card-footer {
     margin-top: 2.5rem;
     padding-top: 1.75rem;
-    border-top: 1px solid rgba(255,255,255,0.08);
+    border-top: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -373,9 +376,9 @@
   }
 
   .copy-link-button {
-    border: 1px solid var(--border-glass);
+    border: 1px solid var(--btn-secondary-border);
     border-radius: var(--radius);
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--btn-secondary-bg);
     color: var(--text-primary);
     cursor: pointer;
     font: inherit;
@@ -385,7 +388,7 @@
   }
 
   .copy-link-button:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--btn-secondary-hover-bg);
     transform: translateY(-1px);
   }
 

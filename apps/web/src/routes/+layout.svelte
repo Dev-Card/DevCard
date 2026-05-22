@@ -1,6 +1,16 @@
 <script>
   import '../app.css';
+  import { onMount } from 'svelte';
   let { children } = $props();
+
+  onMount(() => {
+    try {
+      const saved = localStorage.getItem('devcard-theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = saved || (prefersDark ? 'dark' : 'light');
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+    } catch (e) {}
+  });
 </script>
 
 <svelte:head>

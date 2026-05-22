@@ -14,6 +14,10 @@ export const redisPlugin = fp(async (app: FastifyInstance) => {
     lazyConnect: true,
   });
 
+  redis.on('error', (err) => {
+    app.log.debug(`Redis connection state: offline (${err.message})`);
+  });
+
   try {
     await redis.connect();
     app.log.info('🔴 Redis connected');

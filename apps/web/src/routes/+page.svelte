@@ -34,14 +34,17 @@
   <nav class="glass">
     <div class="nav-content">
       <div class="logo">⚡ <span class="gradient-text">DevCard</span></div>
-      <button
-        id="theme-toggle"
-        class="theme-toggle"
-        on:click={toggleTheme}
-        aria-label="Toggle theme"
-      >
-        {theme === 'light' ? '🌙' : '☀️'}
-      </button>
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <a href="/login" class="btn-primary" style="padding: 0.6rem 1.1rem; font-size: 0.88rem; border-radius: var(--radius); text-decoration: none;">Creator Studio ⚡</a>
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          on:click={toggleTheme}
+          aria-label="Toggle theme"
+        >
+          {theme === 'light' ? '🌙' : '☀️'}
+        </button>
+      </div>
     </div>
   </nav>
 
@@ -52,15 +55,10 @@
       The open-source standard for developer networking. Put all your profiles—GitHub, LinkedIn, LeetCode, and more—into a single, high-impact digital card.
     </p>
     <div class="cta-group">
-      <a
-        href="https://github.com/Dev-Card/DevCard"
-        class="btn-primary"
-        target="_blank"
-        rel="noopener"
-      >
-        ⭐ Star on GitHub
+      <a href="/login" class="btn-primary" style="text-decoration: none;">
+        Create Your DevCard ⚡
       </a>
-      <a href="/u/devcard-demo" class="btn-secondary">View Demo Profile →</a>
+      <a href="/u/devcard-demo" class="btn-secondary" style="text-decoration: none;">View Demo Profile →</a>
     </div>
   </section>
 
@@ -130,8 +128,8 @@
   .theme-toggle {
     width: 46px;
     height: 46px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--btn-secondary-bg);
+    border: 1px solid var(--btn-secondary-border);
     border-radius: 50%;
     cursor: pointer;
     display: inline-flex;
@@ -143,7 +141,7 @@
 
   .theme-toggle:hover {
     transform: scale(1.05);
-    background: rgba(255, 255, 255, 0.14);
+    background: var(--btn-secondary-hover-bg);
   }
 
   .theme-toggle:focus-visible {
@@ -203,13 +201,13 @@
     padding: 0.92rem 1.75rem;
     border-radius: calc(var(--radius) * 1.15);
     font-weight: 700;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--btn-secondary-border);
+    background: var(--btn-secondary-bg);
     color: var(--text-primary);
   }
 
   .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.14);
+    background: var(--btn-secondary-hover-bg);
     border-color: rgba(99, 102, 241, 0.45);
   }
 
@@ -230,23 +228,25 @@
 }
 
   .feature-card {
-    padding: 2.4rem;
+    padding: 2rem;
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-lg);
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.5));
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: var(--shadow-md);
+    background: var(--bg-glass);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--border-glass);
     transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
   }
 
-  .feature-card {
-  min-height: 140px;
-  padding: 16px;
-}
-@media (max-width: 640px) {
-  .feature-card {
-    margin-bottom: 12px;
+  @media (max-width: 640px) {
+    .feature-card {
+      margin-bottom: 12px;
+      padding: 1.5rem;
+    }
   }
-}
 
   .feature-card:hover {
     transform: translateY(-8px);

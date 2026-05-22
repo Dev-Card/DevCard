@@ -5,6 +5,7 @@
   "description": "One Tap. Every Profile. Every Platform. Open Source Developer Profile Exchange Platform.",
   "license": "Apache-2.0",
   "scripts": {
+    "dev": "concurrently \"pnpm dev:backend\" \"pnpm dev:web\"",
     "dev:backend": "pnpm --filter @devcard/backend dev",
     "dev:mobile": "pnpm --filter @devcard/mobile start",
     "dev:web": "pnpm --filter @devcard/web dev",

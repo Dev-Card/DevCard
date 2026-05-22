@@ -278,6 +278,58 @@ export async function authRoutes(app: FastifyInstance) {
     };
   });
 
+  // ─── Local Developer Bypass Auth ───
+
+  app.post('/bypass', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { username } = request.body as { username: string };
+    if (!username) {
+      return reply.status(400).send({ error: 'Missing username' });
+    }
+
+    const cleanUsername = username.trim().toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!cleanUsername) {
+      return reply.status(400).send({ error: 'Invalid username format' });
+    }
+
+    try {
+      const user = await app.prisma.user.upsert({
+        where: {
+          username: cleanUsername,
+        },
+        update: {},
+        create: {
+          email: `${cleanUsername}@devcard.local`,
+          username: cleanUsername,
+          displayName: username.trim(),
+          bio: 'Full-stack developer building outstanding interfaces.',
+          role: 'Software Engineer',
+          company: 'DevCard Team',
+          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+          provider: 'dev_bypass',
+          providerId: `bypass_${cleanUsername}`,
+        },
+      });
+
+      const token = app.jwt.sign(
+        { id: user.id, username: user.username },
+        { expiresIn: '30d' }
+      );
+
+      reply.setCookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60,
+      });
+
+      return { token, user };
+    } catch (err) {
+      app.log.error('Bypass login error:', err);
+      return reply.status(500).send({ error: 'Authentication bypass failed' });
+    }
+  });
+
   // ─── Logout ───
 
   app.post('/logout', async (request: FastifyRequest, reply: FastifyReply) => {

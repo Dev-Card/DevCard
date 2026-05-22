@@ -19,6 +19,11 @@
   --text-secondary: #475569;
   --text-muted: #64748b;
 
+  /* Secondary Button & Inputs */
+  --btn-secondary-bg: rgba(15, 23, 42, 0.05);
+  --btn-secondary-border: rgba(15, 23, 42, 0.08);
+  --btn-secondary-hover-bg: rgba(15, 23, 42, 0.09);
+
   /* Effects */
   --border: rgba(226, 232, 240, 0.9);
   --border-glass: rgba(255, 255, 255, 0.35);
@@ -43,6 +48,10 @@ html.dark {
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-muted: #64748b;
+
+  --btn-secondary-bg: rgba(255, 255, 255, 0.08);
+  --btn-secondary-border: rgba(255, 255, 255, 0.14);
+  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.14);
 
   --border: rgba(30, 41, 59, 0.85);
   --border-glass: rgba(255, 255, 255, 0.12);
@@ -131,14 +140,14 @@ button {
   padding: 0.85rem 1.75rem;
   border-radius: calc(var(--radius) * 1.2);
   font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--btn-secondary-border);
+  background: var(--btn-secondary-bg);
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--btn-secondary-hover-bg);
   border-color: rgba(99, 102, 241, 0.45);
 }
 

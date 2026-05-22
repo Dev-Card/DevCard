@@ -14,7 +14,7 @@ const config = {
 				'script-src': ['self', 'unsafe-inline'],
 				'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
 				'img-src': ['self', 'data:', 'https:'],
-				'connect-src': ['self'],
+				'connect-src': ['self', 'http://localhost:3000', 'ws://localhost:5173'],
 				'font-src': ['self', 'data:', 'https:', 'https://fonts.gstatic.com'],
 				'object-src': ['none'],
 				'base-uri': ['self'],
