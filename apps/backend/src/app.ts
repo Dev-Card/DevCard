@@ -5,6 +5,7 @@ import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
+import rateLimit from '@fastify/rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -17,6 +18,8 @@ import { publicRoutes } from './routes/public.js';
 import { followRoutes } from './routes/follow.js';
 import { connectRoutes } from './routes/connect.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { nfcRoutes } from './routes/nfc.js';
+import { eventRoutes } from './routes/event.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -60,6 +63,10 @@ export async function buildApp() {
 
   await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+  });
 
   // Static file serving for uploads
   await app.register(fastifyStatic, {
@@ -89,7 +96,8 @@ export async function buildApp() {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-
+await app.register(nfcRoutes, { prefix: '/api/nfc' });
+    await app.register(eventRoutes, { prefix: '/api/events' });
   // ─── Health Check ───
   app.get('/health', async () => ({
     status: 'ok',
