@@ -73,6 +73,11 @@ docker compose up -d
 # Copy environment config
 cp .env.example .env
 
+# ⚠️ Replace secret placeholders before starting the server:
+# JWT_SECRET  → node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# ENCRYPTION_KEY → node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Paste the generated values into your .env file. Never use placeholders in production.
+
 # Run database migrations
 pnpm db:migrate
 
