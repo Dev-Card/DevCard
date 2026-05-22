@@ -2,6 +2,8 @@
 node_modules/
 .pnp
 .pnp.js
+package-lock.json
+yarn.lock
 
 # Build outputs
 dist/
@@ -14,13 +16,18 @@ build/
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.staging
 
-# IDE
+# IDE & Cache
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.eslintcache
+*.tsbuildinfo
 
 # OS
 .DS_Store
@@ -48,3 +55,7 @@ yarn-debug.log*
 pnpm-debug.log*
 .cache/
 tmp/
+.vercel/
+.netlify/
+.wrangler/
+vite.config.*.timestamp-*

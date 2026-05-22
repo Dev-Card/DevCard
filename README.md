@@ -111,6 +111,19 @@ devcard/
 | Web Backup | SvelteKit |
 | Auth | OAuth 2.0 (GitHub, Google) |
 
+### Web Application (`apps/web`)
+
+The web app is a client-side SvelteKit application built with Svelte 5 and Vite. It runs independently of any backend or database using `localStorage` for all persistent storage.
+
+- **Developer Card Form**: Create or update your profile card containing fields for Username, Full Name, Bio, and multiple platform links (GitHub, LinkedIn, Twitter/X, Instagram, YouTube, Dev.to, LeetCode, Portfolio).
+- **Interactive Avatar Studio**:
+  - **Dynamic Initials SVG**: Instantly generates a colorful gradient SVG avatar using the initials from the entered Full Name.
+  - **DiceBear Suggestions**: Real-time suggested avatars generated using DiceBear APIs (*Avataaars*, *Robots*, *Pixel Art*, *Chibi*, *Identicon*) dynamically seeded by the username and display name.
+  - **GitHub Sync**: One-click sync to fetch the user's GitHub avatar once they add their GitHub link.
+  - **Presets**: High-quality developer photography presets from Unsplash.
+- **Card Sharing & QR Codes**: Generates a shareable card at `/u/[username]`. The page renders the profile details, connection tiles, and a QR code of its own URL. Includes options to download the QR code as a PNG, copy the profile link, and edit the card.
+- **Preloaded Demo**: Automatically pre-seeds a demo developer profile at `/u/devcard-demo` for instant testing.
+
 ### Hybrid Follow Engine
 
 DevCard uses a three-layer follow engine:
