@@ -101,9 +101,7 @@
   }
 
   nav {
-    position: sticky;
-    top: 1.25rem;
-    margin: 0 auto;
+    margin: 1.25rem auto 0;
     width: min(1100px, calc(100% - 2rem));
     max-width: 1100px;
     border-radius: var(--radius-xl);
@@ -278,7 +276,7 @@
 
   @media (max-width: 860px) {
     nav {
-      top: 0.9rem;
+      margin-top: 0.9rem;
       padding: 0.85rem 1.1rem;
     }
 
