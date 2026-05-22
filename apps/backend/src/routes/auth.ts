@@ -90,7 +90,8 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
     const clientState = (request.query as any).state || '';
-    const state = clientState ? `${clientState}_${generateState()}` : generateState();
+    const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
+    const state = buildOAuthState(clientState, mobileRedirectUri);
 
     const params = new URLSearchParams({
       client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
@@ -174,21 +175,25 @@ export async function authRoutes(app: FastifyInstance) {
         },
       });
 
-      // Save the authentication token for 'user:email read:user' so we have a basic platform connection
-      const encryptedToken = (app as any).encryption ? (app as any).encryption.encrypt(tokenData.access_token) : tokenData.access_token;
-      
-      await app.prisma.oAuthToken.upsert({
-        where: { userId_platform: { userId: user.id, platform: 'github' } },
-        update: { accessToken: encryptedToken, scopes: 'read:user user:email' },
-        create: { userId: user.id, platform: 'github', accessToken: encryptedToken, scopes: 'read:user user:email' },
-      });
+      // Save the authentication token for 'user:email read:user' so we have a basic platform connection.
+      // Failure here is non-fatal — the user can still authenticate; the token can be reconnected later.
+      try {
+        const encryptedToken = encrypt(tokenData.access_token);
+        await app.prisma.oAuthToken.upsert({
+          where: { userId_platform: { userId: user.id, platform: 'github' } },
+          update: { accessToken: encryptedToken, scopes: 'read:user user:email' },
+          create: { userId: user.id, platform: 'github', accessToken: encryptedToken, scopes: 'read:user user:email' },
+        });
+      } catch (err) {
+        app.log.error({ err, userId: user.id }, 'Failed to persist GitHub OAuth token — authentication proceeds');
+      }
 
       // Generate JWT
       const token = signAuthToken(app, user);
 
       // For mobile app: redirect with token as URL fragment (not sent to servers, keeps token out of logs)
-      const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
       if (request.query.state?.startsWith('mobile_')) {
+        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
@@ -207,7 +212,8 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/google', async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
     const clientState = (request.query as any).state || '';
-    const state = clientState ? `${clientState}_${generateState()}` : generateState();
+    const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
+    const state = buildOAuthState(clientState, mobileRedirectUri);
 
     const params = new URLSearchParams({
       client_id: (process.env.GOOGLE_CLIENT_ID || '').trim(),
@@ -281,7 +287,7 @@ export async function authRoutes(app: FastifyInstance) {
       const token = signAuthToken(app, user);
 
       if (request.query.state?.startsWith('mobile_')) {
-        const mobileRedirect = process.env.MOBILE_REDIRECT_URI;
+        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
