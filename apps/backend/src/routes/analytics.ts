@@ -1,10 +1,9 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
-export async function analyticsRoutes(app: FastifyInstance) {
-  
-  app.get('/overview', {
-    preHandler: [app.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
+  app.addHook('preHandler', (request, reply) => app.authenticate(request, reply));
+
+  app.get('/overview', async (request: FastifyRequest) => {
     const userId = (request.user as any).id;
     
     const today = new Date();
@@ -57,9 +56,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/views', {
-    preHandler: [app.authenticate],
-  }, async (request: FastifyRequest<{ Querystring: { page?: string, cardId?: string } }>, reply: FastifyReply) => {
+  app.get('/views', async (request: FastifyRequest<{ Querystring: { page?: string, cardId?: string } }>) => {
     const userId = (request.user as any).id;
     const page = parseInt(request.query.page || '1', 10);
     const limit = 20;
