@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 import { loadFonts } from '../utils/fonts.js';
+import { getErrorMessage } from '../utils/error.util.js';
 import satori from 'satori';
 import { Resvg } from '@resvg/resvg-js';
 import fs from 'fs';
@@ -79,8 +80,8 @@ export async function publicRoutes(app: FastifyInstance) {
     }
   }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
   /**
-   * GET /api/public/:username
-   * Returns the public profile information for a user.
+    * GET /api/public/:username
+    * Returns the public profile information for a user.
   */
   app.get('/:username', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
@@ -121,7 +122,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: (request.query as any)?.source || 'link',
         },
-      }).catch((err: any) => app.log.error('Failed to log view:', err));
+      }).catch((err) => app.log.error('Failed to log view:', getErrorMessage(err)));
     }
 
     // Fetch viewer's successful follow logs for this profile's links
@@ -157,7 +158,7 @@ export async function publicRoutes(app: FastifyInstance) {
       company: user.company,
       avatarUrl: user.avatarUrl,
       accentColor: user.accentColor,
-      links: user.platformLinks.map((link: any) => ({
+      links: user.platformLinks.map((link) => ({
         id: link.id,
         platform: link.platform,
         username: link.username,
@@ -172,9 +173,9 @@ export async function publicRoutes(app: FastifyInstance) {
   });
 
   /**
-   * GET /api/public/card/:cardId
-   * Returns public data for a shared card via its direct link.
-   * Used for standalone card sharing (minimal owner info).
+    * GET /api/public/card/:cardId
+    * Returns public data for a shared card via its direct link.
+    * Used for standalone card sharing (minimal owner info).
   */
   // ─── Shared Card View (Direct) ───
 
@@ -213,7 +214,7 @@ export async function publicRoutes(app: FastifyInstance) {
         avatarUrl: card.user.avatarUrl,
         accentColor: card.user.accentColor,
       },
-      links: card.cardLinks.map((cl: any) => ({
+      links: card.cardLinks.map((cl) => ({
         id: cl.platformLink.id,
         platform: cl.platformLink.platform,
         username: cl.platformLink.username,
@@ -235,9 +236,9 @@ export async function publicRoutes(app: FastifyInstance) {
     }
   }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
   /**
-   * GET /api/public/:username/card/:cardId
-   * Returns full owner profile + specific card data.
-   * Used when viewing a card through username + cardId (e.g. QR code scans).
+    * GET /api/public/:username/card/:cardId
+    * Returns full owner profile + specific card data.
+    * Used when viewing a card through username + cardId (e.g. QR code scans).
   */
   app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
     const { username, cardId } = request.params;
@@ -284,7 +285,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: (request.query as any)?.source || 'qr',
         },
-      }).catch((err: any) => app.log.error('Failed to log card view:', err));
+      }).catch((err) => app.log.error('Failed to log card view:', getErrorMessage(err)));
     }
 
 
@@ -300,7 +301,7 @@ export async function publicRoutes(app: FastifyInstance) {
         avatarUrl: user.avatarUrl,
         accentColor: user.accentColor,
       },
-      links: card.cardLinks.map((cl: any) => ({
+      links: card.cardLinks.map((cl) => ({
         id: cl.platformLink.id,
         platform: cl.platformLink.platform,
         username: cl.platformLink.username,
@@ -356,10 +357,10 @@ export async function publicRoutes(app: FastifyInstance) {
 
   // ─── Dynamic OG Image Generation ───
   /**
-   * GET /api/u/:username/og-image
-   * Generates a dynamic premium PNG preview card for the user's public profile.
-   * Leverages Redis cache if available.
-   */
+    * GET /api/u/:username/og-image
+    * Generates a dynamic premium PNG preview card for the user's public profile.
+    * Leverages Redis cache if available.
+    */
   app.get('/:username/og-image', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
 
@@ -376,7 +377,7 @@ export async function publicRoutes(app: FastifyInstance) {
             .send(cached);
         }
       } catch (err) {
-        app.log.error('Redis cache fetch error:', err as any);
+        app.log.error('Redis cache fetch error:', getErrorMessage(err));
       }
     }
 
@@ -421,7 +422,7 @@ export async function publicRoutes(app: FastifyInstance) {
           }
         }
       } catch (err) {
-        app.log.warn(`Failed to resolve avatar for OG image generation: ${err}`);
+        app.log.warn(`Failed to resolve avatar for OG image generation: ${getErrorMessage(err)}`);
       }
     }
 
@@ -688,7 +689,7 @@ export async function publicRoutes(app: FastifyInstance) {
                                 width: '100%',
                               },
                               children: userProfile.platformLinks.length > 0
-                                ? userProfile.platformLinks.slice(0, 6).map((link: any) => {
+                                ? userProfile.platformLinks.slice(0, 6).map((link) => {
                                     const platformName = link.platform.charAt(0).toUpperCase() + link.platform.slice(1);
                                     return {
                                       type: 'div',
@@ -823,7 +824,7 @@ export async function publicRoutes(app: FastifyInstance) {
           await app.redis.setex(cacheKey, 3600, pngBuffer);
           app.log.info(`[OG Image] Cached generated preview for @${username}`);
         } catch (err) {
-          app.log.error('Redis cache save error:', err as any);
+          app.log.error('Redis cache save error:', getErrorMessage(err));
         }
       }
 
@@ -833,7 +834,7 @@ export async function publicRoutes(app: FastifyInstance) {
         .send(pngBuffer);
 
     } catch (err: any) {
-      app.log.error('Error generating OG image:', err);
+      app.log.error('Error generating OG image:', getErrorMessage(err));
       return reply.status(500).send({ error: 'Failed to generate OG image', details: err?.message || err });
     }
   });
