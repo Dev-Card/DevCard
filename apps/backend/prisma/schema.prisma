@@ -1,10 +1,10 @@
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+
 }
 
 model User {
@@ -29,6 +29,9 @@ model User {
   ownedViews    CardView[]     @relation("cardOwner")
   viewedCards   CardView[]     @relation("cardViewer")
   followLogs    FollowLog[]
+  organizer     Event[]    
+  attendedEvents           EventAttendee[] 
+
 
   @@unique([provider, providerId])
   @@map("users")
@@ -123,4 +126,32 @@ model FollowLog {
   follower User @relation(fields: [followerId], references: [id], onDelete: Cascade)
 
   @@map("follow_logs")
+}
+
+model Event {
+  id      String @id @default(uuid())
+  name    String
+  slug    String @unique
+  location String
+  description String?
+  organizerId String 
+  startDate DateTime 
+  endDate DateTime
+  isPublic Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  attendees EventAttendee[]
+
+  organizer User @relation(fields: [organizerId], references: [id])
+}
+
+model EventAttendee {
+  id    String @id @default(uuid())
+  userId String  
+  eventId String   
+  joinedAt DateTime 
+
+  event Event @relation(fields: [eventId] , references: [id])
+  user User @relation(fields: [userId],references: [id])
+
+  @@unique([userId, eventId])
 }

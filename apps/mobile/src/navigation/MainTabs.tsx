@@ -25,10 +25,21 @@ export type MainTabsParamList = {
   Settings: undefined;
 };
 
+// Standalone type for WebViewConnect route params — exported for reuse in
+// WebViewScreen, DevCardViewScreen, or any future screen that navigates here.
+export type WebViewConnectParams = {
+  platform: string;
+  url: string;
+  platformName: string;
+  username?: string;
+  linkId?: string;
+  cardOwnerUsername: string;
+};
+
 export type RootStackParamList = {
   MainTabs: undefined;
-  DevCardView: { username: string };
-  WebViewConnect: { platform: string; profileUrl: string; displayName: string };
+  DevCardView: { username: string; followSuccessLinkId?: string };
+  WebViewConnect: WebViewConnectParams;
   ConnectPlatforms: undefined;
   Views: undefined;
 };
