@@ -5,6 +5,7 @@ import {
   createLinkSchema,
   reorderLinksSchema,
 } from '../utils/validators.js';
+import { getErrorMessage } from '../utils/error.util.js';
 
 async function invalidateOgCache(app: FastifyInstance, userId: string) {
   if (app.redis && app.redis.status === 'ready') {
@@ -18,7 +19,7 @@ async function invalidateOgCache(app: FastifyInstance, userId: string) {
         app.log.info(`[OG Cache] Invalidated cache for @${user.username}`);
       }
     } catch (err) {
-      app.log.error('[OG Cache] Failed to invalidate cache:', err as any);
+      app.log.error('[OG Cache] Failed to invalidate cache:', getErrorMessage(err));
     }
   }
 }
