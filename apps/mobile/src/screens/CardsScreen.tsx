@@ -55,7 +55,7 @@ export default function CardsScreen() {
         const data = await profileRes.json();
         setAllLinks(data.platformLinks || []);
       }
-    } catch (err) {
+    } catch (_err) {
       console.error('Failed to fetch:', err);
     } finally {
       setRefreshing(false);
@@ -93,7 +93,7 @@ export default function CardsScreen() {
         setSelectedLinkIds([]);
         fetchData();
       }
-    } catch (err) {
+    } catch (_err) {
       Alert.alert('Error', 'Failed to create card');
     }
   };

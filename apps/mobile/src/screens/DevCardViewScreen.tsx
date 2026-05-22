@@ -99,6 +99,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
 
   const successLinkId = route.params?.followSuccessLinkId;
@@ -107,6 +108,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
       setFollowStates(prev => ({ ...prev, [successLinkId]: 'success' }));
       navigation.setParams({ followSuccessLinkId: undefined } as any);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [successLinkId]);
 
   const fetchProfile = async () => {

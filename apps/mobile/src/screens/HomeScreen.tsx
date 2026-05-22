@@ -46,6 +46,7 @@ export default function HomeScreen({ navigation }: Props) {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async () => {

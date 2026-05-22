@@ -5,11 +5,12 @@ global.__reanimatedWorkletInit = () => {};
 
 jest.mock('@gorhom/bottom-sheet', () => {
   const React = require('react');
+  const { View } = require('react-native');
   return {
-    BottomSheetModalProvider: ({ children }) => <>{children}</>,
-    BottomSheetModal: React.forwardRef(({ children }, _ref) => <>{children}</>),
+    BottomSheetModalProvider: ({ children }: any) => <View>{children}</View>,
+    BottomSheetModal: React.forwardRef(({ children }: any, _ref: any) => <View>{children}</View>),
     BottomSheetBackdrop: () => null,
-    BottomSheetScrollView: ({ children }) => <>{children}</>,
+    BottomSheetScrollView: ({ children }: any) => <View>{children}</View>,
   };
 });
 
@@ -22,6 +23,19 @@ jest.mock('react-native-qrcode-svg', () => 'QRCode');
 jest.mock('react-native-webview', () => ({
   WebView: 'WebView',
 }));
+
+jest.mock('expo-constants', () => ({
+  expoConfig: { extra: {} },
+}));
+
+jest.mock('expo-linking', () => ({
+  createURL: jest.fn(),
+  openURL: jest.fn(),
+}));
+
+jest.mock('react-native/Libraries/Text/Text', () => 'Text');
+jest.mock('react-native/Libraries/Components/TextInput/TextInput', () => 'TextInput');
+jest.mock('react-native/Libraries/Image/Image', () => 'Image');
 
 jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
 

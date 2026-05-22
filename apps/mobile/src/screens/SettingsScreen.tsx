@@ -50,7 +50,7 @@ export default function SettingsScreen() {
       } else {
         Alert.alert('Error', 'Failed to update profile');
       }
-    } catch (err) {
+    } catch (_err) {
       Alert.alert('Error', 'Something went wrong');
     } finally {
       setSaving(false);

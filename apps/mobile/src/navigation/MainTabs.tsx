@@ -87,7 +87,7 @@ function TabNavigator() {
         component={ScanScreen}
         options={{
           tabBarLabel: '',
-          tabBarIcon: ({ focused }) => (
+          tabBarIcon: ({ color: _color, size: _size, focused: _focused }) => (
             <View style={styles.scanButton}>
               <Text style={styles.scanEmoji}>📷</Text>
             </View>

@@ -272,6 +272,9 @@ importers:
 
   packages/shared:
     devDependencies:
+      eslint:
+        specifier: ^8.57.1
+        version: 8.57.1
       typescript:
         specifier: ^5.4.0
         version: 5.9.3

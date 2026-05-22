@@ -41,7 +41,7 @@ export default function LinksScreen() {
         const data = await res.json();
         setLinks(data.platformLinks || []);
       }
-    } catch (err) {
+    } catch (_err) {
       console.error('Failed to fetch links:', err);
     }
   }, [token]);
@@ -70,7 +70,7 @@ export default function LinksScreen() {
         setUsernameInput('');
         fetchLinks();
       }
-    } catch (err) {
+    } catch (_err) {
       Alert.alert('Error', 'Failed to add link');
     }
   };
@@ -88,7 +88,7 @@ export default function LinksScreen() {
               headers: { Authorization: `Bearer ${token}` },
             });
             fetchLinks();
-          } catch (err) {
+          } catch (_err) {
             Alert.alert('Error', 'Failed to remove link');
           }
         },

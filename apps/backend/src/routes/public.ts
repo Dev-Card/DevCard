@@ -74,7 +74,6 @@ export async function publicRoutes(app: FastifyInstance) {
    * GET /api/public/:username
    * Returns the public profile information for a user.
   */
-  app.get('/:username', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -231,7 +230,6 @@ export async function publicRoutes(app: FastifyInstance) {
    * Returns full owner profile + specific card data.
    * Used when viewing a card through username + cardId (e.g. QR code scans).
   */
-  app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
     const { username, cardId } = request.params;
 
     const user = await app.prisma.user.findUnique({
