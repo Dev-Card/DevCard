@@ -8,6 +8,7 @@ import {
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
+import { EmptyState } from './EmptyState';
 
 type Props = {
   cards: Card[];
@@ -50,7 +51,10 @@ const CardPickerSheet = React.forwardRef<BottomSheetModal, Props>(
 
           {cards.length === 0 ? (
             <View style={styles.noCards}>
-              <Text style={styles.noCardsText}>No cards yet</Text>
+              <EmptyState
+                title="No cards yet"
+                description="Create a card before switching the QR target."
+              />
             </View>
           ) : (
             cards.map(card => {
@@ -144,12 +148,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   noCards: {
-    alignItems: 'center',
-    paddingVertical: SPACING.lg,
-  },
-  noCardsText: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textMuted,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   cardRow: {
     flexDirection: 'row',
