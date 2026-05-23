@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin';
 import Redis from 'ioredis';
 import type { FastifyInstance } from 'fastify';
+import { config } from '../config.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -9,7 +10,7 @@ declare module 'fastify' {
 }
 
 export const redisPlugin = fp(async (app: FastifyInstance) => {
-  const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  const redis = new Redis(config.redis.url, {
     maxRetriesPerRequest: 3,
     lazyConnect: true,
   });
