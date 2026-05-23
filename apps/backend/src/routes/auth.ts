@@ -55,8 +55,7 @@ export async function authRoutes(app: FastifyInstance) {
     state,
   });
   const authUrl = `${GITHUB_AUTH_URL}?${params}`;
-  console.log('--- GITHUB OAUTH REDIRECT ---');
-  console.log('URL:', authUrl);
+  app.log.debug({ provider: 'github' }, 'OAuth redirect initiated');
   return reply.redirect(authUrl);
 });
 
@@ -208,8 +207,7 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
     access_type: 'offline',
   });
   const authUrl = `${GOOGLE_AUTH_URL}?${params}`;
-  console.log('--- GOOGLE OAUTH REDIRECT ---');
-  console.log('URL:', authUrl);
+  app.log.debug({ provider: 'google' }, 'OAuth redirect initiated');
   return reply.redirect(authUrl);
 });
 
