@@ -15,20 +15,24 @@ interface OAuthCallbackQuery {
 }
 
 export async function authRoutes(app: FastifyInstance) {
-  // ─── Developer Login Bypass ───
-  app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
-    const user = await app.prisma.user.findUnique({
-      where: { username: 'devcard-demo' },
+  // ─── Developer Login Bypass (development only) ───
+  // This endpoint is intentionally disabled in production.
+  // It allows local dev/testing without going through a full OAuth flow.
+  if (process.env.NODE_ENV !== 'production') {
+    app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = await app.prisma.user.findUnique({
+        where: { username: 'devcard-demo' },
+      });
+      if (!user) {
+        return reply.status(404).send({ error: 'Demo user not seeded' });
+      }
+      const token = app.jwt.sign(
+        { id: user.id, username: user.username },
+        { expiresIn: '30d' }
+      );
+      return { token };
     });
-    if (!user) {
-      return reply.status(404).send({ error: 'Demo user not seeded' });
-    }
-    const token = app.jwt.sign(
-      { id: user.id, username: user.username },
-      { expiresIn: '30d' }
-    );
-    return { token };
-  });
+  }
 
   // ─── GitHub OAuth ───
 

@@ -107,8 +107,19 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       }
 
       if (parsed.data.linkIds) {
-        await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
+        // Verify ALL provided linkIds belong to the authenticated user
+        // before touching anything — prevents link ownership hijacking
+        const validLinks = await app.prisma.platformLink.findMany({
+          where: { id: { in: parsed.data.linkIds }, userId },
+          take: 50, // guard against unbounded queries
+        });
 
+        if (validLinks.length !== parsed.data.linkIds.length) {
+          return reply.status(403).send({ error: 'One or more links do not belong to you' });
+        }
+
+        // Remove existing links
+        await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
         
         // Add new links
         await app.prisma.cardLink.createMany({
