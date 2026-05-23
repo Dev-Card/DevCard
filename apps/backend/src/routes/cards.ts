@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { Card } from '@devcard/shared';
 
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 
@@ -7,12 +8,13 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── List Cards ───
 
-  app.get('/', async (request: FastifyRequest, reply: FastifyReply): Promise<object> => {
+  app.get('/', async (request: FastifyRequest, reply: FastifyReply): Promise<Card[] | void> => {
     const userId = (request.user as { id: string }).id;
 
     try {
       const cards = await app.prisma.card.findMany({
         where: { userId },
+        take: 50,
         include: {
           cardLinks: {
             include: { platformLink: true },
@@ -26,7 +28,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         id: card.id,
         title: card.title,
         isDefault: card.isDefault,
-        links: card.cardLinks.map((cl) => cl.platformLink),
+        links: card.cardLinks.map((cl) => cl.platformLink) as any,
       }));
     } catch (error) {
       request.log.error(error);
@@ -36,7 +38,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Create Card ───
 
-  app.post('/', async (request: FastifyRequest, reply: FastifyReply): Promise<object> => {
+  app.post('/', async (request: FastifyRequest, reply: FastifyReply): Promise<Card | void> => {
     const userId = (request.user as { id: string }).id;
     const parsed = createCardSchema.safeParse(request.body);
 
@@ -71,7 +73,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         id: card.id,
         title: card.title,
         isDefault: card.isDefault,
-        links: card.cardLinks.map((cl) => cl.platformLink),
+        links: card.cardLinks.map((cl) => cl.platformLink) as any,
       });
     } catch (error) {
       request.log.error(error);
@@ -81,7 +83,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Update Card ───
 
-  app.put('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<object> => {
+  app.put('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<Card | void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
@@ -120,7 +122,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
         // Remove existing links
         await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
-        
+
         // Add new links
         await app.prisma.cardLink.createMany({
           data: parsed.data.linkIds.map((linkId, index) => ({
@@ -141,12 +143,14 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         },
       });
 
-      return {
+      const response: Card = {
         id: updated!.id,
         title: updated!.title,
         isDefault: updated!.isDefault,
-        links: updated!.cardLinks.map((cl) => cl.platformLink),
+        links: updated!.cardLinks.map((cl) => cl.platformLink) as any,
       };
+
+      return response;
     } catch (error) {
       request.log.error(error);
       return reply.status(500).send({ error: 'Internal Server Error' });
@@ -199,7 +203,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Set Default Card ───
 
-  app.put('/:id/default', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<object> => {
+  app.put('/:id/default', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<object | void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
