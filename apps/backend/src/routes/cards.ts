@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Card } from '@devcard/shared';
 
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
+import { handleDbError } from '../utils/error.util.js';
 
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', app.authenticate);
@@ -31,8 +32,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         links: card.cardLinks.map((cl) => cl.platformLink) as any,
       }));
     } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 
@@ -76,8 +76,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         links: card.cardLinks.map((cl) => cl.platformLink) as any,
       });
     } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 
@@ -152,8 +151,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
       return response;
     } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 
@@ -196,8 +194,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       await app.prisma.card.delete({ where: { id } });
       reply.status(204).send();
     } catch (error) {
-      request.log.error(error);
-      reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 
@@ -228,8 +225,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
       return { message: 'Default card updated' };
     } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 }
