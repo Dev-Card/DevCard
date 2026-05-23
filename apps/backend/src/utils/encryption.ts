@@ -1,14 +1,12 @@
 import crypto from 'crypto';
+import { config } from '../config.js';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY;
-  if (!key) {
-    throw new Error('ENCRYPTION_KEY environment variable is required');
-  }
+  const key = config.encryption.key;
   // If key is hex-encoded, decode it; otherwise hash it to 32 bytes
   if (key.length === 64 && /^[0-9a-fA-F]+$/.test(key)) {
     return Buffer.from(key, 'hex');
