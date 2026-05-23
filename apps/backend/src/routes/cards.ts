@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Card } from '@devcard/shared';
 
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
+import { handleDbError } from '../utils/error.util.js';
 
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', app.authenticate);
@@ -31,8 +32,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         links: card.cardLinks.map((cl) => cl.platformLink) as any,
       }));
     } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 
@@ -76,8 +76,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         links: card.cardLinks.map((cl) => cl.platformLink) as any,
       });
     } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 
@@ -109,6 +108,18 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       }
 
       if (parsed.data.linkIds) {
+        // Verify ALL provided linkIds belong to the authenticated user
+        // before touching anything — prevents link ownership hijacking
+        const validLinks = await app.prisma.platformLink.findMany({
+          where: { id: { in: parsed.data.linkIds }, userId },
+          take: 50, // guard against unbounded queries
+        });
+
+        if (validLinks.length !== parsed.data.linkIds.length) {
+          return reply.status(403).send({ error: 'One or more links do not belong to you' });
+        }
+
+        // Remove existing links
         await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
 
         // Add new links
@@ -140,8 +151,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
       return response;
     } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 
@@ -184,8 +194,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       await app.prisma.card.delete({ where: { id } });
       reply.status(204).send();
     } catch (error) {
-      request.log.error(error);
-      reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 
@@ -216,8 +225,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
       return { message: 'Default card updated' };
     } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ error: 'Internal Server Error' });
+      return handleDbError(error, request, reply);
     }
   });
 }
