@@ -38,7 +38,21 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Create Card ───
 
-  app.post('/', async (request: FastifyRequest, reply: FastifyReply): Promise<Card | void> => {
+  app.post('/', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['title', 'linkIds'],
+        properties: {
+          title: { type: 'string', minLength: 1, maxLength: 100 },
+          linkIds: {
+            type: 'array',
+            items: { type: 'string', format: 'uuid' }
+          }
+        }
+      }
+    }
+  }, async (request: FastifyRequest, reply: FastifyReply): Promise<Card | void> => {
     const userId = (request.user as { id: string }).id;
     const parsed = createCardSchema.safeParse(request.body);
 
@@ -82,7 +96,27 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Update Card ───
 
-  app.put('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<Card | void> => {
+  app.put('/:id', {
+    schema: {
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' }
+        }
+      },
+      body: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', minLength: 1, maxLength: 100 },
+          linkIds: {
+            type: 'array',
+            items: { type: 'string', format: 'uuid' }
+          }
+        }
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<Card | void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
@@ -157,7 +191,17 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Delete Card ───
 
-  app.delete('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<void> => {
+  app.delete('/:id', {
+    schema: {
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
@@ -200,7 +244,17 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Set Default Card ───
 
-  app.put('/:id/default', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<object | void> => {
+  app.put('/:id/default', {
+    schema: {
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    }
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<object | void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
