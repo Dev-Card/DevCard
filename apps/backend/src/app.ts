@@ -8,6 +8,7 @@ import fastifyStatic from '@fastify/static';
 import rateLimit from '@fastify/rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { config } from './config.js';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
@@ -26,9 +27,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export async function buildApp() {
   const app = Fastify({
     logger: {
-      level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+      level: config.server.nodeEnv === 'production' ? 'info' : 'debug',
       transport:
-        process.env.NODE_ENV !== 'production'
+        config.server.nodeEnv !== 'production'
           ? { target: 'pino-pretty', options: { colorize: true } }
           : undefined,
     },
@@ -36,7 +37,7 @@ export async function buildApp() {
 
   // ─── Core Plugins ───
   await app.register(cors, {
-    origin: process.env.PUBLIC_APP_URL || 'http://localhost:5173',
+    origin: config.app.publicUrl,
     credentials: true,
   });
 
@@ -58,7 +59,7 @@ export async function buildApp() {
   });
 
   await app.register(jwt, {
-    secret: process.env.JWT_SECRET || 'dev-secret-change-me',
+    secret: config.jwt.secret,
   });
 
   await app.register(cookie);
@@ -96,8 +97,9 @@ export async function buildApp() {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-await app.register(nfcRoutes, { prefix: '/api/nfc' });
-    await app.register(eventRoutes, { prefix: '/api/events' });
+  await app.register(nfcRoutes, { prefix: '/api/nfc' });
+  await app.register(eventRoutes, { prefix: '/api/events' });
+
   // ─── Health Check ───
   app.get('/health', async () => ({
     status: 'ok',
