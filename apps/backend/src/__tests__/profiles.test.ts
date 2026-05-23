@@ -90,7 +90,7 @@ describe('PUT /api/profiles/me', () => {
     expect(res.json().error).toBe('Validation failed');
   });
 
-  it('should return 409 if username is already taken', async () => {
+  it('should return 409 if username is already taken (pre-check)', async () => {
     mockPrisma.user.findFirst.mockResolvedValue({ id: 'other-user' });
     const app = await buildApp();
     const res = await app.inject({
@@ -100,5 +100,51 @@ describe('PUT /api/profiles/me', () => {
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe('Username already taken');
+  });
+
+  it('should return 409 when a concurrent request wins the unique constraint race (P2002)', async () => {
+    // Both requests pass the findFirst check; the DB unique constraint fires on
+    // the losing write — Prisma raises P2002.
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    const p2002 = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+    mockPrisma.user.update.mockRejectedValue(p2002);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/profiles/me',
+      payload: { username: 'raced-username' },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe('Username already taken');
+  });
+
+  it('should return 500 for unexpected database errors during update', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.update.mockRejectedValue(new Error('Connection refused'));
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/profiles/me',
+      payload: { username: 'anyuser' },
+    });
+
+    expect(res.statusCode).toBe(500);
+    expect(res.json().error).toBe('Internal server error');
+  });
+
+  it('should not call findFirst when no username is provided in the update', async () => {
+    mockPrisma.user.update.mockResolvedValue({ ...mockUser, displayName: 'New Name' });
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/profiles/me',
+      payload: { displayName: 'New Name' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
   });
 });
