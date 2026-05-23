@@ -142,6 +142,26 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       return;
     }
 
+    const userCardCount = await app.prisma.card.count({ where: { userId } });
+    if (userCardCount <= 1) {
+      reply.status(400).send({ error: 'Cannot delete the last remaining card. A user must have at least one card.' });
+      return;
+    }
+
+    if (existing.isDefault) {
+      const oldestRemainingCard = await app.prisma.card.findFirst({
+        where: { userId, id: { not: id } },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (oldestRemainingCard) {
+        await app.prisma.card.update({
+          where: { id: oldestRemainingCard.id },
+          data: { isDefault: true },
+        });
+      }
+    }
+
     await app.prisma.card.delete({ where: { id } });
     reply.status(204).send();
   });
