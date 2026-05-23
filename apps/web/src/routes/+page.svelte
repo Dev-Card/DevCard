@@ -26,6 +26,13 @@
     name="description"
     content="Open source developer profile exchange platform. Share all your developer profiles with one QR code."
   />
+  <meta property="og:title" content="DevCard — One Tap. Every Profile. Every Platform." />
+  <meta property="og:description" content="Open source developer profile exchange platform. Share all your developer profiles with one QR code." />
+  <meta property="og:url" content="https://devcard.example.com/" />
+  <meta property="og:image" content="https://devcard.example.com/og-image.jpg" />
+  <meta name="twitter:title" content="DevCard" />
+  <meta name="twitter:description" content="Open source developer profile exchange platform." />
+  <meta name="twitter:image" content="https://devcard.example.com/og-image.jpg" />
 </svelte:head>
 
 <div class="bg-glow"></div>
@@ -98,6 +105,8 @@
                 radial-gradient(circle at 0% 100%, var(--accent-glow), transparent 30%);
     pointer-events: none;
     z-index: -1;
+    will-change: transform, opacity;
+    transform: translateZ(0);
   }
 
   nav {
@@ -218,17 +227,9 @@
     padding: 4rem 0 5rem;
   }
 
-  @media (max-width: 640px) {
-  .features {
-    display: grid;
-    grid-template-columns: 1fr; /* single column */
-    gap: 16px;
-    padding: 0 12px;
-  }
-}
-
   .feature-card {
     padding: 2.4rem;
+    min-height: 140px;
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-lg);
     background: linear-gradient(180deg, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.5));
@@ -339,16 +340,23 @@
       align-items: stretch;
     }
 
-    .feature-card {
-      padding: 1.8rem;
+    .features {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      padding: 2rem 1rem;
     }
 
-    .features {
-      gap: 1.2rem;
+    .feature-card {
+      padding: 1.8rem;
+      margin-bottom: 0;
     }
 
     .footer {
       padding: 2rem 0 1.25rem;
+    }
+    
+    .bg-glow {
+      opacity: 0.6;
     }
   }
 </style>
