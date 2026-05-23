@@ -9,6 +9,7 @@ import {
   StatusBar,
   Image,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
@@ -39,6 +40,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [analytics, setAnalytics] = useState<any>(null);
   const [showQR, setShowQR] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchUsername, setSearchUsername] = useState('');
 
   const profileUrl = user?.defaultCardId
     ? `${APP_URL}/devcard/${user.defaultCardId}`
