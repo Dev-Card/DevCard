@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../config';
@@ -50,7 +51,7 @@ export default function SettingsScreen() {
       } else {
         Alert.alert('Error', 'Failed to update profile');
       }
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Something went wrong');
     } finally {
       setSaving(false);

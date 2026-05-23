@@ -182,3 +182,48 @@ html {
 ::-webkit-scrollbar-corner {
   background: var(--bg-secondary);
 }
+
+
+.premium-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.premium-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
+}
+
+.card-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.page-container {
+  background: #f9fafb;
+  min-height: 100vh;
+}
+
+.brand-text {
+  font-weight: 600;
+  font-size: 16px;
+  color: #374151;
+}
+
+
+button {
+  border-radius: 8px;
+  padding: 10px 16px;
+  background: #4f46e5;
+  color: white;
+  transition: 0.3s;
+}
+
+button:hover {
+  background: #4338ca;
+}

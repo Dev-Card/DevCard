@@ -142,6 +142,11 @@ export async function connectRoutes(app: FastifyInstance) {
     const userId = (request.user as any).id;
     const { platform } = request.params;
 
+    const SUPPORTED_PLATFORMS = ['github', 'google', 'twitter', 'linkedin'];
+    if (!SUPPORTED_PLATFORMS.includes(platform)) {
+      return reply.status(400).send({ error: `Unsupported platform: ${platform}` });
+    }
+
     try {
       await app.prisma.oAuthToken.delete({
         where: {
