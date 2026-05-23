@@ -248,7 +248,7 @@ export default function HomeScreen({ navigation }: Props) {
         </View>
       </View>
     </ScrollView>
-    </SafeAreaView >
+    </SafeAreaView>
   );
 }
 
