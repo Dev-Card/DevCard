@@ -27,6 +27,8 @@ export interface PlatformDef {
   usernamePlaceholder: string;
   /** Whether the platform uses full URL instead of username */
   usesFullUrl: boolean;
+  /** Regex pattern to validate usernames */
+  validationRegex?: RegExp;
 }
 
 // ─── Platform Registry ───
@@ -44,6 +46,7 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: ['user:follow', 'read:user'],
     usernamePlaceholder: 'e.g. octocat',
     usesFullUrl: false,
+    validationRegex: /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/,
   },
   linkedin: {
     id: 'linkedin',
@@ -57,6 +60,7 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: ['r_liteprofile'],
     usernamePlaceholder: 'e.g. johndoe',
     usesFullUrl: false,
+    validationRegex: /^[a-zA-Z0-9-]{3,100}$/,
   },
   twitter: {
     id: 'twitter',
@@ -70,6 +74,7 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. elonmusk',
     usesFullUrl: false,
+    validationRegex: /^[A-Za-z0-9_]{1,15}$/,
   },
   gitlab: {
     id: 'gitlab',
