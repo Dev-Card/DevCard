@@ -7,13 +7,14 @@ import {
   TextInput,
   StatusBar,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
+import { EmptyState } from '../components/EmptyState';
+import { Skeleton } from '../components/Skeleton';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
@@ -182,7 +183,10 @@ export default function ScanScreen({ navigation }: Props) {
 
           <View style={styles.qrContainer}>
             {loadingCards ? (
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              <View style={styles.qrSkeleton}>
+                <Skeleton width={200} height={200} borderRadius={BORDER_RADIUS.md} />
+                <Skeleton width={140} height={14} borderRadius={8} style={styles.qrSkeletonText} />
+              </View>
             ) : qrUrl ? (
               <QRCode
                 value={qrUrl}
@@ -191,7 +195,10 @@ export default function ScanScreen({ navigation }: Props) {
                 backgroundColor={COLORS.bgCard}
               />
             ) : (
-              <Text style={styles.qrPlaceholder}>Create a card to generate a QR</Text>
+              <EmptyState
+                title="No card to share"
+                description="Create a card to generate your DevCard QR code."
+              />
             )}
           </View>
           {!!qrUrl && (
@@ -290,7 +297,12 @@ const styles = StyleSheet.create({
     minHeight: 220,
   },
   qrHint: { textAlign: 'center', color: COLORS.textMuted, fontSize: FONT_SIZE.sm },
-  qrPlaceholder: { color: COLORS.textMuted, fontSize: FONT_SIZE.sm },
+  qrSkeleton: {
+    alignItems: 'center',
+  },
+  qrSkeletonText: {
+    marginTop: SPACING.md,
+  },
   cameraArea: {
     flex: 1, maxHeight: 350,
     backgroundColor: COLORS.bgCard, borderRadius: BORDER_RADIUS.lg,

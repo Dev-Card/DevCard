@@ -1,23 +1,26 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
-		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f0f1a" />
-		<meta property="og:type" content="website" />
-		<meta property="og:site_name" content="DevCard" />
-		<meta name="twitter:card" content="summary_large_image" />
-		<script>
-			try {
-				const saved = localStorage.getItem('devcard-theme');
-				const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-				document.documentElement.classList.toggle('dark', theme === 'dark');
-			} catch (e) {}
-		</script>
-		%sveltekit.head%
-	</head>
-	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents">%sveltekit.body%</div>
-	</body>
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+	<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f0f1a" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="DevCard" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<script>
+		try {
+			const saved = localStorage.getItem('devcard-theme');
+			const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+			document.documentElement.classList.toggle('dark', theme === 'dark');
+		} catch (e) { }
+	</script>
+	%sveltekit.head%
+</head>
+
+<body data-sveltekit-preload-data="hover">
+	<div style="display: contents">%sveltekit.body%</div>
+</body>
+
 </html>

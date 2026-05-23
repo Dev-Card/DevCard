@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../config';
+import { EmptyState } from '../components/EmptyState';
+import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
 
@@ -92,20 +94,20 @@ export const ViewsScreen: React.FC<Props> = () => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
+      <SafeAreaView style={styles.container}>
+        <LoadingPlaceholder rows={4} />
+      </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       {views.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Icon name="chart-bar" size={64} color={COLORS.textMuted} />
-          <Text style={styles.emptyTitle}>No Views Yet</Text>
-          <Text style={styles.emptyDesc}>Share your card or QR code to start collecting analytics.</Text>
-        </View>
+        <EmptyState
+          emoji="📊"
+          title="No views yet"
+          description="Share your card or QR code to start collecting analytics."
+        />
       ) : (
         <FlatList
           data={views}
