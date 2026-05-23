@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin';
 import { PrismaClient } from '@prisma/client';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { config } from '../config.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -14,7 +15,7 @@ declare module 'fastify' {
 
 export const prismaPlugin = fp(async (app: FastifyInstance) => {
   const prisma = new PrismaClient({
-    log: process.env.NODE_ENV !== 'production' ? ['query', 'error', 'warn'] : ['error'],
+    log: config.server.nodeEnv !== 'production' ? ['query', 'error', 'warn'] : ['error'],
   });
 
   await prisma.$connect();
