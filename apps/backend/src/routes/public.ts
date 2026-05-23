@@ -2,6 +2,14 @@ import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyRepl
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 import type { PlatformLink } from '@devcard/shared';
 import { getErrorMessage } from '../utils/error.util.js';
+
+
+// ── QR size bounds ────────────────────────────────────────────────────────────
+// Enforced before any DB query or image allocation.  Values outside this range
+// are rejected with 400 so a single unauthenticated request cannot trigger an
+// unbounded memory allocation in the QR rasteriser.
+const MIN_QR_SIZE = 1;
+const MAX_QR_SIZE = 2048;
 type PublicProfileLink = {
   id: string;
   platform: string;
@@ -324,8 +332,19 @@ export async function publicRoutes(app: FastifyInstance) {
     Querystring: { format?: string; size?: string };
   }>, reply: FastifyReply) => {
     const { username } = request.params;
-    const format = request.query.format || 'png';
-    const size = parseInt(request.query.size || '400', 10);
+    const format = (request.query as any).format || 'png';
+
+    // Parse and validate size before touching the DB or allocating any buffers.
+    // parseInt safely handles non-numeric strings (returns NaN) and ignores any
+    // trailing fractional part, so '400.9' → 400 which is within bounds.
+    const rawSize = (request.query as any).size;
+    const size = rawSize !== undefined ? parseInt(rawSize, 10) : 400;
+
+    if (!Number.isInteger(size) || size < MIN_QR_SIZE || size > MAX_QR_SIZE) {
+      return reply.status(400).send({
+        error: `QR size must be an integer between ${MIN_QR_SIZE} and ${MAX_QR_SIZE}`,
+      });
+    }
 
     // Verify user exists
     const user = await app.prisma.user.findUnique({
@@ -338,18 +357,23 @@ export async function publicRoutes(app: FastifyInstance) {
 
     const profileUrl = `${process.env.PUBLIC_APP_URL}/u/${username}`;
 
-    if (format === 'svg') {
-      const svg = await generateQRSvg(profileUrl, { width: size });
-      return reply
-        .header('Content-Type', 'image/svg+xml')
-        .header('Content-Disposition', `inline; filename="devcard-${username}.svg"`)
-        .send(svg);
-    }
+    try {
+      if (format === 'svg') {
+        const svg = await generateQRSvg(profileUrl, { width: size });
+        return reply
+          .header('Content-Type', 'image/svg+xml')
+          .header('Content-Disposition', `inline; filename="devcard-${username}.svg"`)
+          .send(svg);
+      }
 
-    const png = await generateQRBuffer(profileUrl, { width: size });
-    return reply
-      .header('Content-Type', 'image/png')
-      .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
-      .send(png);
+      const png = await generateQRBuffer(profileUrl, { width: size });
+      return reply
+        .header('Content-Type', 'image/png')
+        .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
+        .send(png);
+    } catch (err) {
+      app.log.error({ err, username, size, format }, 'QR generation failed');
+      return reply.status(500).send({ error: 'QR code generation failed' });
+    }
   });
 }
