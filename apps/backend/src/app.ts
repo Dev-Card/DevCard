@@ -21,10 +21,16 @@ import { followRoutes } from './routes/follow.js';
 import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
+import { validateEnv } from './utils/validateEnv.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function buildApp() {
+  // Validate all required secrets before registering any plugin.
+  // If validation fails the process exits here — no partially-initialised
+  // auth state can exist because Fastify is not yet instantiated.
+  validateEnv();
+
   const app = Fastify({
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
@@ -59,7 +65,8 @@ export async function buildApp() {
   });
 
   await app.register(jwt, {
-    secret: process.env.JWT_SECRET || 'dev-secret-change-me',
+    // validateEnv() above guarantees JWT_SECRET is present and safe.
+    secret: process.env.JWT_SECRET!,
   });
 
   await app.register(cookie);
