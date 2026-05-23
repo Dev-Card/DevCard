@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+import { config } from '../config.js';
 
 type PublicProfileLink = {
   id: string;
@@ -279,7 +280,6 @@ export async function publicRoutes(app: FastifyInstance) {
       }).catch(err => app.log.error('Failed to log card view:', err));
     }
 
-
     const response: UsernameCardPublicProfileResponse = {
       title: card.title,
       owner: {
@@ -308,7 +308,7 @@ export async function publicRoutes(app: FastifyInstance) {
   app.get('/:username/qr', {
     config: {
       rateLimit: {
-        max: 50, // Lower limit for QR generation as it's more resource intensive
+        max: 50,
         timeWindow: '1 minute'
       }
     }
@@ -320,7 +320,6 @@ export async function publicRoutes(app: FastifyInstance) {
     const format = (request.query as any).format || 'png';
     const size = parseInt((request.query as any).size || '400', 10);
 
-    // Verify user exists
     const user = await app.prisma.user.findUnique({
       where: { username },
     });
@@ -329,7 +328,7 @@ export async function publicRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'User not found' });
     }
 
-    const profileUrl = `${process.env.PUBLIC_APP_URL}/u/${username}`;
+    const profileUrl = `${config.app.publicUrl}/u/${username}`;
 
     if (format === 'svg') {
       const svg = await generateQRSvg(profileUrl, { width: size });
