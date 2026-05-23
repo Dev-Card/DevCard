@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   RefreshControl,
   TextInput,
 } from 'react-native';
+import { Skeleton } from '../components/Skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
@@ -40,17 +41,15 @@ export default function HomeScreen({ navigation }: Props) {
   const [analytics, setAnalytics] = useState<any>(null);
   const [showQR, setShowQR] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchUsername, setSearchUsername] = useState('');
 
   const profileUrl = user?.defaultCardId
     ? `${APP_URL}/devcard/${user.defaultCardId}`
     : `${APP_URL}/u/${user?.username}`;
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const [profileRes, analyticsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/profiles/me`, {
@@ -70,8 +69,14 @@ export default function HomeScreen({ navigation }: Props) {
       }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -89,6 +94,21 @@ export default function HomeScreen({ navigation }: Props) {
       console.error('Share failed:', err);
     }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
+        <View style={styles.loadingRoot}>
+          <Skeleton width={140} height={28} borderRadius={12} />
+          <Skeleton width="75%" height={20} borderRadius={12} style={styles.loadingSpacer} />
+          <Skeleton width="100%" height={180} borderRadius={24} style={styles.loadingSection} />
+          <Skeleton width="100%" height={120} borderRadius={24} style={styles.loadingSection} />
+          <Skeleton width="100%" height={92} borderRadius={24} style={styles.loadingSection} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -310,4 +330,48 @@ const styles = StyleSheet.create({
   marginTop: SPACING.md,
   gap: SPACING.sm,
 },
+  loadingRoot: {
+    flex: 1,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.bgPrimary,
+  },
+  loadingSpacer: {
+    marginTop: SPACING.sm,
+  },
+  loadingSection: {
+    marginTop: SPACING.lg,
+  },
+  emptyHint: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+    lineHeight: 20,
+    marginTop: SPACING.sm,
+    maxWidth: '70%',
+  },
+  // Search
+  searchSection: {
+    marginBottom: SPACING.lg,
+  },
+  searchLabel: {
+    fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.textSecondary,
+    marginBottom: SPACING.sm, letterSpacing: 0.3,
+  },
+  searchRow: {
+    flexDirection: 'row', gap: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md, paddingVertical: 12,
+    color: COLORS.textPrimary, fontSize: FONT_SIZE.md,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  searchBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.lg,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  searchBtnText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZE.md },
 });
