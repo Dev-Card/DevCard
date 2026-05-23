@@ -8,33 +8,37 @@ import {
   View,
   StyleSheet,
 } from 'react-native';
-
-type ProfileLinkProps = {
-  platform: string;
-  username: string;
-  url: string;
-  onPress?: () => void;
-};
 import {
   COLORS,
   SPACING,
   FONT_SIZE,
   BORDER_RADIUS,
 } from '../theme/tokens';
+type ProfileLinkProps = {
+  platform: string;
+  username: string;
+  url: string;
+  onPress?: () => void;
+};
+
 export default function ProfileLink({
   platform,
   username,
   url,
   onPress,
 }: ProfileLinkProps) {
-  const handlePress = () => {
-    if (onPress) {
-      onPress();
-      return;
-    }
+const handlePress = async () => {
+  if (onPress) {
+    onPress();
+    return;
+  }
 
-    Linking.openURL(url);
-  };
+  try {
+    await Linking.openURL(url);
+  } catch (error) {
+    console.warn('Failed to open profile link:', error);
+  }
+};
 
   return (
     <Pressable style={styles.card} onPress={handlePress}>
@@ -56,7 +60,6 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     backgroundColor: COLORS.bgCard,
-    marginBottom: SPACING.sm,
   },
 
   platform: {
