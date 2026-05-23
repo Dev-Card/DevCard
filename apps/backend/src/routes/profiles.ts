@@ -6,6 +6,23 @@ import {
   reorderLinksSchema,
 } from '../utils/validators.js';
 
+// ── Response types ────────────────────────────────────────────────────────────
+// Declared explicitly so the API contract is visible without tracing through
+// Prisma's generic return types.  Follows the convention in public.ts.
+
+type ProfileUpdateResponse = {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string;
+  bio: string | null;
+  pronouns: string | null;
+  role: string | null;
+  company: string | null;
+  avatarUrl: string | null;
+  accentColor: string;
+};
+
 export async function profileRoutes(app: FastifyInstance) {
   // All profile routes require auth
   app.addHook('preHandler', app.authenticate);
@@ -68,7 +85,7 @@ export async function profileRoutes(app: FastifyInstance) {
     }
 
     try {
-      const updated = await app.prisma.user.update({
+      const response: ProfileUpdateResponse = await app.prisma.user.update({
         where: { id: userId },
         data: parsed.data,
         select: {
@@ -85,7 +102,7 @@ export async function profileRoutes(app: FastifyInstance) {
         },
       });
 
-      return updated;
+      return response;
     } catch (err: any) {
       // Unique constraint violation — two concurrent requests raced through the
       // findFirst check above and both attempted the write. The DB constraint
