@@ -50,9 +50,11 @@ export async function profileRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
     }
 
-    // Check username uniqueness if changing
-    // Note: For production, consider adding a timestamp/version field to handle
-    // race conditions where two users might try to claim the same username simultaneously.
+    // Fast-path uniqueness check. This read-before-write eliminates the common
+    // case (clearly taken username) without touching the write path, but it
+    // cannot prevent the race window between two concurrent requests that both
+    // pass this check simultaneously. The unique constraint on the DB is the
+    // authoritative guard — P2002 below is the definitive conflict signal.
     if (parsed.data.username) {
       const existing = await app.prisma.user.findFirst({
         where: {
@@ -65,24 +67,36 @@ export async function profileRoutes(app: FastifyInstance) {
       }
     }
 
-    const updated = await app.prisma.user.update({
-      where: { id: userId },
-      data: parsed.data,
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        displayName: true,
-        bio: true,
-        pronouns: true,
-        role: true,
-        company: true,
-        avatarUrl: true,
-        accentColor: true,
-      },
-    });
+    try {
+      const updated = await app.prisma.user.update({
+        where: { id: userId },
+        data: parsed.data,
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          displayName: true,
+          bio: true,
+          pronouns: true,
+          role: true,
+          company: true,
+          avatarUrl: true,
+          accentColor: true,
+        },
+      });
 
-    return updated;
+      return updated;
+    } catch (err: any) {
+      // Unique constraint violation — two concurrent requests raced through the
+      // findFirst check above and both attempted the write. The DB constraint
+      // fires on the losing request; surface it as a deterministic 409 rather
+      // than leaking a raw Prisma error as a 500.
+      if (err?.code === 'P2002') {
+        return reply.status(409).send({ error: 'Username already taken' });
+      }
+      app.log.error({ err }, 'DB error in PUT /profiles/me');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
   });
 
   // ─── Add Platform Link ───
