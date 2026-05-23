@@ -221,6 +221,9 @@ export async function eventRoutes(app:FastifyInstance) {
                 slug: paramsSlug
             }, 
             include: {
+                _count: {
+                    select: { attendees: true }
+                },
                 attendees : {
                     include: {
                         user: {
@@ -264,7 +267,7 @@ export async function eventRoutes(app:FastifyInstance) {
             pagination: {
                 page, 
                 limit, 
-                total : event.attendees.length,
+                total : event._count.attendees,
             }
         }
 
