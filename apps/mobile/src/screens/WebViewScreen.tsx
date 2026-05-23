@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
+import { Skeleton } from '../components/Skeleton';
 import { getDeepLinkUrl } from '@devcard/shared';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -451,6 +452,10 @@ export default function WebViewScreen({ navigation, route }: Props) {
             }}
             renderLoading={() => (
               <View style={styles.loading}>
+                <Skeleton width="82%" height={18} borderRadius={10} />
+                <Skeleton width="92%" height={180} borderRadius={BORDER_RADIUS.lg} style={styles.loadingBlock} />
+                <Skeleton width="78%" height={16} borderRadius={10} style={styles.loadingLine} />
+                <Skeleton width="64%" height={16} borderRadius={10} style={styles.loadingLine} />
                 <Text style={styles.loadingText}>Loading {platformDisplayName}...</Text>
               </View>
             )}
@@ -560,9 +565,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.bgPrimary,
+    padding: SPACING.lg,
     zIndex: 5,
   },
-  loadingText: { color: COLORS.textMuted, fontSize: FONT_SIZE.md },
+  loadingBlock: { marginTop: SPACING.lg },
+  loadingLine: { marginTop: SPACING.md },
+  loadingText: { color: COLORS.textMuted, fontSize: FONT_SIZE.md, marginTop: SPACING.lg },
   footer: {
     padding: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border,
     backgroundColor: COLORS.bgSecondary,
@@ -574,7 +582,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   doneButtonText: { color: COLORS.textPrimary, fontWeight: '700', fontSize: FONT_SIZE.md },
-  
+
   // Custom Fallback Overlay Styling
   overlayContainer: {
     ...StyleSheet.absoluteFillObject,

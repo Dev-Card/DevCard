@@ -15,6 +15,8 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORMS, getAllPlatforms } from '@devcard/shared';
 import { API_BASE_URL } from '../config';
+import { EmptyState } from '../components/EmptyState';
+import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
 import type { PlatformDef } from '@devcard/shared';
 
 interface PlatformLink {
@@ -31,8 +33,10 @@ export default function LinksScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformDef | null>(null);
   const [usernameInput, setUsernameInput] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const fetchLinks = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -43,6 +47,8 @@ export default function LinksScreen() {
       }
     } catch (err) {
       console.error('Failed to fetch links:', err);
+    } finally {
+      setLoading(false);
     }
   }, [token]);
 
@@ -70,7 +76,7 @@ export default function LinksScreen() {
         setUsernameInput('');
         fetchLinks();
       }
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Failed to add link');
     }
   };
@@ -88,13 +94,22 @@ export default function LinksScreen() {
               headers: { Authorization: `Bearer ${token}` },
             });
             fetchLinks();
-          } catch (err) {
+          } catch {
             Alert.alert('Error', 'Failed to remove link');
           }
         },
       },
     ]);
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
+        <LoadingPlaceholder rows={4} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -131,11 +146,11 @@ export default function LinksScreen() {
           );
         }}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🔗</Text>
-            <Text style={styles.emptyText}>No links yet</Text>
-            <Text style={styles.emptySubtext}>Add your first platform link</Text>
-          </View>
+          <EmptyState
+            emoji="🔗"
+            title="No links yet"
+            description="Add your first platform link"
+          />
         }
       />
 
@@ -218,10 +233,6 @@ const styles = StyleSheet.create({
   username: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: 2 },
   deleteBtn: { padding: SPACING.sm },
   deleteBtnText: { color: COLORS.error, fontSize: FONT_SIZE.md, fontWeight: '700' },
-  empty: { alignItems: 'center', paddingVertical: SPACING.xxl },
-  emptyEmoji: { fontSize: 48, marginBottom: SPACING.md },
-  emptyText: { fontSize: FONT_SIZE.lg, fontWeight: '600', color: COLORS.textPrimary },
-  emptySubtext: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, marginTop: SPACING.xs },
   modalOverlay: {
     flex: 1, backgroundColor: COLORS.overlay,
     justifyContent: 'flex-end',
