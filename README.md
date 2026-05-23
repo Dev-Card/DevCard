@@ -278,6 +278,32 @@ New to open source? We've got you covered! Check out our [Good First Issues](htt
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions, coding standards, and PR process.
 
+## Contributors
+
+Thanks to all the amazing people who contribute to **DevCard** 🚀
+
+<p align="center">
+  <a href="https://github.com/Dev-Card/DevCard/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=Dev-Card/DevCard" alt="Contributors"/>
+  </a>
+</p>
+
+<br>
+
+## Project Support
+
+<p align="center">
+  <a href="https://github.com/Dev-Card/DevCard/stargazers">
+    <img src="https://img.shields.io/github/stars/Dev-Card/DevCard?style=social" alt="Stars">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/Dev-Card/DevCard/network/members">
+    <img src="https://img.shields.io/github/forks/Dev-Card/DevCard?style=social" alt="Forks">
+  </a>
+</p>
+
+---
+
 ## License
 
 DevCard is licensed under the [Apache License 2.0](./LICENSE).
