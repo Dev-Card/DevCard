@@ -18,7 +18,7 @@
   let mounted = $state(false);
   let copyMessage = $state('');
   let copyStatus = $state<'success' | 'error'>('success');
-  let copyMessageTimeout: ReturnType<typeof setTimeout> | undefined;
+  let copyMessageTimeout: ReturnType<typeof setTimeout>;
 
   onMount(() => {
     mounted = true;
@@ -38,7 +38,9 @@
       clearTimeout(copyMessageTimeout);
     }
 
-    copyMessageTimeout = setTimeout(() => {
+    clearTimeout(copyTimeout);
+
+    copyTimeout = setTimeout(() => {
       copyMessage = '';
     }, 3000);
   }
@@ -142,9 +144,11 @@
           Copy Link
         </button>
       </div>
-      <p class="copy-message {copyStatus}" aria-live="polite">
-        {copyMessage}
-      </p>
+      {#if copyMessage}
+        <p class="copy-message {copyStatus}" aria-live="polite">
+          {copyMessage}
+        </p>
+      {/if}
     </div>
   {/if}
 </main>

@@ -15,22 +15,27 @@ interface OAuthCallbackQuery {
 }
 
 export async function authRoutes(app: FastifyInstance) {
-  // ─── Developer Login Bypass ───
-  app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
-    const user = await app.prisma.user.findUnique({
-      where: { username: 'devcard-demo' },
+  // ─── Developer Login Bypass (development only) ───
+  // This endpoint is intentionally disabled in production.
+  // It allows local dev/testing without going through a full OAuth flow.
+  if (process.env.NODE_ENV !== 'production') {
+    app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = await app.prisma.user.findUnique({
+        where: { username: 'devcard-demo' },
+      });
+      if (!user) {
+        return reply.status(404).send({ error: 'Demo user not seeded' });
+      }
+      const token = app.jwt.sign(
+        { id: user.id, username: user.username },
+        { expiresIn: '30d' }
+      );
+      return { token };
     });
-    if (!user) {
-      return reply.status(404).send({ error: 'Demo user not seeded' });
-    }
-    const token = app.jwt.sign(
-      { id: user.id, username: user.username },
-      { expiresIn: '30d' }
-    );
-    return { token };
-  });
+  }
 
   // ─── GitHub OAuth ───
+
 
   app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
@@ -38,23 +43,42 @@ export async function authRoutes(app: FastifyInstance) {
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
-    const params = new URLSearchParams({
-      client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
-      redirect_uri: redirectUri,
-      scope: 'read:user user:email',
-      state,
-    });
-    const authUrl = `${GITHUB_AUTH_URL}?${params}`;
-    console.log('--- GITHUB OAUTH REDIRECT ---');
-    console.log('URL:', authUrl);
-    return reply.redirect(authUrl);
+  // Store state in a short-lived signed cookie before redirecting
+  reply.setCookie('oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 600, // 10 minutes — plenty for a login round-trip
   });
 
-  app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
-    const { code } = request.query;
-    if (!code) {
-      return reply.status(400).send({ error: 'Missing authorization code' });
-    }
+  const params = new URLSearchParams({
+    client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
+    redirect_uri: redirectUri,
+    scope: 'read:user user:email',
+    state,
+  });
+  const authUrl = `${GITHUB_AUTH_URL}?${params}`;
+  console.log('--- GITHUB OAUTH REDIRECT ---');
+  console.log('URL:', authUrl);
+  return reply.redirect(authUrl);
+});
+
+app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+  const { code, state } = request.query;
+
+  // ── CSRF check ──────────────────────────────────────────────────────────────
+  const storedState = (request.cookies as any)?.oauth_state;
+  if (!state || !storedState || state !== storedState) {
+    return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
+  }
+  // Clear the state cookie immediately — prevents replay
+  reply.clearCookie('oauth_state', { path: '/' });
+  // ────────────────────────────────────────────────────────────────────────────
+
+  if (!code) {
+    return reply.status(400).send({ error: 'Missing authorization code' });
+  }
 
     try {
       // Exchange code for token
@@ -170,25 +194,43 @@ export async function authRoutes(app: FastifyInstance) {
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
-    const params = new URLSearchParams({
-      client_id: (process.env.GOOGLE_CLIENT_ID || '').trim(),
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: 'openid email profile',
-      state,
-      access_type: 'offline',
-    });
-    const authUrl = `${GOOGLE_AUTH_URL}?${params}`;
-    console.log('--- GOOGLE OAUTH REDIRECT ---');
-    console.log('URL:', authUrl);
-    return reply.redirect(authUrl);
+  // Store state in a short-lived signed cookie before redirecting
+  reply.setCookie('oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 600,
   });
 
-  app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
-    const { code } = request.query;
-    if (!code) {
-      return reply.status(400).send({ error: 'Missing authorization code' });
-    }
+  const params = new URLSearchParams({
+    client_id: (process.env.GOOGLE_CLIENT_ID || '').trim(),
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    access_type: 'offline',
+  });
+  const authUrl = `${GOOGLE_AUTH_URL}?${params}`;
+  console.log('--- GOOGLE OAUTH REDIRECT ---');
+  console.log('URL:', authUrl);
+  return reply.redirect(authUrl);
+});
+
+ app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+  const { code, state } = request.query;
+
+  // ── CSRF check ──────────────────────────────────────────────────────────────
+  const storedState = (request.cookies as any)?.oauth_state;
+  if (!state || !storedState || state !== storedState) {
+    return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
+  }
+  reply.clearCookie('oauth_state', { path: '/' });
+  // ────────────────────────────────────────────────────────────────────────────
+
+  if (!code) {
+    return reply.status(400).send({ error: 'Missing authorization code' });
+  }
 
     try {
       const tokenRes = await fetch(GOOGLE_TOKEN_URL, {

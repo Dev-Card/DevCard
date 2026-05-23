@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../config';

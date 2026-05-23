@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -136,7 +136,19 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, username]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  const successLinkId = route.params?.followSuccessLinkId;
+  useEffect(() => {
+    if (successLinkId) {
+      setFollowStates(prev => ({ ...prev, [successLinkId]: 'success' }));
+      navigation.setParams({ followSuccessLinkId: undefined } as any);
+    }
+  }, [navigation, successLinkId]);
 
   // ─── Hybrid Follow Engine ───
 
@@ -425,7 +437,14 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
             </View>
           </View>
 
-          {profile.links.map(link => {
+          {profile.links.length === 0 ? (
+            <View style={styles.emptyLinksCard}>
+              <EmptyState
+                title="No links shared yet"
+                description="This DevCard profile does not have any platform links available."
+              />
+            </View>
+          ) : profile.links.map(link => {
             const platform = PLATFORMS[link.platform];
             const state = followStates[link.id] || 'idle';
             const btnColor = getButtonColor(link, state);
@@ -618,6 +637,12 @@ const styles = StyleSheet.create({
     minWidth: 72, alignItems: 'center', justifyContent: 'center',
   },
   tileActionText: { color: COLORS.white, fontWeight: '700', fontSize: 13 },
+  emptyLinksCard: {
+    backgroundColor: COLORS.bgCard,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
 
   // ─── Error / Footer ───
   errorState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
