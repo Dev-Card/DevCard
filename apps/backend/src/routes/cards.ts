@@ -12,6 +12,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
     const cards = await app.prisma.card.findMany({
       where: { userId },
+      take: 50,
       include: {
         cardLinks: {
           include: { platformLink: true },
