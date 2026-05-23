@@ -5,6 +5,10 @@ import { encrypt } from '../utils/encryption.js';
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 
+// Nonce TTL: 10 minutes — generous for a login round-trip, short enough to
+// limit the window a leaked state URL could be abused.
+const OAUTH_NONCE_TTL_SECONDS = 600;
+
 interface OAuthCallbackQuery {
   code: string;
   state?: string;
@@ -33,33 +37,39 @@ export async function connectRoutes(app: FastifyInstance) {
 
   // ─── GitHub Connect ───
 
-app.get('/github', {
-  preHandler: [app.authenticate],
-}, async (request: FastifyRequest, reply: FastifyReply) => {
-  const userId = (request.user as any).id;
-  const nonce = generateState();
+  app.get('/github', {
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = (request.user as any).id;
+    const nonce = generateNonce();
 
-  // Store nonce in Redis with 10-minute TTL.
-  // The callback verifies this to prevent CSRF attacks.
-  await app.redis.set(
-    `oauth:nonce:${nonce}`,
-    userId,
-    'EX',
-    600
-  );
+    // Persist the nonce server-side before issuing the redirect.
+    // The callback will look up this key to prove the request originated here.
+    // Fail closed: if Redis is unavailable we must not issue the redirect —
+    // a missing nonce store would leave the callback with no way to validate state.
+    try {
+      await app.redis.set(
+        `oauth:nonce:${nonce}`,
+        userId,
+        'EX',
+        OAUTH_NONCE_TTL_SECONDS,
+      );
+    } catch (err) {
+      app.log.error({ err }, 'Failed to persist OAuth nonce — aborting connect flow');
+      return reply.status(500).send({ error: 'Failed to initiate OAuth flow' });
+    }
 
-  const state = JSON.stringify({ userId, nonce });
+    const state = Buffer.from(JSON.stringify({ userId, nonce })).toString('base64');
+    const redirectUri = `${process.env.BACKEND_URL}/api/connect/github/callback`;
+    const params = new URLSearchParams({
+      client_id: process.env.GITHUB_CLIENT_ID || '',
+      redirect_uri: redirectUri,
+      scope: 'user:follow',
+      state,
+    });
 
-  const redirectUri = `${process.env.BACKEND_URL}/api/connect/github/callback`;
-  const params = new URLSearchParams({
-    client_id: process.env.GITHUB_CLIENT_ID || '',
-    redirect_uri: redirectUri,
-    scope: 'user:follow',
-    state: Buffer.from(state).toString('base64'),
+    return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
   });
-
-  return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
-});
 
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
@@ -69,27 +79,47 @@ app.get('/github', {
     }
 
     try {
-      // Decode state to find which user requested the connect
+      // ── Step 1: parse state ────────────────────────────────────────────────
       const decodedState = parseOAuthState(state);
-
       if (!decodedState) {
+        app.log.warn('OAuth callback received malformed or unparseable state payload');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
-      // Verify nonce was issued by this server — prevents CSRF
-      const storedUserId = await app.redis.get(`oauth:nonce:${decodedState.nonce}`);
-
-      if (!storedUserId || storedUserId !== decodedState.userId) {
-        app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed — nonce mismatch');
-        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
+      // ── Step 2: validate nonce server-side ────────────────────────────────
+      // Look up the nonce in Redis and consume it immediately (single-use).
+      // Any failure — unknown nonce, expired nonce, replay, userId mismatch,
+      // or Redis error — is treated as a forged request and fails closed.
+      let storedUserId: string | null;
+      try {
+        const nonceKey = `oauth:nonce:${decodedState.nonce}`;
+        storedUserId = await app.redis.get(nonceKey);
+        if (storedUserId !== null) {
+          // Delete before token exchange so a mid-flight error cannot leave
+          // a reusable nonce in the store.
+          await app.redis.del(nonceKey);
+        }
+      } catch (err) {
+        app.log.error({ err }, 'Redis error during OAuth nonce lookup — aborting callback');
+        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
       }
 
-      // Consume the nonce — one-time use only
-      await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+      if (storedUserId === null) {
+        // Nonce unknown or already expired/consumed — replay or forged request
+        app.log.warn('OAuth callback nonce not found in Redis — possible replay or forged state');
+        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+      }
 
-      const userId = decodedState.userId;
+      if (storedUserId !== decodedState.userId) {
+        // Nonce exists but was issued for a different user — state was tampered
+        app.log.warn('OAuth nonce userId mismatch — state payload does not match issuing session');
+        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+      }
 
-      // Exchange code for token
+      // Use the Redis-sourced userId as authoritative — never trust state alone.
+      const userId = storedUserId;
+
+      // ── Step 3: exchange code for token ───────────────────────────────────
       const tokenRes = await fetch(GITHUB_TOKEN_URL, {
         method: 'POST',
         headers: {
@@ -107,11 +137,11 @@ app.get('/github', {
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
-        app.log.error('GitHub connect token error:', tokenData);
+        app.log.error('GitHub token exchange failed during connect flow');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
-      // Encrypt and store the token
+      // ── Step 4: persist encrypted token ───────────────────────────────────
       const encryptedToken = encrypt(tokenData.access_token);
 
       await app.prisma.oAuthToken.upsert({
@@ -133,8 +163,6 @@ app.get('/github', {
         },
       });
 
-      // Redirect back to app settings
-      // If mobile, use custom scheme
       if (decodedState.nonce.startsWith('mobile_')) {
         return reply.redirect(`${process.env.MOBILE_REDIRECT_URI}?connected=github`);
       }
@@ -182,8 +210,7 @@ function parseOAuthState(state: string): ParsedOAuthState | null {
   try {
     const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
 
-    // validating the OAuth state structure which is expected
-    if (typeof decoded.userId !== "string" || typeof decoded.nonce !== "string") {
+    if (typeof decoded.userId !== 'string' || typeof decoded.nonce !== 'string') {
       return null;
     }
     return decoded;
@@ -192,6 +219,6 @@ function parseOAuthState(state: string): ParsedOAuthState | null {
   }
 }
 
-function generateState(): string {
+function generateNonce(): string {
   return randomBytes(32).toString('hex');
 }
