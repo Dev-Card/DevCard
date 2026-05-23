@@ -4,9 +4,9 @@ export async function analyticsRoutes(app: FastifyInstance) {
   
   app.get('/overview', {
     preHandler: [app.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest, _reply: FastifyReply) => {
     const userId = (request.user as any).id;
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -57,7 +57,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/views', {
+  app.get<{ Querystring: { page?: string, cardId?: string } }>('/views', {
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest<{ Querystring: { page?: string, cardId?: string } }>, reply: FastifyReply) => {
     const userId = (request.user as any).id;

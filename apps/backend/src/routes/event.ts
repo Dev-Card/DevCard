@@ -1,6 +1,7 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createEventSchema, joinEventSchema} from '../validations/event.validation';
-import { Prisma } from '@prisma/client';
+
+import type { Prisma } from '@prisma/client';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 type EventDetails = {
     id: string; 
@@ -38,6 +39,9 @@ type PaginatedAttendeesResponse = {
 
 type EventWithAttendees = Prisma.EventGetPayload<{
   include: {
+    _count: {
+      select: { attendees: true };
+    };
     attendees: {
       include: {
         user: {
@@ -81,7 +85,7 @@ export async function eventRoutes(app:FastifyInstance) {
         
         const {name, description, startDate, endDate, isPublic ,location} = parsed.data
 
-        let cleanSlug = name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]+/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '')
+        const cleanSlug = name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]+/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '')
         let finalSlug = cleanSlug; 
 
         while(true){
@@ -90,7 +94,7 @@ export async function eventRoutes(app:FastifyInstance) {
             if(!existing){
                 break; 
             }
-            const randomSuffix  = Math.random().toString(36).substring(2,6); 
+            const randomSuffix  = Math.random().toString(36).slice(2,6); 
             finalSlug = `${cleanSlug}-${randomSuffix}`
         }
 
@@ -103,7 +107,7 @@ export async function eventRoutes(app:FastifyInstance) {
                     name, 
                     description, 
                     slug: finalSlug, 
-                    location: location,
+                    location,
                     startDate: startDateObj, 
                     endDate: endDateObj, 
                     isPublic: isPublic ?? true, 
@@ -178,7 +182,7 @@ export async function eventRoutes(app:FastifyInstance) {
             await app.prisma.eventAttendee.create({
                 data: {
                     eventId: event.id, 
-                    userId: userId, 
+                    userId, 
                     joinedAt: new Date()
                 }
             })
@@ -218,7 +222,7 @@ export async function eventRoutes(app:FastifyInstance) {
             await app.prisma.eventAttendee.delete({
                 where: {
                     userId_eventId: {
-                        userId: userId, 
+                        userId, 
                         eventId: event.id
                     }
                 }
@@ -289,7 +293,7 @@ export async function eventRoutes(app:FastifyInstance) {
             pagination: {
                 page, 
                 limit, 
-                total : event._count.attendees,
+                total: event._count?.attendees ?? event.attendees.length,
             }
         }
 

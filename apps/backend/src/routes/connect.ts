@@ -1,6 +1,9 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
+
 import { encrypt } from '../utils/encryption.js';
+import { getErrorMessage, getOAuthProviderErrorFields } from '../utils/error.util.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -20,7 +23,7 @@ export async function connectRoutes(app: FastifyInstance) {
 
   app.get('/status', {
     preHandler: [app.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest, _reply: FastifyReply) => {
     const userId = (request.user as any).id;
 
     const tokens = await app.prisma.oAuthToken.findMany({
@@ -107,7 +110,7 @@ app.get('/github', {
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
-        app.log.error('GitHub connect token error:', tokenData);
+        app.log.error(getOAuthProviderErrorFields(tokenData), 'GitHub connect token error');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
@@ -142,8 +145,7 @@ app.get('/github', {
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=github`);
 
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      app.log.error({ err, message }, 'GitHub connect error');
+      app.log.error(`GitHub connect error: ${getErrorMessage(err)}`);
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
     }
   });
@@ -151,7 +153,7 @@ app.get('/github', {
 
   // ─── Disconnect ───
 
-  app.delete('/:platform', {
+  app.delete<{ Params: { platform: string } }>('/:platform', {
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
     const userId = (request.user as any).id;
@@ -172,7 +174,7 @@ app.get('/github', {
         },
       });
       return { success: true };
-    } catch (err) {
+    } catch (_err) {
       return reply.status(404).send({ error: 'Connection not found' });
     }
   });

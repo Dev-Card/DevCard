@@ -1,8 +1,32 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Prisma } from '@prisma/client';
+
+import type { FastifyBaseLogger, FastifyReply, FastifyRequest } from 'fastify';
 
 export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Log a non-fatal background task failure without dumping raw error objects. */
+export function logBackgroundError(
+  log: FastifyBaseLogger,
+  err: unknown,
+  message: string,
+  context?: Record<string, unknown>,
+) {
+  log.error({ ...context, err: getErrorMessage(err) }, message);
+}
+
+/** Safe fields for OAuth provider error responses (never log tokens). */
+export function getOAuthProviderErrorFields(tokenData: {
+  error?: string;
+  error_description?: string;
+}) {
+  return {
+    error: tokenData.error,
+    ...(tokenData.error_description
+      ? { errorDescription: tokenData.error_description }
+      : {}),
+  };
 }
 
 export function handleDbError(error: unknown, request: FastifyRequest, reply: FastifyReply) {

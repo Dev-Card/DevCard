@@ -1,6 +1,9 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
+
 import { encrypt } from '../utils/encryption.js';
+import { getErrorMessage, getOAuthProviderErrorFields } from '../utils/error.util.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -59,8 +62,6 @@ export async function authRoutes(app: FastifyInstance) {
     state,
   });
   const authUrl = `${GITHUB_AUTH_URL}?${params}`;
-  console.log('--- GITHUB OAUTH REDIRECT ---');
-  console.log('URL:', authUrl);
   return reply.redirect(authUrl);
 });
 
@@ -98,7 +99,7 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
-        app.log.error('GitHub token error:', tokenData);
+        app.log.error(getOAuthProviderErrorFields(tokenData), 'GitHub token error');
         return reply.status(400).send({ error: 'Failed to authenticate with GitHub' });
       }
 
@@ -180,8 +181,7 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      app.log.error({ err, message }, 'GitHub auth error');
+      app.log.error(`GitHub auth error: ${getErrorMessage(err)}`);
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -212,8 +212,6 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
     access_type: 'offline',
   });
   const authUrl = `${GOOGLE_AUTH_URL}?${params}`;
-  console.log('--- GOOGLE OAUTH REDIRECT ---');
-  console.log('URL:', authUrl);
   return reply.redirect(authUrl);
 });
 
@@ -247,7 +245,7 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
-        app.log.error('Google token error:', tokenData);
+        app.log.error(getOAuthProviderErrorFields(tokenData), 'Google token error');
         return reply.status(400).send({ error: 'Failed to authenticate with Google' });
       }
 
@@ -301,8 +299,7 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      app.log.error({ err, message }, 'Google auth error');
+      app.log.error(`Google auth error: ${getErrorMessage(err)}`);
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });

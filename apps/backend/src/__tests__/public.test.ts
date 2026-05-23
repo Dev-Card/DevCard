@@ -1,69 +1,153 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import jwt from '@fastify/jwt';
 import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { publicRoutes } from '../routes/public.js';
+import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+
 import type { PrismaClient } from '@prisma/client';
 
-// ── Mock QR utilities ─────────────────────────────────────────────────────────
-// Prevents real QR rasterisation (and any native canvas/image deps) from running
-// during unit tests.  The stubs return minimal valid values that satisfy the
-// Content-Type assertions below.
+
 vi.mock('../utils/qr.js', () => ({
   generateQRBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-png')),
   generateQRSvg: vi.fn().mockResolvedValue('<svg>fake</svg>'),
 }));
 
-import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
-
 const mockUser = {
   id: 'user-123',
   username: 'testuser',
   displayName: 'Test User',
-  bio: null,
+  bio: 'Building things',
   pronouns: null,
-  role: null,
-  company: null,
+  role: 'Engineer',
+  company: 'DevCard',
   avatarUrl: null,
   accentColor: '#ffffff',
-  platformLinks: [],
+  platformLinks: [
+    {
+      id: 'link-1',
+      platform: 'github',
+      username: 'testuser',
+      url: 'https://github.com/testuser',
+      displayOrder: 0,
+    },
+  ],
+};
+
+const redisStore = new Map<string, string>();
+
+const mockRedis = {
+  get: vi.fn((key: string) => Promise.resolve(redisStore.get(key) ?? null)),
+  setex: vi.fn((key: string, _ttl: number, value: string) => {
+    redisStore.set(key, value);
+    return Promise.resolve('OK');
+  }),
+  del: vi.fn((...keys: string[]) => {
+    keys.forEach((key) => redisStore.delete(key));
+    return Promise.resolve(keys.length);
+  }),
 };
 
 const mockPrisma = {
   user: {
     findUnique: vi.fn(),
   },
-  platformLink: {} as any,
   cardView: {
-    create: vi.fn().mockReturnValue({ catch: vi.fn() }),
+    create: vi.fn(() => Promise.resolve({ id: 'view-1' })),
   },
   followLog: {
     findMany: vi.fn().mockResolvedValue([]),
   },
-  card: {} as any,
+  card: {} as PrismaClient['card'],
 };
 
 async function buildApp() {
   const app = Fastify();
+  await app.register(jwt, { secret: 'test-secret' });
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
-  // Soft auth: jwtVerify rejects by default (unauthenticated visitor)
-  app.decorateRequest('jwtVerify', async function () {
-    throw new Error('no token');
-  });
+  app.decorate('redis', mockRedis as any);
   app.register(publicRoutes, { prefix: '/api/public' });
   await app.ready();
   return app;
 }
 
-// ─── QR size validation ───────────────────────────────────────────────────────
+describe('GET /api/public/:username', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    redisStore.clear();
+  });
+
+  it('should cache profile data after a MISS and serve repeat requests as HIT', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    const app = await buildApp();
+
+    const miss = await app.inject({ method: 'GET', url: '/api/public/testuser' });
+    expect(miss.statusCode).toBe(200);
+    expect(miss.headers['x-cache']).toBe('MISS');
+    expect(miss.headers['cache-control']).toBe('public, max-age=300, stale-while-revalidate=60');
+    expect(miss.json().displayName).toBe('Test User');
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(mockRedis.setex).toHaveBeenCalledWith(
+      'profile:testuser',
+      300,
+      expect.any(String),
+    );
+
+    const hit = await app.inject({ method: 'GET', url: '/api/public/testuser' });
+    expect(hit.statusCode).toBe(200);
+    expect(hit.headers['x-cache']).toBe('HIT');
+    expect(hit.json().links[0].platform).toBe('github');
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it('should return 404 without caching when the user is missing', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    const app = await buildApp();
+
+    const res = await app.inject({ method: 'GET', url: '/api/public/missing' });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockRedis.setex).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/public/:username/qr-session', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    redisStore.clear();
+  });
+
+  it('should return an offline-decodable signed token containing the profile snapshot', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    const app = await buildApp();
+
+    const res = await app.inject({ method: 'GET', url: '/api/public/testuser/qr-session' });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-cache']).toBe('MISS');
+    expect(res.json().expiresIn).toBe(600);
+    expect(res.json().tokenType).toBe('JWT');
+
+    const decoded = app.jwt.verify(res.json().token) as {
+      type: string;
+      username: string;
+      profile: { displayName: string };
+      exp: number;
+      iat: number;
+    };
+    expect(decoded.type).toBe('qr-session');
+    expect(decoded.username).toBe('testuser');
+    expect(decoded.profile.displayName).toBe('Test User');
+    expect(decoded.exp - decoded.iat).toBe(600);
+  });
+});
 
 describe('GET /api/public/:username/qr — size validation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Re-attach default mock behaviour cleared by clearAllMocks
     (generateQRBuffer as ReturnType<typeof vi.fn>).mockResolvedValue(Buffer.from('fake-png'));
     (generateQRSvg as ReturnType<typeof vi.fn>).mockResolvedValue('<svg>fake</svg>');
   });
-
-  // ── Reject before DB touch ─────────────────────────────────────────────────
 
   it('rejects size=0 with 400 before any DB query', async () => {
     const app = await buildApp();
@@ -117,10 +201,7 @@ describe('GET /api/public/:username/qr — size validation', () => {
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
   });
 
-  it('rejects floating-point size (400.5) with 400', async () => {
-    // parseInt('400.5') === 400, which IS in range — this passes.
-    // Documenting the boundary: fractional strings are truncated, not rejected.
-    // A string like '0.5' parseInt → 0, which is out of range.
+  it('rejects fractional size string (0.5) with 400', async () => {
     const app = await buildApp();
     const res = await app.inject({
       method: 'GET',
@@ -129,8 +210,6 @@ describe('GET /api/public/:username/qr — size validation', () => {
     expect(res.statusCode).toBe(400);
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
   });
-
-  // ── Accept valid sizes ─────────────────────────────────────────────────────
 
   it('accepts size=1 (lower bound) and returns PNG', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(mockUser);
@@ -176,8 +255,6 @@ describe('GET /api/public/:username/qr — size validation', () => {
     );
   });
 
-  // ── Format selection ───────────────────────────────────────────────────────
-
   it('returns SVG when format=svg is requested', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(mockUser);
     const app = await buildApp();
@@ -193,8 +270,6 @@ describe('GET /api/public/:username/qr — size validation', () => {
     );
   });
 
-  // ── User not found ─────────────────────────────────────────────────────────
-
   it('returns 404 for an unknown username (valid size)', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
     const app = await buildApp();
@@ -205,8 +280,6 @@ describe('GET /api/public/:username/qr — size validation', () => {
     expect(res.statusCode).toBe(404);
     expect(res.json().error).toBe('User not found');
   });
-
-  // ── QR generation error ────────────────────────────────────────────────────
 
   it('returns 500 when QR generation throws', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(mockUser);

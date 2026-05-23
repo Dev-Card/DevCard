@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { profileRoutes } from '../routes/profiles.js';
+
 import type { PrismaClient } from '@prisma/client';
 
 const mockUser = {
@@ -20,17 +23,22 @@ const mockUser = {
   providerId: 'gh-123',
 };
 
-const mockPrisma: Pick<PrismaClient, 'user'> = {
+const mockPrisma = {
   user: {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
     update: vi.fn(),
-  } as unknown as PrismaClient['user'],
+  },
+};
+
+const mockRedis = {
+  del: vi.fn(),
 };
 
 async function buildApp() {
   const app = Fastify();
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
+  app.decorate('redis', mockRedis as any);
   app.decorate('authenticate', async (request: any) => {
     request.user = { id: 'user-123' };
   });
@@ -68,6 +76,7 @@ describe('PUT /api/profiles/me', () => {
 
   it('should update profile and return updated data', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
     mockPrisma.user.update.mockResolvedValue({ ...mockUser, displayName: 'Updated Name' });
     const app = await buildApp();
     const res = await app.inject({
@@ -77,6 +86,22 @@ describe('PUT /api/profiles/me', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().displayName).toBe('Updated Name');
+  });
+
+  it('should invalidate public profile cache after update', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findUnique.mockResolvedValue({ username: mockUser.username });
+    mockPrisma.user.update.mockResolvedValue({ ...mockUser, username: 'newuser' });
+    const app = await buildApp();
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/profiles/me',
+      payload: { username: 'newuser' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockRedis.del).toHaveBeenCalledWith('profile:testuser', 'profile:newuser');
   });
 
   it('should return 400 for invalid accentColor', async () => {
@@ -103,10 +128,12 @@ describe('PUT /api/profiles/me', () => {
   });
 
   it('should return 409 when a concurrent request wins the unique constraint race (P2002)', async () => {
-    // Both requests pass the findFirst check; the DB unique constraint fires on
-    // the losing write — Prisma raises P2002.
     mockPrisma.user.findFirst.mockResolvedValue(null);
-    const p2002 = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+    mockPrisma.user.findUnique.mockResolvedValue({ username: mockUser.username });
+    const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: 'test',
+    });
     mockPrisma.user.update.mockRejectedValue(p2002);
 
     const app = await buildApp();
@@ -122,6 +149,7 @@ describe('PUT /api/profiles/me', () => {
 
   it('should return 500 for unexpected database errors during update', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findUnique.mockResolvedValue({ username: mockUser.username });
     mockPrisma.user.update.mockRejectedValue(new Error('Connection refused'));
 
     const app = await buildApp();
@@ -136,6 +164,7 @@ describe('PUT /api/profiles/me', () => {
   });
 
   it('should not call findFirst when no username is provided in the update', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ username: mockUser.username });
     mockPrisma.user.update.mockResolvedValue({ ...mockUser, displayName: 'New Name' });
     const app = await buildApp();
     const res = await app.inject({

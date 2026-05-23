@@ -1,10 +1,14 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getProfileUrl } from '@devcard/shared';
+import { Prisma } from '@prisma/client';
+
+import { getErrorMessage } from '../utils/error.util.js';
 import {
   updateProfileSchema,
   createLinkSchema,
   reorderLinksSchema,
 } from '../utils/validators.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 // ── Response types ────────────────────────────────────────────────────────────
 // Declared explicitly so the API contract is visible without tracing through
@@ -50,7 +54,7 @@ export async function profileRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'User not found' });
     }
 
-    const { provider, providerId, ...profileData } = user;
+    const { provider: _provider, providerId: _providerId, ...profileData } = user;
     return {
       ...profileData,
       defaultCardId: user.cards[0]?.id || null,
@@ -84,8 +88,17 @@ export async function profileRoutes(app: FastifyInstance) {
       }
     }
 
+    const current = await app.prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    });
+
+    if (!current) {
+      return reply.status(404).send({ error: 'User not found' });
+    }
+
     try {
-      const response: ProfileUpdateResponse = await app.prisma.user.update({
+      const updated: ProfileUpdateResponse = await app.prisma.user.update({
         where: { id: userId },
         data: parsed.data,
         select: {
@@ -102,16 +115,26 @@ export async function profileRoutes(app: FastifyInstance) {
         },
       });
 
-      return response;
-    } catch (err: any) {
-      // Unique constraint violation — two concurrent requests raced through the
-      // findFirst check above and both attempted the write. The DB constraint
-      // fires on the losing request; surface it as a deterministic 409 rather
-      // than leaking a raw Prisma error as a 500.
-      if (err?.code === 'P2002') {
+      const cacheKeys = new Set([
+        `profile:${current.username}`,
+        ...(updated.username !== current.username ? [`profile:${updated.username}`] : []),
+      ]);
+
+      try {
+        await app.redis.del(...cacheKeys);
+      } catch (err) {
+        app.log.warn(
+          { err: getErrorMessage(err), userId },
+          'Failed to invalidate public profile cache',
+        );
+      }
+
+      return updated;
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         return reply.status(409).send({ error: 'Username already taken' });
       }
-      app.log.error({ err }, 'DB error in PUT /profiles/me');
+      app.log.error(`DB error in PUT /profiles/me: ${getErrorMessage(err)}`);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

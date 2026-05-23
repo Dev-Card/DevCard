@@ -1,7 +1,8 @@
-process.env.NODE_ENV = 'test';
-
 import { describe, it, expect } from 'vitest';
+
 import { buildApp } from '../app';
+
+process.env.NODE_ENV = 'test';
 
 describe('GET /health', () => {
   it('should return status ok', async () => {
