@@ -1,13 +1,14 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 
-export async function cardRoutes(app: FastifyInstance) {
+export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', app.authenticate);
 
   // ─── List Cards ───
 
-  app.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+  app.get('/', async (request: FastifyRequest): Promise<object> => {
+    const userId = (request.user as { id: string }).id;
 
     const cards = await app.prisma.card.findMany({
       where: { userId },
@@ -30,15 +31,14 @@ export async function cardRoutes(app: FastifyInstance) {
 
   // ─── Create Card ───
 
-  app.post('/', async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+  app.post('/', async (request: FastifyRequest, reply: FastifyReply): Promise<object> => {
+    const userId = (request.user as { id: string }).id;
     const parsed = createCardSchema.safeParse(request.body);
 
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
     }
 
-    // Check if user's first card → make it default
     const cardCount = await app.prisma.card.count({ where: { userId } });
 
     const card = await app.prisma.card.create({
@@ -71,8 +71,8 @@ export async function cardRoutes(app: FastifyInstance) {
 
   // ─── Update Card ───
 
-  app.put('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+  app.put('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<object> => {
+    const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
     const existing = await app.prisma.card.findFirst({
@@ -88,7 +88,6 @@ export async function cardRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
     }
 
-    // Update card title
     if (parsed.data.title) {
       await app.prisma.card.update({
         where: { id },
@@ -96,9 +95,7 @@ export async function cardRoutes(app: FastifyInstance) {
       });
     }
 
-    // Update card links if provided
     if (parsed.data.linkIds) {
-      // Remove existing links
       await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
 
       
@@ -112,7 +109,6 @@ export async function cardRoutes(app: FastifyInstance) {
       });
     }
 
-    // Fetch updated card
     const updated = await app.prisma.card.findUnique({
       where: { id },
       include: {
@@ -133,8 +129,8 @@ export async function cardRoutes(app: FastifyInstance) {
 
   // ─── Delete Card ───
 
-  app.delete('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+  app.delete('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<void> => {
+    const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
     const existing = await app.prisma.card.findFirst({
@@ -142,17 +138,18 @@ export async function cardRoutes(app: FastifyInstance) {
     });
 
     if (!existing) {
-      return reply.status(404).send({ error: 'Card not found' });
+      reply.status(404).send({ error: 'Card not found' });
+      return;
     }
 
     await app.prisma.card.delete({ where: { id } });
-    return reply.status(204).send();
+    reply.status(204).send();
   });
 
   // ─── Set Default Card ───
 
-  app.put('/:id/default', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+  app.put('/:id/default', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<object> => {
+    const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
     const existing = await app.prisma.card.findFirst({
@@ -163,13 +160,11 @@ export async function cardRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Card not found' });
     }
 
-    // Unset all other defaults
     await app.prisma.card.updateMany({
       where: { userId },
       data: { isDefault: false },
     });
 
-    // Set this one
     await app.prisma.card.update({
       where: { id },
       data: { isDefault: true },
