@@ -4,6 +4,20 @@ import type { Card } from '@devcard/shared';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 import { handleDbError } from '../utils/error.util.js';
 
+interface CreateCardBody {
+  title: string;
+  linkIds: string[];
+}
+
+interface UpdateCardBody {
+  title?: string;
+  linkIds?: string[];
+}
+
+interface CardParams {
+  id: string;
+}
+
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', app.authenticate);
 
@@ -38,7 +52,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Create Card ───
 
-  app.post('/', async (request: FastifyRequest, reply: FastifyReply): Promise<Card | void> => {
+  app.post('/', async (request: FastifyRequest<{ Body: CreateCardBody }>, reply: FastifyReply): Promise<Card | void> => {
     const userId = (request.user as { id: string }).id;
     const parsed = createCardSchema.safeParse(request.body);
 
@@ -82,7 +96,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Update Card ───
 
-  app.put('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<Card | void> => {
+  app.put('/:id', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply): Promise<Card | void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
@@ -157,7 +171,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Delete Card ───
 
-  app.delete('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<void> => {
+  app.delete('/:id', async (request: FastifyRequest<{ Params: CardParams }>, reply: FastifyReply): Promise<void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
@@ -200,7 +214,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Set Default Card ───
 
-  app.put('/:id/default', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<object | void> => {
+  app.put('/:id/default', async (request: FastifyRequest<{ Params: CardParams }>, reply: FastifyReply): Promise<object | void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
