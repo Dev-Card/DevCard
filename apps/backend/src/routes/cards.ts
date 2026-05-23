@@ -1,6 +1,5 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Card } from '@devcard/shared';
-
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 import { handleDbError } from '../utils/error.util.js';
 
@@ -61,6 +60,22 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
+      // Verify every supplied link belongs to the authenticated user before any write.
+      // A count mismatch means at least one ID is foreign — reject before touching the DB.
+      if (parsed.data.linkIds.length > 0) {
+        const ownedLinks = await app.prisma.platformLink.findMany({
+          where: { id: { in: parsed.data.linkIds }, userId },
+          select: { id: true },
+        });
+
+        if (ownedLinks.length !== parsed.data.linkIds.length) {
+          return reply.status(403).send({ error: 'One or more links do not belong to your account' });
+        }
+      }
+
+      // Check if user's first card -> make it default.
+      // Prisma wraps the nested cardLinks.create inside card.create in a single
+      // implicit transaction, so either both the card and its links are written or neither is.
       const cardCount = await app.prisma.card.count({ where: { userId } });
 
       const card = await app.prisma.card.create({
@@ -122,27 +137,33 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       }
 
       if (parsed.data.linkIds) {
-        // Verify ALL provided linkIds belong to the authenticated user
-        // before touching anything — prevents link ownership hijacking
-        const validLinks = await app.prisma.platformLink.findMany({
-          where: { id: { in: parsed.data.linkIds }, userId },
-          take: 50, // guard against unbounded queries
-        });
+        // Ownership check runs before any write so a foreign linkId is always
+        // caught before existing links are touched.
+        if (parsed.data.linkIds.length > 0) {
+          const ownedLinks = await app.prisma.platformLink.findMany({
+            where: { id: { in: parsed.data.linkIds }, userId },
+            select: { id: true },
+          });
 
-        if (validLinks.length !== parsed.data.linkIds.length) {
-          return reply.status(403).send({ error: 'One or more links do not belong to you' });
+          if (ownedLinks.length !== parsed.data.linkIds.length) {
+            return reply.status(403).send({ error: 'One or more links do not belong to your account' });
+          }
         }
 
-        // Remove existing links
-        await app.prisma.cardLink.deleteMany({ where: { cardId: id } });
-
-        // Add new links
-        await app.prisma.cardLink.createMany({
-          data: parsed.data.linkIds.map((linkId, index) => ({
-            cardId: id,
-            platformLinkId: linkId,
-            displayOrder: index,
-          })),
+        // Replace links inside a transaction so the card is never left linkless
+        // when deleteMany succeeds but createMany subsequently fails.
+        const linkIds = parsed.data.linkIds;
+        await app.prisma.$transaction(async (tx) => {
+          await tx.cardLink.deleteMany({ where: { cardId: id } });
+          if (linkIds.length > 0) {
+            await tx.cardLink.createMany({
+              data: linkIds.map((linkId, index) => ({
+                cardId: id,
+                platformLinkId: linkId,
+                displayOrder: index,
+              })),
+            });
+          }
         });
       }
 
@@ -185,12 +206,15 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         return;
       }
 
+      // Prevent deleting the last card — every user must retain at least one.
       const userCardCount = await app.prisma.card.count({ where: { userId } });
       if (userCardCount <= 1) {
         reply.status(400).send({ error: 'Cannot delete the last remaining card. A user must have at least one card.' });
         return;
       }
 
+      // If the card being deleted is the default, promote the next-oldest card
+      // before deletion so the user always has an active default.
       if (existing.isDefault) {
         const oldestRemainingCard = await app.prisma.card.findFirst({
           where: { userId, id: { not: id } },
@@ -227,14 +251,11 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(404).send({ error: 'Card not found' });
       }
 
-      await app.prisma.card.updateMany({
-        where: { userId },
-        data: { isDefault: false },
-      });
-
-      await app.prisma.card.update({
-        where: { id },
-        data: { isDefault: true },
+      // Clear then set in a single transaction so there is never a window where
+      // the user has zero default cards if the second write fails.
+      await app.prisma.$transaction(async (tx) => {
+        await tx.card.updateMany({ where: { userId }, data: { isDefault: false } });
+        await tx.card.update({ where: { id }, data: { isDefault: true } });
       });
 
       return { message: 'Default card updated' };
