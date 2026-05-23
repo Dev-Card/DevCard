@@ -33,26 +33,33 @@ export async function connectRoutes(app: FastifyInstance) {
 
   // ─── GitHub Connect ───
 
-  app.get('/github', {
-    preHandler: [app.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    // Generate a secure state token linking back to this user session
-    // In a real app, store this in Redis to cross-check in callback
-    const state = JSON.stringify({
-      userId: (request.user as any).id,
-      nonce: generateState(),
-    });
+app.get('/github', {
+  preHandler: [app.authenticate],
+}, async (request: FastifyRequest, reply: FastifyReply) => {
+  const userId = (request.user as any).id;
+  const nonce = generateState();
 
-    const redirectUri = `${process.env.BACKEND_URL}/api/connect/github/callback`;
-    const params = new URLSearchParams({
-      client_id: process.env.GITHUB_CLIENT_ID || '',
-      redirect_uri: redirectUri,
-      scope: 'user:follow', // ONLY asking for follow scope to avoid full profile access
-      state: Buffer.from(state).toString('base64'),
-    });
+  // Store nonce in Redis with 10-minute TTL.
+  // The callback verifies this to prevent CSRF attacks.
+  await app.redis.set(
+    `oauth:nonce:${nonce}`,
+    userId,
+    'EX',
+    600
+  );
 
-    return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
+  const state = JSON.stringify({ userId, nonce });
+
+  const redirectUri = `${process.env.BACKEND_URL}/api/connect/github/callback`;
+  const params = new URLSearchParams({
+    client_id: process.env.GITHUB_CLIENT_ID || '',
+    redirect_uri: redirectUri,
+    scope: 'user:follow',
+    state: Buffer.from(state).toString('base64'),
   });
+
+  return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
+});
 
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
@@ -68,11 +75,19 @@ export async function connectRoutes(app: FastifyInstance) {
       if (!decodedState) {
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
-      const userId = decodedState.userId;
 
-      if (!userId) {
+      // Verify nonce was issued by this server — prevents CSRF
+      const storedUserId = await app.redis.get(`oauth:nonce:${decodedState.nonce}`);
+
+      if (!storedUserId || storedUserId !== decodedState.userId) {
+        app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed — nonce mismatch');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
       }
+
+      // Consume the nonce — one-time use only
+      await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+
+      const userId = decodedState.userId;
 
       // Exchange code for token
       const tokenRes = await fetch(GITHUB_TOKEN_URL, {
