@@ -1,0 +1,15 @@
+node_modules
+.git
+.github
+apps/backend/node_modules
+apps/web/node_modules
+apps/web/.svelte-kit
+packages/shared/node_modules
+dist
+build
+.env
+.env.production
+*.log
+.gemini
+.vscode
+3D Objects

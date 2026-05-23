@@ -254,6 +254,25 @@ The following error cases are implemented:
 | **Set Default Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
 | **Successful Deletion** | 204 | No content |
 
+## Self-Hosting
+
+DevCard is fully self-hostable via Docker Compose. You can run the entire stack (PostgreSQL, Redis, Backend, Web App) with a single command.
+
+### Running with Docker Compose
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+2. Review and update the `.env` file with your specific values (especially `JWT_SECRET` and `ENCRYPTION_KEY`).
+3. Start the stack:
+   ```bash
+   docker compose up -d
+   ```
+4. Access the web app at `http://localhost:5173` and the backend at `http://localhost:3001`.
+
+The data for PostgreSQL and Redis is persisted in Docker volumes across restarts.
+
 ## Good First Issues
 
 New to open source? We've got you covered! Check out our [Good First Issues](https://github.com/Dev-Card/DevCard/issues?q=is%3Aopen+label%3A%22good-first-issue%22), these are specially curated issues that are:

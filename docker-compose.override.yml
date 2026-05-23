@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  backend:
+    environment:
+      - NODE_ENV=development
+    volumes:
+      # Mount the whole monorepo to get hot-reloading for local packages and the app itself
+      - .:/app
+      - /app/node_modules
+    command: pnpm --filter @devcard/backend dev
+
+  web:
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: pnpm --filter @devcard/web dev --host

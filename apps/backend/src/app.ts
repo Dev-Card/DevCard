@@ -20,6 +20,12 @@ import { analyticsRoutes } from './routes/analytics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: any;
+  }
+}
+
 export async function buildApp() {
   const app = Fastify({
     logger: {
