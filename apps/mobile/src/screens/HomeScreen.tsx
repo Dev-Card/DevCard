@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,7 @@ import {
   StatusBar,
   Image,
   RefreshControl,
-  TextInput,
 } from 'react-native';
-import { Skeleton } from '../components/Skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
@@ -21,8 +19,6 @@ import { APP_URL, API_BASE_URL } from '../config';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
 import ProfileLink from '../components/ProfileLink';
-
-
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList>;
 };
@@ -41,15 +37,16 @@ export default function HomeScreen({ navigation }: Props) {
   const [analytics, setAnalytics] = useState<any>(null);
   const [showQR, setShowQR] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [searchUsername, setSearchUsername] = useState('');
 
   const profileUrl = user?.defaultCardId
     ? `${APP_URL}/devcard/${user.defaultCardId}`
     : `${APP_URL}/u/${user?.username}`;
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
     try {
       const [profileRes, analyticsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/profiles/me`, {
@@ -69,14 +66,8 @@ export default function HomeScreen({ navigation }: Props) {
       }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
-    } finally {
-      setLoading(false);
     }
-  }, [token]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -94,21 +85,6 @@ export default function HomeScreen({ navigation }: Props) {
       console.error('Share failed:', err);
     }
   };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
-        <View style={styles.loadingRoot}>
-          <Skeleton width={140} height={28} borderRadius={12} />
-          <Skeleton width="75%" height={20} borderRadius={12} style={styles.loadingSpacer} />
-          <Skeleton width="100%" height={180} borderRadius={24} style={styles.loadingSection} />
-          <Skeleton width="100%" height={120} borderRadius={24} style={styles.loadingSection} />
-          <Skeleton width="100%" height={92} borderRadius={24} style={styles.loadingSection} />
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -157,6 +133,7 @@ export default function HomeScreen({ navigation }: Props) {
 
           {user?.bio && <Text style={styles.bio}>{user.bio}</Text>}
 
+          {/* Platform Links Summary */}
           {/* Platform Links */}
           <View style={styles.linksContainer}>
             {links.slice(0, 4).map(link => {
@@ -172,82 +149,84 @@ export default function HomeScreen({ navigation }: Props) {
               );
             })}
           </View>
+
           {links.length > 4 && (
             <View style={styles.linkBadge}>
-              <Text style={styles.linkBadgeText}>+{links.length - 4}</Text>
+              <Text style={styles.linkBadgeText}>
+                +{links.length - 4}
+              </Text>
             </View>
           )}
         </View>
-      </View>
 
-      {/* QR Code Section */}
-      <TouchableOpacity
-        style={styles.qrSection}
-        onPress={() => setShowQR(!showQR)}
-        activeOpacity={0.85}>
-        {showQR ? (
-          <View style={styles.qrContainer}>
-            <QRCode
-              value={profileUrl}
-              size={200}
-              color={COLORS.textPrimary}
-              backgroundColor={COLORS.bgCard}
-            />
-            <Text style={styles.qrHint}>Scan to open your DevCard</Text>
+        {/* QR Code Section */}
+        <TouchableOpacity
+          style={styles.qrSection}
+          onPress={() => setShowQR(!showQR)}
+          activeOpacity={0.85}>
+          {showQR ? (
+            <View style={styles.qrContainer}>
+              <QRCode
+                value={profileUrl}
+                size={200}
+                color={COLORS.textPrimary}
+                backgroundColor={COLORS.bgCard}
+              />
+              <Text style={styles.qrHint}>Scan to open your DevCard</Text>
+            </View>
+          ) : (
+            <View style={styles.qrToggle}>
+              <Text style={styles.qrToggleEmoji}>📱</Text>
+              <Text style={styles.qrToggleText}>Tap to show QR code</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Action Buttons */}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleShare}
+            activeOpacity={0.85}>
+            <Text style={styles.actionEmoji}>📤</Text>
+            <Text style={styles.actionText}>Share Card</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => (navigation as any).navigate('Views')}
+            activeOpacity={0.85}>
+            <Text style={styles.actionEmoji}>📈</Text>
+            <Text style={styles.actionText}>Analytics</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => (navigation as any).navigate('DevCardView', { username: user?.username || '' })}
+            activeOpacity={0.85}>
+            <Text style={styles.actionEmoji}>👁️</Text>
+            <Text style={styles.actionText}>Preview</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Stats */}
+        <View style={styles.stats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{links.length}</Text>
+            <Text style={styles.statLabel}>Links</Text>
           </View>
-        ) : (
-          <View style={styles.qrToggle}>
-            <Text style={styles.qrToggleEmoji}>📱</Text>
-            <Text style={styles.qrToggleText}>Tap to show QR code</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{analytics?.totalViews || 0}</Text>
+            <Text style={styles.statLabel}>Views</Text>
           </View>
-        )}
-      </TouchableOpacity>
-
-      {/* Action Buttons */}
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={handleShare}
-          activeOpacity={0.85}>
-          <Text style={styles.actionEmoji}>📤</Text>
-          <Text style={styles.actionText}>Share Card</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => (navigation as any).navigate('Views')}
-          activeOpacity={0.85}>
-          <Text style={styles.actionEmoji}>📈</Text>
-          <Text style={styles.actionText}>Analytics</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => (navigation as any).navigate('DevCardView', { username: user?.username || '' })}
-          activeOpacity={0.85}>
-          <Text style={styles.actionEmoji}>👁️</Text>
-          <Text style={styles.actionText}>Preview</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Stats */}
-      <View style={styles.stats}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{links.length}</Text>
-          <Text style={styles.statLabel}>Links</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{analytics?.followsCount || 0}</Text>
+            <Text style={styles.statLabel}>Follows</Text>
+          </View>
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{analytics?.totalViews || 0}</Text>
-          <Text style={styles.statLabel}>Views</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{analytics?.followsCount || 0}</Text>
-          <Text style={styles.statLabel}>Follows</Text>
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -330,48 +309,4 @@ const styles = StyleSheet.create({
   marginTop: SPACING.md,
   gap: SPACING.sm,
 },
-  loadingRoot: {
-    flex: 1,
-    padding: SPACING.lg,
-    backgroundColor: COLORS.bgPrimary,
-  },
-  loadingSpacer: {
-    marginTop: SPACING.sm,
-  },
-  loadingSection: {
-    marginTop: SPACING.lg,
-  },
-  emptyHint: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZE.sm,
-    lineHeight: 20,
-    marginTop: SPACING.sm,
-    maxWidth: '70%',
-  },
-  // Search
-  searchSection: {
-    marginBottom: SPACING.lg,
-  },
-  searchLabel: {
-    fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.textSecondary,
-    marginBottom: SPACING.sm, letterSpacing: 0.3,
-  },
-  searchRow: {
-    flexDirection: 'row', gap: SPACING.sm,
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: COLORS.bgCard,
-    borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: SPACING.md, paddingVertical: 12,
-    color: COLORS.textPrimary, fontSize: FONT_SIZE.md,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  searchBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: SPACING.lg,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  searchBtnText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZE.md },
 });

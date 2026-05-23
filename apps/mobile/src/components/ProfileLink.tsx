@@ -27,18 +27,18 @@ export default function ProfileLink({
   url,
   onPress,
 }: ProfileLinkProps) {
-const handlePress = async () => {
-  if (onPress) {
-    onPress();
-    return;
-  }
+  const handlePress = async () => {
+    if (onPress) {
+      onPress();
+      return;
+    }
 
-  try {
-    await Linking.openURL(url);
-  } catch (error) {
-    console.warn('Failed to open profile link:', error);
-  }
-};
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      console.warn('Failed to open profile link:', error);
+    }
+  };
 
   return (
     <Pressable style={styles.card} onPress={handlePress}>
