@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { randomBytes } from 'crypto';
 import { encrypt } from '../utils/encryption.js';
+import { config } from '../config.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -36,18 +37,16 @@ export async function connectRoutes(app: FastifyInstance) {
   app.get('/github', {
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    // Generate a secure state token linking back to this user session
-    // In a real app, store this in Redis to cross-check in callback
     const state = JSON.stringify({
       userId: (request.user as any).id,
       nonce: generateState(),
     });
 
-    const redirectUri = `${process.env.BACKEND_URL}/api/connect/github/callback`;
+    const redirectUri = `${config.app.backendUrl}/api/connect/github/callback`;
     const params = new URLSearchParams({
-      client_id: process.env.GITHUB_CLIENT_ID || '',
+      client_id: config.github.clientId,
       redirect_uri: redirectUri,
-      scope: 'user:follow', // ONLY asking for follow scope to avoid full profile access
+      scope: 'user:follow',
       state: Buffer.from(state).toString('base64'),
     });
 
@@ -58,23 +57,21 @@ export async function connectRoutes(app: FastifyInstance) {
     const { code, state } = request.query;
 
     if (!code || !state) {
-      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=missing_params`);
+      return reply.redirect(`${config.app.publicUrl}/settings?error=missing_params`);
     }
 
     try {
-      // Decode state to find which user requested the connect
       const decodedState = parseOAuthState(state);
 
       if (!decodedState) {
-        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+        return reply.redirect(`${config.app.publicUrl}/settings?error=connect_failed`);
       }
       const userId = decodedState.userId;
 
       if (!userId) {
-        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
+        return reply.redirect(`${config.app.publicUrl}/settings?error=invalid_state`);
       }
 
-      // Exchange code for token
       const tokenRes = await fetch(GITHUB_TOKEN_URL, {
         method: 'POST',
         headers: {
@@ -82,10 +79,10 @@ export async function connectRoutes(app: FastifyInstance) {
           Accept: 'application/json',
         },
         body: JSON.stringify({
-          client_id: process.env.GITHUB_CLIENT_ID,
-          client_secret: process.env.GITHUB_CLIENT_SECRET,
+          client_id: config.github.clientId,
+          client_secret: config.github.clientSecret,
           code,
-          redirect_uri: `${process.env.BACKEND_URL}/api/connect/github/callback`,
+          redirect_uri: `${config.app.backendUrl}/api/connect/github/callback`,
         }),
       });
 
@@ -93,10 +90,9 @@ export async function connectRoutes(app: FastifyInstance) {
 
       if (tokenData.error) {
         app.log.error('GitHub connect token error:', tokenData);
-        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+        return reply.redirect(`${config.app.publicUrl}/settings?error=connect_failed`);
       }
 
-      // Encrypt and store the token
       const encryptedToken = encrypt(tokenData.access_token);
 
       await app.prisma.oAuthToken.upsert({
@@ -118,21 +114,18 @@ export async function connectRoutes(app: FastifyInstance) {
         },
       });
 
-      // Redirect back to app settings
-      // If mobile, use custom scheme
       if (decodedState.nonce.startsWith('mobile_')) {
-        return reply.redirect(`${process.env.MOBILE_REDIRECT_URI}?connected=github`);
+        return reply.redirect(`${config.app.mobileRedirectUri}?connected=github`);
       }
 
-      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=github`);
+      return reply.redirect(`${config.app.publicUrl}/settings?connected=github`);
 
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       app.log.error({ err, message }, 'GitHub connect error');
-      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
+      return reply.redirect(`${config.app.publicUrl}/settings?error=server_error`);
     }
   });
-
 
   // ─── Disconnect ───
 
@@ -162,7 +155,6 @@ function parseOAuthState(state: string): ParsedOAuthState | null {
   try {
     const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
 
-    // validating the OAuth state structure which is expected
     if (typeof decoded.userId !== "string" || typeof decoded.nonce !== "string") {
       return null;
     }
