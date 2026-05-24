@@ -8,7 +8,7 @@ import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
-import Fastify from 'fastify';
+import Fastify, {type FastifyInstance} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
@@ -25,7 +25,7 @@ import { validateEnv } from './utils/validateEnv.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function buildApp() {
+export async function buildApp():Promise<FastifyInstance> {
   // Validate all required secrets before registering any plugin.
   // If validation fails the process exits here — no partially-initialised
   // auth state can exist because Fastify is not yet instantiated.
@@ -94,7 +94,7 @@ export async function buildApp() {
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
-    } catch (err) {
+    } catch (_err) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
