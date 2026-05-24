@@ -1,30 +1,31 @@
-import Fastify from 'fastify';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
-import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
-import fastifyStatic from '@fastify/static';
 import rateLimit from '@fastify/rate-limit';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fastifyStatic from '@fastify/static';
+import Fastify, {type FastifyInstance} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
-import { authRoutes } from './routes/auth.js';
-import { profileRoutes } from './routes/profiles.js';
-import { cardRoutes } from './routes/cards.js';
-import { publicRoutes } from './routes/public.js';
-import { followRoutes } from './routes/follow.js';
-import { connectRoutes } from './routes/connect.js';
 import { analyticsRoutes } from './routes/analytics.js';
-import { nfcRoutes } from './routes/nfc.js';
+import { authRoutes } from './routes/auth.js';
+import { cardRoutes } from './routes/cards.js';
+import { connectRoutes } from './routes/connect.js';
 import { eventRoutes } from './routes/event.js';
+import { followRoutes } from './routes/follow.js';
+import { nfcRoutes } from './routes/nfc.js';
+import { profileRoutes } from './routes/profiles.js';
+import { publicRoutes } from './routes/public.js';
 import { validateEnv } from './utils/validateEnv.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function buildApp() {
+export async function buildApp():Promise<FastifyInstance> {
   // Validate all required secrets before registering any plugin.
   // If validation fails the process exits here — no partially-initialised
   // auth state can exist because Fastify is not yet instantiated.
@@ -93,7 +94,7 @@ export async function buildApp() {
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
-    } catch (err) {
+    } catch (_err) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
