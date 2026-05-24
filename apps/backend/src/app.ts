@@ -20,7 +20,11 @@ import { connectRoutes } from './routes/connect.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { nfcRoutes } from './routes/nfc.js';
 import { eventRoutes } from './routes/event.js';
+<<<<<<< HEAD
 import { validateEnv } from './utils/validateEnv.js';
+=======
+import { teamRoutes } from './routes/team.js';
+>>>>>>> fa50702 (feat: Added app.ts)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -106,8 +110,15 @@ export async function buildApp() {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
+<<<<<<< HEAD
   await app.register(nfcRoutes, { prefix: '/api/nfc' });
     await app.register(eventRoutes, { prefix: '/api/events' });
+=======
+  await app.register(eventRoutes, {prefix: '/api/events'})
+  await app.register(teamRoutes, {prefix: '/api/teams'})
+
+
+>>>>>>> fa50702 (feat: Added app.ts)
   // ─── Health Check ───
 type HealthResponse = {
   status: 'ok';
