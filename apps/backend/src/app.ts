@@ -1,29 +1,36 @@
-import Fastify from 'fastify';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
-import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
-import fastifyStatic from '@fastify/static';
 import rateLimit from '@fastify/rate-limit';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fastifyStatic from '@fastify/static';
+import Fastify, {type FastifyInstance} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
-import { authRoutes } from './routes/auth.js';
-import { profileRoutes } from './routes/profiles.js';
-import { cardRoutes } from './routes/cards.js';
-import { publicRoutes } from './routes/public.js';
-import { followRoutes } from './routes/follow.js';
-import { connectRoutes } from './routes/connect.js';
 import { analyticsRoutes } from './routes/analytics.js';
-import { nfcRoutes } from './routes/nfc.js';
+import { authRoutes } from './routes/auth.js';
+import { cardRoutes } from './routes/cards.js';
+import { connectRoutes } from './routes/connect.js';
 import { eventRoutes } from './routes/event.js';
+import { followRoutes } from './routes/follow.js';
+import { nfcRoutes } from './routes/nfc.js';
+import { profileRoutes } from './routes/profiles.js';
+import { publicRoutes } from './routes/public.js';
+import { validateEnv } from './utils/validateEnv.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function buildApp() {
+export async function buildApp():Promise<FastifyInstance> {
+  // Validate all required secrets before registering any plugin.
+  // If validation fails the process exits here — no partially-initialised
+  // auth state can exist because Fastify is not yet instantiated.
+  validateEnv();
+
   const app = Fastify({
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
@@ -58,7 +65,8 @@ export async function buildApp() {
   });
 
   await app.register(jwt, {
-    secret: process.env.JWT_SECRET || 'dev-secret-change-me',
+    // validateEnv() above guarantees JWT_SECRET is present and safe.
+    secret: process.env.JWT_SECRET!,
   });
 
   await app.register(cookie);
@@ -76,14 +84,17 @@ export async function buildApp() {
   });
 
   // ─── Database & Cache Plugins ───
-  await app.register(prismaPlugin);
+ if (process.env.NODE_ENV !== 'test') {
+  await app.register(prismaPlugin); //change 
+}
+  if (process.env.NODE_ENV !== 'test') {
   await app.register(redisPlugin);
-
+}
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
-    } catch (err) {
+    } catch (_err) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
@@ -99,11 +110,12 @@ export async function buildApp() {
 await app.register(nfcRoutes, { prefix: '/api/nfc' });
     await app.register(eventRoutes, { prefix: '/api/events' });
   // ─── Health Check ───
-  app.get('/health', async () => ({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    service: 'devcard-api',
-  }));
+type HealthResponse = {
+  status: 'ok';
+};
 
+app.get('/health', async (): Promise<HealthResponse> => {
+  return { status: 'ok' };
+});
   return app;
 }
