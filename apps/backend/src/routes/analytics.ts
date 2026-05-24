@@ -1,10 +1,10 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
-export async function analyticsRoutes(app: FastifyInstance) {
+export async function analyticsRoutes(app: FastifyInstance):Promise<void> {
   
   app.get('/overview', {
     preHandler: [app.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest, _reply: FastifyReply) => {
     const userId = (request.user as any).id;
     
     const today = new Date();
@@ -57,15 +57,32 @@ export async function analyticsRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/views', {
+app.get<{
+  Querystring: {
+    page?: string;
+    cardId?: string;
+  };
+}>(
+  '/views',
+  {
     preHandler: [app.authenticate],
-  }, async (request: FastifyRequest<{ Querystring: { page?: string, cardId?: string } }>, reply: FastifyReply) => {
+  },
+  async (
+    request: FastifyRequest<{
+      Querystring: {
+        page?: string;
+        cardId?: string;
+      };
+    }>,
+    _reply: FastifyReply
+  ) => {
     const userId = (request.user as any).id;
     const page = parseInt(request.query.page || '1', 10);
     const limit = 20;
     const skip = (page - 1) * limit;
-    
+
     const whereClause: any = { ownerId: userId };
+
     if (request.query.cardId) {
       whereClause.cardId = request.query.cardId;
     }
@@ -79,10 +96,18 @@ export async function analyticsRoutes(app: FastifyInstance) {
         take: limit,
         include: {
           viewer: {
-            select: { id: true, username: true, displayName: true, avatarUrl: true },
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+              avatarUrl: true,
+            },
           },
           card: {
-            select: { id: true, title: true },
+            select: {
+              id: true,
+              title: true,
+            },
           },
         },
       }),
@@ -97,5 +122,6 @@ export async function analyticsRoutes(app: FastifyInstance) {
         totalPages: Math.ceil(total / limit),
       },
     };
-  });
+  }
+);
 }
