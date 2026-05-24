@@ -106,7 +106,7 @@ export async function buildApp() {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-await app.register(nfcRoutes, { prefix: '/api/nfc' });
+  await app.register(nfcRoutes, { prefix: '/api/nfc' });
     await app.register(eventRoutes, { prefix: '/api/events' });
   // ─── Health Check ───
 type HealthResponse = {
