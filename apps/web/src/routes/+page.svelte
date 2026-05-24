@@ -63,7 +63,7 @@
         href="https://github.com/Dev-Card/DevCard"
         class="btn-primary"
         target="_blank"
-        rel="noopener"
+        rel="noopener noreferrer"
       >
         ⭐ Star on GitHub
       </a>
