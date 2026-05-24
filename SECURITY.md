@@ -14,8 +14,8 @@ If you discover a security vulnerability in **DevCard**, please **do not open a 
 
 Instead, report it responsibly by:
 
-- 📧 Opening a [GitHub Private Security Advisory](https://github.com/Dev-Card/DevCard/security/advisories/new)
-- Or reaching out to the maintainer directly via their [GitHub profile](https://github.com/Dev-Card)
+- 📧 Reaching out to the maintainer directly via their [GitHub profile](https://github.com/Dev-Card)
+- 💬 Sending a private message through GitHub's messaging or social links listed in the profile
 
 ### What to include in your report:
 - A clear description of the vulnerability
