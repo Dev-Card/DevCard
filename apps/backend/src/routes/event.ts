@@ -38,6 +38,9 @@ type PaginatedAttendeesResponse = {
 
 type EventWithAttendees = Prisma.EventGetPayload<{
   include: {
+    _count: {
+      select: { attendees: true };
+    };
     attendees: {
       include: {
         user: {
@@ -289,7 +292,7 @@ export async function eventRoutes(app:FastifyInstance) {
             pagination: {
                 page, 
                 limit, 
-                total : event._count.attendees,
+                total : event._count?.attendees ?? event.attendees.length,
             }
         }
 

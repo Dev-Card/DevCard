@@ -151,9 +151,9 @@ app.get('/github', {
 
   // ─── Disconnect ───
 
-  app.delete('/:platform', {
+  app.delete<{ Params: { platform: string } }>('/:platform', {
     preHandler: [app.authenticate],
-  }, async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const userId = (request.user as any).id;
     const { platform } = request.params;
 

@@ -43,7 +43,7 @@ describe('GET /api/profiles/me', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('should return user profile with displayName', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    (mockPrisma.user.findUnique as any).mockResolvedValue(mockUser);
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/profiles/me' });
     expect(res.statusCode).toBe(200);
@@ -55,7 +55,7 @@ describe('GET /api/profiles/me', () => {
   });
 
   it('should return 404 if user not found', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    (mockPrisma.user.findUnique as any).mockResolvedValue(null);
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/profiles/me' });
     expect(res.statusCode).toBe(404);
@@ -67,8 +67,8 @@ describe('PUT /api/profiles/me', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('should update profile and return updated data', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue(null);
-    mockPrisma.user.update.mockResolvedValue({ ...mockUser, displayName: 'Updated Name' });
+    (mockPrisma.user.findFirst as any).mockResolvedValue(null);
+    (mockPrisma.user.update as any).mockResolvedValue({ ...mockUser, displayName: 'Updated Name' });
     const app = await buildApp();
     const res = await app.inject({
       method: 'PUT',
@@ -91,7 +91,7 @@ describe('PUT /api/profiles/me', () => {
   });
 
   it('should return 409 if username is already taken (pre-check)', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ id: 'other-user' });
+    (mockPrisma.user.findFirst as any).mockResolvedValue({ id: 'other-user' });
     const app = await buildApp();
     const res = await app.inject({
       method: 'PUT',
@@ -105,9 +105,9 @@ describe('PUT /api/profiles/me', () => {
   it('should return 409 when a concurrent request wins the unique constraint race (P2002)', async () => {
     // Both requests pass the findFirst check; the DB unique constraint fires on
     // the losing write — Prisma raises P2002.
-    mockPrisma.user.findFirst.mockResolvedValue(null);
+    (mockPrisma.user.findFirst as any).mockResolvedValue(null);
     const p2002 = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
-    mockPrisma.user.update.mockRejectedValue(p2002);
+    (mockPrisma.user.update as any).mockRejectedValue(p2002);
 
     const app = await buildApp();
     const res = await app.inject({
@@ -121,8 +121,8 @@ describe('PUT /api/profiles/me', () => {
   });
 
   it('should return 500 for unexpected database errors during update', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue(null);
-    mockPrisma.user.update.mockRejectedValue(new Error('Connection refused'));
+    (mockPrisma.user.findFirst as any).mockResolvedValue(null);
+    (mockPrisma.user.update as any).mockRejectedValue(new Error('Connection refused'));
 
     const app = await buildApp();
     const res = await app.inject({
@@ -136,7 +136,7 @@ describe('PUT /api/profiles/me', () => {
   });
 
   it('should not call findFirst when no username is provided in the update', async () => {
-    mockPrisma.user.update.mockResolvedValue({ ...mockUser, displayName: 'New Name' });
+    (mockPrisma.user.update as any).mockResolvedValue({ ...mockUser, displayName: 'New Name' });
     const app = await buildApp();
     const res = await app.inject({
       method: 'PUT',
