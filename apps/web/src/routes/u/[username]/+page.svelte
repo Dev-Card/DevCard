@@ -410,10 +410,40 @@
   }
 
   .error-glass {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    padding: 3rem;
+    padding: clamp(2.5rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3rem);
     border-radius: var(--radius-xl);
     width: min(100%, 520px);
+  }
+
+  .error-emoji {
+    font-size: clamp(3rem, 7vw, 4.5rem);
+    margin-bottom: 0.5rem;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .error-glass h1 {
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+  }
+
+  .error-glass p {
+    color: var(--text-muted);
+    font-size: clamp(0.95rem, 2vw, 1.05rem);
+    line-height: 1.6;
+    margin-bottom: 1.75rem;
+    max-width: 340px;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
   }
 
   @media (max-width: 720px) {
