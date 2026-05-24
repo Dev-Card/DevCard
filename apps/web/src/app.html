@@ -8,6 +8,22 @@
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="DevCard" />
 		<meta name="twitter:card" content="summary_large_image" />
+		<!-- Blocking theme script: applies dark class before first paint to prevent flash.
+		     Reads saved preference from localStorage, falls back to system preference. -->
+		<script>
+			(function () {
+				try {
+					var saved = localStorage.getItem('devcard-theme');
+					var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					if (saved === 'dark' || (!saved && prefersDark)) {
+						document.documentElement.classList.add('dark');
+					}
+				} catch (e) {
+					// localStorage unavailable — default to dark
+					document.documentElement.classList.add('dark');
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
