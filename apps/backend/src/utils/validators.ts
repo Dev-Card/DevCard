@@ -42,3 +42,12 @@ export const updateCardSchema = z.object({
   title: z.string().min(1).max(100).optional(),
   linkIds: z.array(z.string().uuid()).optional(),
 });
+
+export const bypassAuthSchema = z.object({
+  username: z
+    .string()
+    .min(1, 'Username is required')
+    .max(50, 'Username must not exceed 50 characters')
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, hyphens, and underscores'),
+});
+

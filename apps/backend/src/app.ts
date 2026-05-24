@@ -35,12 +35,15 @@ export async function buildApp() {
   });
 
   // ─── Core Plugins ───
-  const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174'
-  ];
+  const allowedOrigins: string[] = [];
+  if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push(
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174'
+    );
+  }
   if (process.env.PUBLIC_APP_URL) {
     allowedOrigins.push(process.env.PUBLIC_APP_URL);
   }

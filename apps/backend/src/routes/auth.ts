@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { randomBytes } from 'crypto';
 import { encrypt } from '../utils/encryption.js';
+import { bypassAuthSchema } from '../utils/validators.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -348,15 +349,13 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
   // ─── Local Developer Bypass Auth ───
 
   app.post('/bypass', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { username } = request.body as { username: string };
-    if (!username) {
-      return reply.status(400).send({ error: 'Missing username' });
+    const parsed = bypassAuthSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
     }
 
-    const cleanUsername = username.trim().toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '');
-    if (!cleanUsername) {
-      return reply.status(400).send({ error: 'Invalid username format' });
-    }
+    const { username } = parsed.data;
+    const cleanUsername = username.toLowerCase();
 
     try {
       const user = await app.prisma.user.upsert({
@@ -367,7 +366,7 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
         create: {
           email: `${cleanUsername}@devcard.local`,
           username: cleanUsername,
-          displayName: username.trim(),
+          displayName: username,
           bio: 'Full-stack developer building outstanding interfaces.',
           role: 'Software Engineer',
           company: 'DevCard Team',
@@ -390,9 +389,9 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
         maxAge: 30 * 24 * 60 * 60,
       });
 
-      return { token, user };
+      return { user };
     } catch (err) {
-      app.log.error('Bypass login error:', err);
+      app.log.error({ err }, 'Bypass login error');
       return reply.status(500).send({ error: 'Authentication bypass failed' });
     }
   });
