@@ -1,29 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { API_BASE_URL } from '../config';
+import * as SecureStore from 'expo-secure-store';
 
-interface User {
+const TOKEN_KEY = 'devcard_auth_token';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+
+type User = {
   id: string;
-  email: string;
   username: string;
-  displayName: string;
-  bio: string | null;
-  pronouns: string | null;
-  role: string | null;
-  company: string | null;
-  avatarUrl: string | null;
-  accentColor: string;
-  defaultCardId: string | null;
-}
+  email: string;
+};
 
-interface AuthContextType {
+type AuthContextType = {
   user: User | null;
   token: string | null;
-  isAuthenticated: boolean;
   isLoading: boolean;
   login: (token: string) => Promise<void>;
-  logout: () => void;
-  refreshUser: () => Promise<void>;
-}
+  logout: () => Promise<void>;
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -33,13 +26,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Load token from secure storage on app start
-    setIsLoading(false);
+    const loadToken = async () => {
+      try {
+        const savedToken = await SecureStore.getItemAsync(TOKEN_KEY);
+        if (savedToken) {
+          setToken(savedToken);
+          const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
+            headers: { Authorization: `Bearer ${savedToken}` },
+          });
+          if (res.ok) {
+            const userData = await res.json();
+            setUser(userData);
+          } else {
+            await SecureStore.deleteItemAsync(TOKEN_KEY);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to restore session:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadToken();
   }, []);
 
   const login = async (newToken: string) => {
     setToken(newToken);
-    // TODO: Save token to secure storage
+    await SecureStore.setItemAsync(TOKEN_KEY, newToken);
     try {
       const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
         headers: { Authorization: `Bearer ${newToken}` },
@@ -53,38 +66,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     setToken(null);
     setUser(null);
-    // TODO: Clear token from secure storage
-  };
-
-  const refreshUser = async () => {
-    if (!token) return;
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const userData = await res.json();
-        setUser(userData);
-      }
-    } catch (err) {
-      console.error('Failed to refresh user:', err);
-    }
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        isAuthenticated: !!token && !!user,
-        isLoading,
-        login,
-        logout,
-        refreshUser,
-      }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -92,8 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
