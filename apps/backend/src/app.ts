@@ -82,7 +82,7 @@ export async function buildApp():Promise<FastifyInstance> {
 
   // ─── Database & Cache Plugins ───
  if (process.env.NODE_ENV !== 'test') {
-  await app.register(prismaPlugin); //change 
+  await app.register(prismaPlugin); //change
 }
   if (process.env.NODE_ENV !== 'test') {
   await app.register(redisPlugin);
@@ -108,9 +108,8 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
   await app.register(nfcRoutes, { prefix: '/api/nfc' });
-  await app.register(eventRoutes, {prefix: '/api/events'})
-  await app.register(teamRoutes, {prefix: '/api/teams'})
-
+  await app.register(eventRoutes, {prefix: '/api/events'});
+  await app.register(teamRoutes, {prefix: '/api/teams'});
 
   // ─── Health Check ───
 type HealthResponse = {
