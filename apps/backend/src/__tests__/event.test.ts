@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
 import { PrismaClient } from '@prisma/client';
-import { eventRoutes } from '../routes/event';
+import { eventRoutes } from '../routes/event.js';
 
-// ─── Shared mock data ────────────────────────────────────────────────────────
+// ── Shared mock data ──────────────────────────────────────────────────────────
 
 const MOCK_USER_ID = 'user-uuid-001';
 const MOCK_OTHER_USER_ID = 'user-uuid-002';
@@ -19,6 +19,12 @@ const MOCK_EVENT = {
   endDate: new Date('2025-09-02T18:00:00Z'),
   isPublic: true,
   createdAt: new Date('2025-01-01T00:00:00Z'),
+};
+
+// Private variant — same shape, visibility flag flipped.
+const MOCK_PRIVATE_EVENT = {
+  ...MOCK_EVENT,
+  isPublic: false,
 };
 
 const MOCK_USER_PROFILE = {
@@ -43,7 +49,7 @@ const MOCK_OTHER_USER_PROFILE = {
   accentColor: '#6366f1',
 };
 
-// ─── Prisma mock ─────────────────────────────────────────────────────────────
+// ── Prisma mock ───────────────────────────────────────────────────────────────
 
 const prismaMock = {
   event: {
@@ -53,46 +59,41 @@ const prismaMock = {
   eventAttendee: {
     create: vi.fn(),
     delete: vi.fn(),
+    // Used by canAccessEvent to check private-event membership.
+    findUnique: vi.fn(),
   },
 };
 
-// ─── App factory ─────────────────────────────────────────────────────────────
+// ── App factory ───────────────────────────────────────────────────────────────
 //
-// Builds a minimal Fastify instance that wires up:
-//   • app.prisma  – the Prisma mock above
-//   • request.jwtVerify() – overridden per-test via `mockJwtVerify`
+// Builds a minimal Fastify instance wired with:
+//   • app.prisma  — the Prisma mock above
+//   • request.jwtVerify() — overridden per-test via `mockJwtVerify`
 //
-// This mirrors the real app setup without touching a real DB or real JWT keys.
+// Routes are registered under /api/events to match the production prefix.
 
 let mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
 
-  // Decorate prisma so routes can use app.prisma.*
   app.decorate('prisma', prismaMock as unknown as PrismaClient);
 
-  // Decorate jwtVerify on the request prototype so request.jwtVerify() resolves
-  // to whatever the current test wants.
   app.decorateRequest('jwtVerify', function () {
     return mockJwtVerify();
   });
 
-  // Register with the same prefix used in production (app.ts) so that
-  // tests exercise routes at their real paths — /api/events, /api/events/:slug, etc.
   await app.register(eventRoutes, { prefix: '/api/events' });
   await app.ready();
   return app;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Returns a valid JWT-authenticated inject payload */
 function authHeader(): Record<string, string> {
   return { Authorization: 'Bearer mock-token' };
 }
 
-/** Injects a POST /api/events request */
 async function createEvent(
   app: FastifyInstance,
   body: Record<string, unknown>,
@@ -106,14 +107,26 @@ async function createEvent(
   });
 }
 
-// ─── Test suite ──────────────────────────────────────────────────────────────
+/** Builds a raw EventAttendee row as Prisma returns it (with nested user). */
+function makeAttendeeRow(
+  profile: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE,
+) {
+  return {
+    id: `attendee-${profile.id}`,
+    userId: profile.id,
+    eventId: MOCK_EVENT.id,
+    joinedAt: new Date(),
+    user: { ...profile },
+  };
+}
+
+// ── Test suite ────────────────────────────────────────────────────────────────
 
 describe('Events API', () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    // Default: authenticated as MOCK_USER_ID
     mockJwtVerify.mockResolvedValue({ id: MOCK_USER_ID });
     app = await buildApp();
   });
@@ -135,7 +148,7 @@ describe('Events API', () => {
     };
 
     it('201 — creates event and returns it for authenticated organizer', async () => {
-      prismaMock.event.findUnique.mockResolvedValue(null); // slug is free
+      prismaMock.event.findUnique.mockResolvedValue(null);
       prismaMock.event.create.mockResolvedValue(MOCK_EVENT);
 
       const res = await createEvent(app, validBody);
@@ -146,7 +159,6 @@ describe('Events API', () => {
       expect(body.organizerId).toBe(MOCK_USER_ID);
       expect(body.location).toBe('San Francisco, CA');
 
-      // Prisma was called with correct fields
       expect(prismaMock.event.create).toHaveBeenCalledOnce();
       const callArg = prismaMock.event.create.mock.calls[0][0].data;
       expect(callArg.name).toBe('DevCard Conf 2025');
@@ -164,7 +176,7 @@ describe('Events API', () => {
     });
 
     it('400 — rejects missing required fields (no dates, no location)', async () => {
-      const res = await createEvent(app, { name: 'Hello World' }); // missing dates + location
+      const res = await createEvent(app, { name: 'Hello World' });
       expect(res.statusCode).toBe(400);
     });
 
@@ -190,24 +202,19 @@ describe('Events API', () => {
     });
 
     it('400 — rejects event name longer than 100 characters', async () => {
-      const longName = 'A'.repeat(101);
-      const res = await createEvent(app, { ...validBody, name: longName });
+      const res = await createEvent(app, { ...validBody, name: 'A'.repeat(101) });
       expect(res.statusCode).toBe(400);
     });
 
     it('400 — rejects invalid date format', async () => {
-      const res = await createEvent(app, {
-        ...validBody,
-        startDate: 'not-a-date',
-      });
+      const res = await createEvent(app, { ...validBody, startDate: 'not-a-date' });
       expect(res.statusCode).toBe(400);
     });
 
     it('201 — generates a unique slug when the first candidate is taken', async () => {
-      // First findUnique returns a conflict, second returns null (slug free)
       prismaMock.event.findUnique
-        .mockResolvedValueOnce(MOCK_EVENT) // slug taken
-        .mockResolvedValueOnce(null);       // randomised slug free
+        .mockResolvedValueOnce(MOCK_EVENT)
+        .mockResolvedValueOnce(null);
 
       prismaMock.event.create.mockResolvedValue({
         ...MOCK_EVENT,
@@ -217,7 +224,6 @@ describe('Events API', () => {
       const res = await createEvent(app, validBody);
 
       expect(res.statusCode).toBe(201);
-      // create was eventually called with a slug different from the base one
       const createdSlug: string = prismaMock.event.create.mock.calls[0][0].data.slug;
       expect(createdSlug).toMatch(/^devcard-conf-2025-[a-z0-9]+$/);
     });
@@ -248,54 +254,136 @@ describe('Events API', () => {
   // ── GET /api/events/:slug ──────────────────────────────────────────────────
 
   describe('GET /api/events/:slug — event details', () => {
+    // ── Public event behavior (unchanged) ────────────────────────────────────
+
     it('200 — returns event info with attendee count', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         _count: { attendees: 42 },
       });
 
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/events/devcard-conf-2025',
-      });
+      const res = await app.inject({ method: 'GET', url: '/api/events/devcard-conf-2025' });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.slug).toBe('devcard-conf-2025');
       expect(body.attendeesCount).toBe(42);
       expect(body.location).toBe('San Francisco, CA');
-      // organizerId is exposed (public info)
       expect(body.organizerId).toBe(MOCK_USER_ID);
     });
 
     it('404 — returns 404 for unknown slug', async () => {
       prismaMock.event.findUnique.mockResolvedValue(null);
 
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/events/ghost-event',
-      });
+      const res = await app.inject({ method: 'GET', url: '/api/events/ghost-event' });
 
       expect(res.statusCode).toBe(404);
       expect(res.json()).toMatchObject({ error: 'Event not found' });
     });
 
-    it('200 — works without authentication (public endpoint)', async () => {
-      // Even if JWT would fail, this route should not call jwtVerify
+    it('200 — public event is accessible without authentication', async () => {
+      // jwtVerify must NOT be called for a public event with no auth header.
       mockJwtVerify.mockRejectedValue(new Error('Should not be called'));
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         _count: { attendees: 0 },
       });
 
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/events/devcard-conf-2025',
-        // No Authorization header
-      });
+      const res = await app.inject({ method: 'GET', url: '/api/events/devcard-conf-2025' });
 
       expect(res.statusCode).toBe(200);
       expect(mockJwtVerify).not.toHaveBeenCalled();
+    });
+
+    // ── Private event visibility ──────────────────────────────────────────────
+
+    it('401 — unauthenticated caller cannot view a private event', async () => {
+      prismaMock.event.findUnique.mockResolvedValue({
+        ...MOCK_PRIVATE_EVENT,
+        _count: { attendees: 5 },
+      });
+
+      // No Authorization header — request is unauthenticated.
+      const res = await app.inject({ method: 'GET', url: '/api/events/devcard-conf-2025' });
+
+      expect(res.statusCode).toBe(401);
+      expect(res.json()).toMatchObject({
+        error: 'Authentication required to view this event',
+      });
+    });
+
+    it('200 — organizer can view their own private event', async () => {
+      // MOCK_USER_ID is the organizer.
+      mockJwtVerify.mockResolvedValue({ id: MOCK_USER_ID });
+      prismaMock.event.findUnique.mockResolvedValue({
+        ...MOCK_PRIVATE_EVENT,
+        _count: { attendees: 3 },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/events/devcard-conf-2025',
+        headers: authHeader(),
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().slug).toBe('devcard-conf-2025');
+      // Organizer access never needs an attendee lookup.
+      expect(prismaMock.eventAttendee.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('200 — confirmed attendee can view a private event they joined', async () => {
+      // MOCK_OTHER_USER_ID is not the organizer but is an attendee.
+      mockJwtVerify.mockResolvedValue({ id: MOCK_OTHER_USER_ID });
+      prismaMock.event.findUnique.mockResolvedValue({
+        ...MOCK_PRIVATE_EVENT,
+        _count: { attendees: 3 },
+      });
+      prismaMock.eventAttendee.findUnique.mockResolvedValue({
+        userId: MOCK_OTHER_USER_ID,
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/events/devcard-conf-2025',
+        headers: authHeader(),
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().slug).toBe('devcard-conf-2025');
+    });
+
+    it('403 — authenticated user who is not a member cannot view a private event', async () => {
+      mockJwtVerify.mockResolvedValue({ id: 'stranger-user-id' });
+      prismaMock.event.findUnique.mockResolvedValue({
+        ...MOCK_PRIVATE_EVENT,
+        _count: { attendees: 3 },
+      });
+      // Attendee lookup finds no record for this user.
+      prismaMock.eventAttendee.findUnique.mockResolvedValue(null);
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/events/devcard-conf-2025',
+        headers: authHeader(),
+      });
+
+      expect(res.statusCode).toBe(403);
+      expect(res.json()).toMatchObject({
+        error: 'You do not have access to this event',
+      });
+    });
+
+    it('does not expose isPublic in the event details response', async () => {
+      prismaMock.event.findUnique.mockResolvedValue({
+        ...MOCK_EVENT,
+        _count: { attendees: 0 },
+      });
+
+      const res = await app.inject({ method: 'GET', url: '/api/events/devcard-conf-2025' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).not.toHaveProperty('isPublic');
     });
   });
 
@@ -352,12 +440,9 @@ describe('Events API', () => {
       expect(res.json()).toMatchObject({ error: 'Event not found' });
     });
 
-    it('409 — returns 409 when user already joined the event', async () => {
+    it('409 — returns 409 when user has already joined', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
-      // Prisma unique constraint error
-      const uniqueError = Object.assign(new Error('Unique constraint'), {
-        code: 'P2002',
-      });
+      const uniqueError = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
       prismaMock.eventAttendee.create.mockRejectedValue(uniqueError);
 
       const res = await app.inject({
@@ -388,7 +473,7 @@ describe('Events API', () => {
   // ── DELETE /api/events/:slug/leave ────────────────────────────────────────
 
   describe('DELETE /api/events/:slug/leave — leave event', () => {
-    it('204 — authenticated user leaves an event they joined', async () => {
+    it('204 — authenticated user successfully leaves an event', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
       prismaMock.eventAttendee.delete.mockResolvedValue({});
 
@@ -402,13 +487,9 @@ describe('Events API', () => {
 
       expect(res.statusCode).toBe(204);
 
-      // Verify the compound unique key used in the delete
       const deleteArg = prismaMock.eventAttendee.delete.mock.calls[0][0].where;
       expect(deleteArg).toMatchObject({
-        userId_eventId: {
-          userId: MOCK_OTHER_USER_ID,
-          eventId: MOCK_EVENT.id,
-        },
+        userId_eventId: { userId: MOCK_OTHER_USER_ID, eventId: MOCK_EVENT.id },
       });
     });
 
@@ -439,10 +520,7 @@ describe('Events API', () => {
 
     it('404 — returns 404 when user was never an attendee (P2025)', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
-      // Prisma record-not-found error
-      const notFoundError = Object.assign(new Error('Record not found'), {
-        code: 'P2025',
-      });
+      const notFoundError = Object.assign(new Error('Record not found'), { code: 'P2025' });
       prismaMock.eventAttendee.delete.mockRejectedValue(notFoundError);
 
       const res = await app.inject({
@@ -473,28 +551,15 @@ describe('Events API', () => {
   // ── GET /api/events/:slug/attendees ───────────────────────────────────────
 
   describe('GET /api/events/:slug/attendees — paginated attendee list', () => {
-    /** Builds a raw EventAttendee row as Prisma returns it (with nested user) */
-    function makeAttendeeRow(
-      profile: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE,
-    ) {
-      return {
-        id: `attendee-${profile.id}`,
-        userId: profile.id,
-        eventId: MOCK_EVENT.id,
-        joinedAt: new Date(),
-        user: { ...profile },
-      };
-    }
+    // ── Public event behavior (unchanged) ────────────────────────────────────
 
     it('200 — returns paginated attendees with default page/limit', async () => {
-      const attendeeRows = [
-        makeAttendeeRow(MOCK_USER_PROFILE),
-        makeAttendeeRow(MOCK_OTHER_USER_PROFILE),
-      ];
-
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
-        attendees: attendeeRows,
+        attendees: [
+          makeAttendeeRow(MOCK_USER_PROFILE),
+          makeAttendeeRow(MOCK_OTHER_USER_PROFILE),
+        ],
       });
 
       const res = await app.inject({
@@ -504,19 +569,13 @@ describe('Events API', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-
       expect(body.attendees).toHaveLength(2);
       expect(body.attendees[0]).toMatchObject({
         id: MOCK_USER_ID,
         username: 'johndoe',
         displayName: 'John Doe',
       });
-
-      expect(body.pagination).toMatchObject({
-        page: 1,
-        limit: 10,
-        total: 2,
-      });
+      expect(body.pagination).toMatchObject({ page: 1, limit: 10, total: 2 });
     });
 
     it('200 — respects custom page and limit query params', async () => {
@@ -535,17 +594,13 @@ describe('Events API', () => {
       expect(body.pagination.page).toBe(2);
       expect(body.pagination.limit).toBe(5);
 
-      // Verify skip/take were passed correctly to Prisma
       const includeArg = prismaMock.event.findUnique.mock.calls[0][0].include;
-      expect(includeArg.attendees.skip).toBe(5);   // (page-1) * limit = 1 * 5
+      expect(includeArg.attendees.skip).toBe(5);
       expect(includeArg.attendees.take).toBe(5);
     });
 
-    it('200 — caps limit at 50 even if higher value is requested', async () => {
-      prismaMock.event.findUnique.mockResolvedValue({
-        ...MOCK_EVENT,
-        attendees: [],
-      });
+    it('200 — caps limit at 50 even if a higher value is requested', async () => {
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
 
       const res = await app.inject({
         method: 'GET',
@@ -558,10 +613,7 @@ describe('Events API', () => {
     });
 
     it('200 — treats page < 1 as page 1', async () => {
-      prismaMock.event.findUnique.mockResolvedValue({
-        ...MOCK_EVENT,
-        attendees: [],
-      });
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
 
       const res = await app.inject({
         method: 'GET',
@@ -570,14 +622,11 @@ describe('Events API', () => {
 
       expect(res.statusCode).toBe(200);
       const includeArg = prismaMock.event.findUnique.mock.calls[0][0].include;
-      expect(includeArg.attendees.skip).toBe(0); // page forced to 1 → skip = 0
+      expect(includeArg.attendees.skip).toBe(0);
     });
 
     it('200 — returns empty attendees list for event with no attendees', async () => {
-      prismaMock.event.findUnique.mockResolvedValue({
-        ...MOCK_EVENT,
-        attendees: [],
-      });
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
 
       const res = await app.inject({
         method: 'GET',
@@ -590,7 +639,7 @@ describe('Events API', () => {
       expect(body.pagination.total).toBe(0);
     });
 
-    it('200 — public profiles do not leak sensitive fields', async () => {
+    it('200 — attendee profiles do not expose sensitive fields', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
@@ -603,13 +652,11 @@ describe('Events API', () => {
 
       const attendee = res.json().attendees[0];
 
-      // These fields MUST be present
       expect(attendee).toHaveProperty('id');
       expect(attendee).toHaveProperty('username');
       expect(attendee).toHaveProperty('displayName');
       expect(attendee).toHaveProperty('accentColor');
 
-      // These fields MUST NOT be present
       expect(attendee).not.toHaveProperty('email');
       expect(attendee).not.toHaveProperty('provider');
       expect(attendee).not.toHaveProperty('providerId');
@@ -629,18 +676,108 @@ describe('Events API', () => {
     });
 
     it('200 — attendees are ordered by joinedAt desc (latest first)', async () => {
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
+
+      await app.inject({ method: 'GET', url: '/api/events/devcard-conf-2025/attendees' });
+
+      const includeArg = prismaMock.event.findUnique.mock.calls[0][0].include;
+      expect(includeArg.attendees.orderBy).toMatchObject({ joinedAt: 'desc' });
+    });
+
+    // ── Private event attendee visibility ─────────────────────────────────────
+
+    it('401 — unauthenticated caller cannot enumerate private event attendees', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
-        ...MOCK_EVENT,
-        attendees: [],
+        ...MOCK_PRIVATE_EVENT,
+        attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
       });
 
-      await app.inject({
+      // No Authorization header.
+      const res = await app.inject({
         method: 'GET',
         url: '/api/events/devcard-conf-2025/attendees',
       });
 
-      const includeArg = prismaMock.event.findUnique.mock.calls[0][0].include;
-      expect(includeArg.attendees.orderBy).toMatchObject({ joinedAt: 'desc' });
+      expect(res.statusCode).toBe(401);
+      expect(res.json()).toMatchObject({
+        error: 'Authentication required to view this event',
+      });
+    });
+
+    it('200 — organizer can retrieve attendee list of their private event', async () => {
+      mockJwtVerify.mockResolvedValue({ id: MOCK_USER_ID }); // organizer
+      prismaMock.event.findUnique.mockResolvedValue({
+        ...MOCK_PRIVATE_EVENT,
+        attendees: [makeAttendeeRow(MOCK_OTHER_USER_PROFILE)],
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/events/devcard-conf-2025/attendees',
+        headers: authHeader(),
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().attendees).toHaveLength(1);
+      // Organizer access never triggers an attendee membership lookup.
+      expect(prismaMock.eventAttendee.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('200 — confirmed attendee can retrieve the attendee list of a private event', async () => {
+      mockJwtVerify.mockResolvedValue({ id: MOCK_OTHER_USER_ID }); // attendee, not organizer
+      prismaMock.event.findUnique.mockResolvedValue({
+        ...MOCK_PRIVATE_EVENT,
+        attendees: [
+          makeAttendeeRow(MOCK_USER_PROFILE),
+          makeAttendeeRow(MOCK_OTHER_USER_PROFILE),
+        ],
+      });
+      prismaMock.eventAttendee.findUnique.mockResolvedValue({
+        userId: MOCK_OTHER_USER_ID,
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/events/devcard-conf-2025/attendees',
+        headers: authHeader(),
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().attendees).toHaveLength(2);
+    });
+
+    it('403 — authenticated user not in attendee list cannot access private event attendees', async () => {
+      mockJwtVerify.mockResolvedValue({ id: 'stranger-user-id' });
+      prismaMock.event.findUnique.mockResolvedValue({
+        ...MOCK_PRIVATE_EVENT,
+        attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
+      });
+      prismaMock.eventAttendee.findUnique.mockResolvedValue(null);
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/events/devcard-conf-2025/attendees',
+        headers: authHeader(),
+      });
+
+      expect(res.statusCode).toBe(403);
+      expect(res.json()).toMatchObject({
+        error: 'You do not have access to this event',
+      });
+    });
+
+    it('200 — public event attendee list remains accessible without authentication', async () => {
+      mockJwtVerify.mockRejectedValue(new Error('Should not be called'));
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/events/devcard-conf-2025/attendees',
+        // No Authorization header.
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(mockJwtVerify).not.toHaveBeenCalled();
     });
   });
 
