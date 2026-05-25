@@ -129,7 +129,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ status: 'success', logId: 'log-uuid-001' });
+    expect(res.json()).toMatchObject({ status: 'logged', logId: 'log-uuid-001' });
     expect(createLog).toHaveBeenCalledOnce();
     expect(createLog.mock.calls[0][0].data.status).toBe('success');
   });
@@ -155,6 +155,31 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
 
     expect(res.statusCode).toBe(200);
     expect(createLog).toHaveBeenCalledOnce();
+    expect(createLog.mock.calls[0][0].data.status).toBe('pending');
+    expect(createLog.mock.calls[0][0].data.layer).toBe('background');
+  });
+
+  // ── Valid layer values ────────────────────────────────────────────────────
+
+  it('200 — accepts layer: foreground', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: 'success', layer: 'foreground' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(createLog.mock.calls[0][0].data.layer).toBe('foreground');
+  });
+
+  it('200 — accepts layer: background', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: 'success', layer: 'background' },
+    });
+
+    expect(res.statusCode).toBe(200);
     expect(createLog.mock.calls[0][0].data.layer).toBe('background');
   });
 
@@ -170,6 +195,17 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: 'Invalid follow log payload' });
     // DB must NOT be written — this is the analytics integrity guarantee
+    expect(createLog).not.toHaveBeenCalled();
+  });
+
+  it('400 — rejects fabricated status "admin_override"', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: 'admin_override', layer: 'foreground' },
+    });
+
+    expect(res.statusCode).toBe(400);
     expect(createLog).not.toHaveBeenCalled();
   });
 
@@ -212,6 +248,17 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     expect(createLog).not.toHaveBeenCalled();
   });
 
+  it('400 — rejects arbitrary layer string injection', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: 'success', layer: 'superuser' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(createLog).not.toHaveBeenCalled();
+  });
+
   // ── Malformed / missing payloads ──────────────────────────────────────────
 
   it('400 — rejects missing status field', async () => {
@@ -241,6 +288,28 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
       method: 'POST',
       url: '/api/follow/linkedin/testuser/log',
       payload: {},
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(createLog).not.toHaveBeenCalled();
+  });
+
+  it('400 — rejects null values for both fields', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: null, layer: null },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(createLog).not.toHaveBeenCalled();
+  });
+
+  it('400 — rejects numeric value for status', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: 1, layer: 'foreground' },
     });
 
     expect(res.statusCode).toBe(400);
@@ -280,6 +349,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
 
     expect(res.statusCode).toBe(400);
     const body = res.json();
+    // Must not expose Zod issue paths, internal type names, or stack traces
     expect(body).not.toHaveProperty('issues');
     expect(body).not.toHaveProperty('stack');
     expect(Object.keys(body)).toEqual(['error']);
