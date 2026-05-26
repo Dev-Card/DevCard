@@ -5,6 +5,7 @@ import {
   createLinkSchema,
   reorderLinksSchema,
 } from '../utils/validators.js';
+import { getErrorMessage } from '../utils/error.util.js';
 
 // ── Response types ────────────────────────────────────────────────────────────
 // Declared explicitly so the API contract is visible without tracing through
@@ -84,6 +85,13 @@ export async function profileRoutes(app: FastifyInstance) {
       }
     }
 
+    // Fetch current username before the update so we can invalidate the correct
+    // Redis cache key even if the username is being changed in this request.
+    const currentUser = await app.prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    });
+
     try {
       const response: ProfileUpdateResponse = await app.prisma.user.update({
         where: { id: userId },
@@ -101,6 +109,17 @@ export async function profileRoutes(app: FastifyInstance) {
           accentColor: true,
         },
       });
+
+      // Invalidate the public profile cache so stale data is not served after
+      // an update.  Fire-and-forget — a cache miss on the next request is
+      // preferable to blocking the response on a Redis round-trip.
+      if (app.redis && currentUser) {
+        app.redis
+          .del(`profile:${currentUser.username}`)
+          .catch((err: unknown) =>
+            app.log.warn(`Failed to invalidate profile cache: ${getErrorMessage(err)}`)
+          );
+      }
 
       return response;
     } catch (err: any) {
