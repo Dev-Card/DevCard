@@ -1,437 +1,265 @@
 <script lang="ts">
-  import { PLATFORMS, getProfileUrl } from '@devcard/shared';
-  import { onMount } from 'svelte';
+  import type { PageData } from "./$types";
+  import type { PublicCardResponse } from "@devcard/shared/types";
 
-  let { data } = $props();
-  const profile = data.profile;
-  const error = data.error;
+  export let data: PageData;
 
+  const card: PublicCardResponse = data.card;
+
+  // Map each platform name to a colour used for the button accent
   const platformColors: Record<string, string> = {
-    github: '#181717', linkedin: '#0A66C2', twitter: '#000000',
-    gitlab: '#FC6D26', devfolio: '#3770FF', npm: '#CB3837',
-    devto: '#0A0A0A', hashnode: '#2962FF', medium: '#000000',
-    leetcode: '#FFA116', hackerrank: '#00EA64', discord: '#5865F2',
-    telegram: '#26A5E4', email: '#EA4335', portfolio: '#6366F1', custom: '#8B5CF6',
+    github: "#24292e",
+    linkedin: "#0077b5",
+    twitter: "#1da1f2",
+    x: "#000000",
+    devfolio: "#3770ff",
+    gitlab: "#fc6d26",
+    leetcode: "#ffa116",
+    hashnode: "#2962ff",
+    devto: "#0a0a0a",
+    medium: "#00ab6c",
+    youtube: "#ff0000",
+    instagram: "#e1306c",
+    portfolio: "#6c63ff",
   };
 
-  let mounted = $state(false);
-  let copyMessage = $state('');
-  let copyStatus = $state<'success' | 'error'>('success');
-  let copyMessageTimeout: ReturnType<typeof setTimeout>;
-
-  onMount(() => {
-    mounted = true;
-
-    return () => {
-      if (copyMessageTimeout) {
-        clearTimeout(copyMessageTimeout);
-      }
-    };
-  });
-
-  function showCopyMessage(message: string, status: 'success' | 'error') {
-    copyMessage = message;
-    copyStatus = status;
-
-    if (copyMessageTimeout) {
-      clearTimeout(copyMessageTimeout);
-    }
-
-    clearTimeout(copyTimeout);
-
-    copyTimeout = setTimeout(() => {
-      copyMessage = '';
-    }, 3000);
+  // Normalise the platform name (lowercase, no spaces) for icon + colour lookup
+  function normalisePlatform(platform: string): string {
+    return platform.toLowerCase().replace(/\s/g, "");
   }
 
-  async function copyProfileUrl() {
-    if (!navigator.clipboard?.writeText) {
-      showCopyMessage('Clipboard API unavailable. Copy the URL from your address bar.', 'error');
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      showCopyMessage('Profile link copied.', 'success');
-    } catch {
-      showCopyMessage('Could not copy link. Copy the URL from your address bar.', 'error');
-    }
+  function getColor(platform: string): string {
+    return platformColors[normalisePlatform(platform)] ?? "#555555";
   }
+
+  // The display label shown on each button
+  function getLabel(link: { platform: string; label: string | null }): string {
+    return link.label ?? link.platform;
+  }
+
+  // Build the page URL for the canonical + og:url tag
+  const pageUrl = `https://dev-card-web.vercel.app/u/${card.username}`;
+
+  // Build the og:description
+  const ogDescription =
+    card.bio ??
+    `Check out ${card.displayName ?? card.username}'s DevCard — all developer profiles in one place.`;
 </script>
 
+<!-- ─── Open Graph & SEO meta tags ─── -->
 <svelte:head>
-  {#if profile}
-    <title>{profile.displayName} | DevCard</title>
-    <meta name="description" content="{profile.bio || `${profile.displayName}'s developer profiles`}" />
-  {:else}
-    <title>User Not Found | DevCard</title>
-  {/if}
+  <title>{card.displayName ?? card.username} | DevCard</title>
+  <meta name="description" content={ogDescription} />
+
+  <!-- Open Graph (Facebook, LinkedIn, WhatsApp, Telegram) -->
+  <meta property="og:type" content="profile" />
+  <meta property="og:title" content="{card.displayName ?? card.username} | DevCard" />
+  <meta property="og:description" content={ogDescription} />
+  <meta property="og:url" content={pageUrl} />
+  <meta
+    property="og:image"
+    content={card.avatarUrl ?? "https://dev-card-web.vercel.app/og-image.jpg"}
+  />
+  <meta property="og:site_name" content="DevCard" />
+
+  <!-- Twitter / X card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="{card.displayName ?? card.username} | DevCard" />
+  <meta name="twitter:description" content={ogDescription} />
+  <meta
+    name="twitter:image"
+    content={card.avatarUrl ?? "https://dev-card-web.vercel.app/og-image.jpg"}
+  />
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href={pageUrl} />
 </svelte:head>
 
-<div class="bg-gradient" style="--accent: {profile?.accentColor || '#6366f1'}"></div>
+<!-- ─── Page layout ─── -->
+<main class="profile-page">
+  <div class="card">
+    <!-- Avatar -->
+    {#if card.avatarUrl}
+      <img
+        src={card.avatarUrl}
+        alt="{card.displayName ?? card.username}'s avatar"
+        class="avatar"
+      />
+    {:else}
+      <div class="avatar avatar--placeholder" aria-hidden="true">
+        {(card.displayName ?? card.username).charAt(0).toUpperCase()}
+      </div>
+    {/if}
 
-<main class="profile-container {mounted ? 'loaded' : ''}">
-  {#if error || !profile}
-    <div class="error-glass glass">
-      <div class="error-emoji">😕</div>
-      <h1>Profile not found</h1>
-      <p>This DevCard has vanished into the digital void.</p>
-      <a href="/" class="btn-primary">Return Home</a>
-    </div>
-  {:else}
-    <div class="profile-card glass" style="--accent: {profile.accentColor}">
-      <header class="profile-header">
-        <div class="avatar-wrapper">
-          {#if profile.avatarUrl}
-            <img src={profile.avatarUrl} alt={profile.displayName} class="avatar" />
-          {:else}
-            <div class="avatar avatar-placeholder" style="background: {profile.accentColor}">
-              {profile.displayName.charAt(0).toUpperCase()}
-            </div>
-          {/if}
-          <div class="avatar-glow" style="background: {profile.accentColor}"></div>
-        </div>
-        
-        <h1 class="display-name">{profile.displayName}</h1>
-        {#if profile.role}
-          <div class="role-badge">
-            {profile.role}{profile.company ? ` @ ${profile.company}` : ''}
-          </div>
-        {/if}
-        
-        {#if profile.bio}
-          <p class="bio">{profile.bio}</p>
-        {/if}
-      </header>
+    <!-- Name + username -->
+    <h1 class="display-name">{card.displayName ?? card.username}</h1>
+    {#if card.displayName}
+      <p class="username">@{card.username}</p>
+    {/if}
 
-      <div class="links-grid">
-        {#each profile.links as link, i}
-          {@const platform = PLATFORMS[link.platform]}
-          {@const color = platformColors[link.platform] || '#6366f1'}
-          <a
-            href={link.url || getProfileUrl(link.platform, link.username)}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="link-tile glass"
-            style="--delay: {i * 0.1}s"
-          >
-            <div class="tile-icon" style="background: {color}">
-              <span class="platform-initial">{platform?.name.charAt(0) || '?'}</span>
-            </div>
-            <div class="tile-content">
-              <span class="platform-name">{platform?.name || link.platform}</span>
-              <span class="username">@{link.username}</span>
-            </div>
-            <span class="arrow">→</span>
-          </a>
+    <!-- Bio -->
+    {#if card.bio}
+      <p class="bio">{card.bio}</p>
+    {/if}
+
+    <!-- Platform links -->
+    {#if card.links.length > 0}
+      <ul class="links" aria-label="Platform links">
+        {#each card.links as link}
+          <li>
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="link-btn"
+              style="--accent: {getColor(link.platform)}"
+            >
+              <span class="link-platform">{getLabel(link)}</span>
+              <span class="link-arrow" aria-hidden="true">↗</span>
+            </a>
+          </li>
         {/each}
-      </div>
-      
-      <footer class="card-footer">
-        <p>Verified Developer Profile</p>
-        <div class="logo-sm">⚡ DevCard</div>
-      </footer>
-    </div>
+      </ul>
+    {:else}
+      <p class="empty-state">No links added yet.</p>
+    {/if}
 
-    <div class="get-your-own">
-      <p>Want a card like this?</p>
-      <div class="profile-actions">
-        <a href="/" class="gradient-text get-devcard-link">Create your DevCard ⚡</a>
-        <button type="button" class="copy-link-button" onclick={copyProfileUrl}>
-          Copy Link
-        </button>
-      </div>
-      {#if copyMessage}
-        <p class="copy-message {copyStatus}" aria-live="polite">
-          {copyMessage}
-        </p>
-      {/if}
-    </div>
-  {/if}
+    <!-- Footer -->
+    <footer class="card-footer">
+      <a href="/" class="devcard-branding">⚡ DevCard</a>
+    </footer>
+  </div>
 </main>
 
 <style>
-  .bg-gradient {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(circle at 50% 0%, var(--accent), transparent 50%),
-                #020617;
-    opacity: 0.18;
-    z-index: -1;
-  }
-
-  .profile-container {
-    min-height: 100vh;
+  .profile-page {
+    min-height: 100dvh;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    padding: clamp(2rem, 6vw, 5rem) 1.25rem 3rem;
-    opacity: 0;
-    transform: translateY(22px);
-    transition: opacity 0.65s ease, transform 0.65s ease;
+    justify-content: center;
+    padding: 2rem 1rem;
+    background: var(--color-bg, #0f0f1a);
   }
 
-  .profile-container.loaded {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .profile-card {
+  .card {
     width: 100%;
-    max-width: 540px;
-    border-radius: var(--radius-xl);
-    padding: 2.5rem 2rem;
-    box-shadow: 0 26px 60px -20px rgba(0, 0, 0, 0.55);
-    position: relative;
-    overflow: hidden;
+    max-width: 420px;
+    background: var(--color-surface, #1a1a2e);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(15, 23, 42, 0.96);
-  }
-
-  .profile-header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-  }
-
-  .avatar-wrapper {
-    position: relative;
-    width: 120px;
-    height: 120px;
-    margin: 0 auto 1.75rem;
-  }
-
-  .avatar {
-    width: 100%;
-    height: 100%;
-    border-radius: 32% 68% 63% 37% / 34% 36% 64% 66%;
-    object-fit: cover;
-    border: 3px solid rgba(255, 255, 255, 0.18);
-    position: relative;
-    z-index: 2;
-  }
-
-  .avatar-placeholder {
-    width: 100%;
-    height: 100%;
-    border-radius: 32% 68% 63% 37% / 34% 36% 64% 66%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 3rem;
-    font-weight: 800;
-    color: white;
-  }
-
-  .display-name {
-    font-size: clamp(2rem, 4vw, 2.5rem);
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    margin-bottom: 0.75rem;
-  }
-
-  .role-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.45rem 1rem;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 999px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-  }
-
-  .bio {
-    color: var(--text-secondary);
-    font-size: 1rem;
-    line-height: 1.85;
-    max-width: 640px;
-    margin: 0 auto;
-  }
-
-  .links-grid {
+    border-radius: 20px;
+    padding: 2.5rem 2rem;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-  }
-
-  .link-tile {
-    display: flex;
     align-items: center;
-    padding: 1rem;
-    border-radius: calc(var(--radius) * 1.1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.06);
-    box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.35);
-    transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
-    animation: slideIn 0.5s ease-out forwards;
-    animation-delay: var(--delay);
-    opacity: 0;
-  }
-
-  .link-tile:hover,
-  .link-tile:focus-visible {
-    background: rgba(255, 255, 255, 0.13);
-    transform: translateY(-2px);
-    border-color: rgba(99, 102, 241, 0.35);
-  }
-
-  .link-tile:focus-visible {
-    outline: 3px solid rgba(99, 102, 241, 0.2);
-    outline-offset: 3px;
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(-20px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-
-  .tile-icon {
-    width: 46px;
-    height: 46px;
-    border-radius: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 800;
-    font-size: 1.1rem;
-    box-shadow: 0 8px 18px -10px rgba(0,0,0,0.4);
-  }
-
-  .tile-content {
-    flex: 1;
-    margin-left: 1.1rem;
-  }
-
-  .platform-name {
-    display: block;
-    font-weight: 700;
-    font-size: 1rem;
-  }
-
-  .username {
-    display: block;
-    font-size: 0.9rem;
-    color: var(--text-muted);
-    margin-top: 0.1rem;
-  }
-
-  .arrow {
-    opacity: 0.45;
-    font-size: 1.2rem;
-    transition: transform 0.25s ease, opacity 0.25s ease;
-  }
-
-  .link-tile:hover .arrow {
-    opacity: 1;
-    transform: translateX(5px);
-  }
-
-  .card-footer {
-    margin-top: 2.5rem;
-    padding-top: 1.75rem;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--text-muted);
-    font-size: 0.82rem;
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-
-  .logo-sm {
-    color: var(--text-secondary);
-    font-family: 'Outfit', sans-serif;
-    font-weight: 700;
-  }
-
-  .get-your-own {
-    margin-top: 2rem;
-    text-align: center;
-  }
-
-  .get-your-own p {
-    margin-bottom: 0.5rem;
-    font-size: 0.95rem;
-    color: var(--text-muted);
-  }
-
-  .profile-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
     gap: 0.75rem;
   }
 
-  .get-devcard-link {
-    font-weight: 700;
-    font-size: 1.05rem;
+  /* ── Avatar ── */
+  .avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    margin-bottom: 0.25rem;
   }
 
-  .copy-link-button {
-    border: 1px solid var(--border-glass);
-    border-radius: var(--radius);
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--text-primary);
-    cursor: pointer;
-    font: inherit;
-    font-weight: 700;
-    padding: 0.65rem 1rem;
-    transition: all 0.2s ease;
+  .avatar--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #6c63ff;
+    color: #fff;
+    font-size: 2rem;
+    font-weight: 600;
+    width: 88px;
+    height: 88px;
   }
 
-  .copy-link-button:hover {
-    background: rgba(255, 255, 255, 0.15);
+  /* ── Text ── */
+  .display-name {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    text-align: center;
+  }
+
+  .username {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.45);
+    margin: 0;
+  }
+
+  .bio {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+    margin: 0.25rem 0 0.5rem;
+    line-height: 1.5;
+    max-width: 320px;
+  }
+
+  /* ── Links ── */
+  .links {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .link-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.75rem 1.125rem;
+    border-radius: 12px;
+    border: 1px solid var(--accent, #555);
+    background: transparent;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+
+  .link-btn:hover {
+    background: var(--accent, #555);
     transform: translateY(-1px);
   }
 
-  .copy-link-button:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 3px;
+  .link-arrow {
+    font-size: 0.8rem;
+    opacity: 0.6;
   }
 
-  .copy-message {
-    min-height: 1.2rem;
-    margin-top: 0.75rem;
-    margin-bottom: 0;
-    font-size: 0.85rem;
+  .empty-state {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.35);
+    margin: 0.5rem 0;
   }
 
-  .copy-message.success {
-    color: var(--text-secondary);
-  }
-
-  .copy-message.error {
-    color: #ef4444;
-  }
-
-  .error-glass {
+  /* ── Footer ── */
+  .card-footer {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    width: 100%;
     text-align: center;
-    padding: 3rem;
-    border-radius: var(--radius-xl);
-    width: min(100%, 520px);
   }
 
-  @media (max-width: 720px) {
-    .profile-card { padding: 2rem 1.5rem; }
-    .profile-header { margin-bottom: 2rem; }
-    .avatar-wrapper { width: 108px; height: 108px; margin-bottom: 1.5rem; }
-    .card-footer { flex-direction: column; align-items: flex-start; }
+  .devcard-branding {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.3);
+    text-decoration: none;
+    letter-spacing: 0.03em;
   }
 
-  @media (max-width: 520px) {
-    .profile-container { padding: 2rem 1rem 2.5rem; }
-    .display-name { font-size: 2rem; }
-    .link-tile { padding: 0.95rem; }
-    .tile-content { margin-left: 0.9rem; }
-    .card-footer { text-align: left; }
+  .devcard-branding:hover {
+    color: rgba(255, 255, 255, 0.6);
   }
 </style>

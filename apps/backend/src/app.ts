@@ -21,6 +21,7 @@ import { followRoutes } from './routes/follow.js';
 import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
+import { publicCardRoutes } from './routes/publicCards.js';
 import { validateEnv } from './utils/validateEnv.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -103,6 +104,7 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(authRoutes, { prefix: '/auth' });
   await app.register(profileRoutes, { prefix: '/api/profiles' });
   await app.register(cardRoutes, { prefix: '/api/cards' });
+  await app.register(publicCardRoutes);
   await app.register(publicRoutes, { prefix: '/api/u' });
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
