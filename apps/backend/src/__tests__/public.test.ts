@@ -38,7 +38,9 @@ const mockPrisma = {
   followLog: {
     findMany: vi.fn().mockResolvedValue([]),
   },
-  card: {} as any,
+  card: {
+    findFirst: vi.fn(),
+  },
 };
 
 async function buildApp() {
@@ -54,6 +56,69 @@ async function buildApp() {
 }
 
 // ─── QR size validation ───────────────────────────────────────────────────────
+
+describe('Public profile routes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (generateQRBuffer as ReturnType<typeof vi.fn>).mockResolvedValue(Buffer.from('fake-png'));
+    (generateQRSvg as ReturnType<typeof vi.fn>).mockResolvedValue('<svg>fake</svg>');
+  });
+
+  it('returns 200 for GET /:username without runtime route registration errors', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/testuser',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      username: 'testuser',
+      displayName: 'Test User',
+      links: [],
+    });
+  });
+
+  it('returns 200 for GET /:username/card/:cardId without runtime route registration errors', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    mockPrisma.card.findFirst.mockResolvedValue({
+      id: 'card-123',
+      title: 'Main Card',
+      cardLinks: [],
+    });
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/testuser/card/card-123',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      title: 'Main Card',
+      owner: {
+        username: 'testuser',
+        displayName: 'Test User',
+      },
+      links: [],
+    });
+  });
+
+  it('keeps QR endpoint working', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/testuser/qr?size=400',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
+  });
+});
 
 describe('GET /api/public/:username/qr — size validation', () => {
   beforeEach(() => {
