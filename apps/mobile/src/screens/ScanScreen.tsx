@@ -190,7 +190,7 @@ export default function ScanScreen({ navigation }: Props) {
             ) : qrUrl ? (
               <QRCode
                 value={qrUrl}
-                size={200}
+                size={512}
                 color={COLORS.textPrimary}
                 backgroundColor={COLORS.bgCard}
               />
