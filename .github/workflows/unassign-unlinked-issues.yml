@@ -94,10 +94,10 @@ jobs:
                   owner,
                   repo,
                   issue_number: issueNumber,
-                  body: `👋 Hey @Harxhit and @ShantKhatri,\n\nThis issue (previously assigned to ${assigneesMention}) has been **automatically unassigned** because no linked pull request was found after the scheduled check.\n\nIf work is in progress, please open a PR and link it to this issue to keep the assignment. 🙏`,
+                  body: `Hey @Harxhit and @ShantKhatri,\n\nThis issue (previously assigned to ${assigneesMention}) has been **automatically unassigned** because no linked pull request was found after the scheduled check.\n\nIf work is in progress, please open a PR and link it to this issue to keep the assignment. 🙏`,
                 });
 
-                console.log(`✅ Unassigned and commented on issue #${issueNumber}.`);
+                console.log(`Unassigned and commented on issue #${issueNumber}.`);
               } else {
                 console.log(`Issue #${issueNumber} has a linked PR — leaving as-is.`);
               }
