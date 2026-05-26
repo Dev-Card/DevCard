@@ -53,6 +53,9 @@ export async function connectRoutes(app: FastifyInstance) {
     return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
   });
 
+  return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
+});
+
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
 
@@ -66,7 +69,6 @@ export async function connectRoutes(app: FastifyInstance) {
       if (!decodedState) {
         return reply.redirect(`${config.app.publicUrl}/settings?error=connect_failed`);
       }
-      const userId = decodedState.userId;
 
       if (!userId) {
         return reply.redirect(`${config.app.publicUrl}/settings?error=invalid_state`);
@@ -134,6 +136,11 @@ export async function connectRoutes(app: FastifyInstance) {
   }, async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const { platform } = request.params;
+
+    const SUPPORTED_PLATFORMS = ['github', 'google', 'twitter', 'linkedin'];
+    if (!SUPPORTED_PLATFORMS.includes(platform)) {
+      return reply.status(400).send({ error: `Unsupported platform: ${platform}` });
+    }
 
     try {
       await app.prisma.oAuthToken.delete({

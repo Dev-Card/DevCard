@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { decrypt } from '../utils/encryption.js';
+import { getErrorMessage } from '../utils/error.util.js';
 import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 
 export async function followRoutes(app: FastifyInstance) {
@@ -42,7 +43,7 @@ export async function followRoutes(app: FastifyInstance) {
     // Decrypt the stored token
     const accessToken = decrypt(oauthToken.accessToken);
 
-try {
+    try {
       let result;
       let succeeded = false;
 
@@ -67,12 +68,12 @@ try {
             status: 'success',
             layer: 'api',
           },
-        }).catch(err => app.log.error('Failed to log follow:', err));
+        }).catch((err: unknown) => app.log.error(`Failed to log follow: ${getErrorMessage(err)}`));
       }
 
       return result.response;
-    } catch (err: any) {
-      app.log.error(`Follow error for ${platform}:`, err);
+    } catch (err: unknown) { 
+      app.log.error(`Follow error for ${platform}: ${getErrorMessage(err)}`);
       
       app.prisma.followLog.create({
         data: {
@@ -82,9 +83,12 @@ try {
           status: 'error',
           layer: 'api',
         },
-      }).catch(e => app.log.error('Failed to log follow error:', e));
+      }).catch((e: unknown) => app.log.error(`Failed to log follow error: ${getErrorMessage(e)}`));
 
-      return reply.status(500).send({ error: 'Follow action failed', message: err.message });
+      return reply.status(500).send({
+        error: 'Follow action failed',
+        message: getErrorMessage(err),
+      });
     }
   });
 

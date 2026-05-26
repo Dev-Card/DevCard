@@ -26,6 +26,13 @@
     name="description"
     content="Open source developer profile exchange platform. Share all your developer profiles with one QR code."
   />
+  <meta property="og:title" content="DevCard — One Tap. Every Profile. Every Platform." />
+  <meta property="og:description" content="Open source developer profile exchange platform. Share all your developer profiles with one QR code." />
+  <meta property="og:url" content="https://devcard.example.com/" />
+  <meta property="og:image" content="https://devcard.example.com/og-image.jpg" />
+  <meta name="twitter:title" content="DevCard" />
+  <meta name="twitter:description" content="Open source developer profile exchange platform." />
+  <meta name="twitter:image" content="https://devcard.example.com/og-image.jpg" />
 </svelte:head>
 
 <div class="bg-glow"></div>
@@ -94,16 +101,17 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at 50% 0%, var(--primary-glow), transparent 40%),
-                radial-gradient(circle at 0% 100%, var(--accent-glow), transparent 30%);
+    background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.22), transparent 50%),
+                radial-gradient(circle at 0% 100%, rgba(168, 85, 247, 0.15), transparent 40%),
+                radial-gradient(circle at 100% 50%, rgba(99, 102, 241, 0.10), transparent 35%);
     pointer-events: none;
     z-index: -1;
+    will-change: transform, opacity;
+    transform: translateZ(0);
   }
 
   nav {
-    position: sticky;
-    top: 1.25rem;
-    margin: 0 auto;
+    margin: 1.25rem auto 0;
     width: min(1100px, calc(100% - 2rem));
     max-width: 1100px;
     border-radius: var(--radius-xl);
@@ -130,8 +138,8 @@
   .theme-toggle {
     width: 46px;
     height: 46px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
     border-radius: 50%;
     cursor: pointer;
     display: inline-flex;
@@ -143,7 +151,8 @@
 
   .theme-toggle:hover {
     transform: scale(1.05);
-    background: rgba(255, 255, 255, 0.14);
+    background: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.3);
   }
 
   .theme-toggle:focus-visible {
@@ -220,6 +229,16 @@
     padding: 4rem 0 5rem;
   }
 
+  .feature-card {
+    padding: 2.4rem;
+    min-height: 140px;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.5));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+  }
+
   @media (max-width: 640px) {
   .features {
     display: grid;
@@ -230,18 +249,44 @@
 }
 
   .feature-card {
-    padding: 2.4rem;
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-lg);
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.5));
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+  min-height: 140px;
+  padding: 16px;
+}
+@media (max-width: 640px) {
+  .feature-card {
+    margin-bottom: 12px;
   }
+}
 
   .feature-card {
   min-height: 140px;
   padding: 16px;
 }
+
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  min-height: 140px;
+
+  /* normal shadow (very light) */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+
+  /* smooth transition */
+  transition: all 0.25s ease;
+}
+
+
+
+.feature-card:hover {
+  /* halka lift */
+  transform: translateY(-3px);
+
+  /* stronger but soft shadow */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+}
+
 @media (max-width: 640px) {
   .feature-card {
     margin-bottom: 12px;
@@ -278,7 +323,7 @@
 
   @media (max-width: 860px) {
     nav {
-      top: 0.9rem;
+      margin-top: 0.9rem;
       padding: 0.85rem 1.1rem;
     }
 
@@ -297,16 +342,23 @@
       align-items: stretch;
     }
 
-    .feature-card {
-      padding: 1.8rem;
+    .features {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      padding: 2rem 1rem;
     }
 
-    .features {
-      gap: 1.2rem;
+    .feature-card {
+      padding: 1.8rem;
+      margin-bottom: 0;
     }
 
     .footer {
       padding: 2rem 0 1.25rem;
+    }
+    
+    .bg-glow {
+      opacity: 0.6;
     }
   }
 </style>
