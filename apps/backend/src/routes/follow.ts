@@ -125,7 +125,7 @@ export async function followRoutes(app: FastifyInstance) {
           layer,
         },
       });
-      return reply.send({ status: 'logged', logId: log.id });
+      return reply.send({ status: 'success', logId: log.id });
     } catch (err: any) {
       app.log.error('Failed to log follow:', err);
       return reply.status(500).send({ error: 'Failed to log follow event' });

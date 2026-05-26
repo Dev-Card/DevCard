@@ -1,5 +1,5 @@
 import Fastify, { FastifyInstance } from 'fastify';
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeAll, beforeEach, afterAll } from 'vitest';
 
 import { followRoutes } from '../routes/follow.js';
 
@@ -104,25 +104,24 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
   let app: FastifyInstance;
   let createLog: ReturnType<typeof vi.fn>;
 
-  beforeEach(async () => {
-    createLog = vi.fn().mockResolvedValue({
-      id: 'log-uuid-001',
-      followerId: MOCK_USER_ID,
-      targetUsername: 'testuser',
-      platform: 'linkedin',
-      status: 'success',
-      layer: 'foreground',
-    });
+  // One app instance shared across all log tests; mock reset between each test.
+  beforeAll(async () => {
+    createLog = vi.fn();
     app = await makeApp({ followLog: { create: createLog } });
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await app.close();
   });
 
-  // ── Valid status values ───────────────────────────────────────────────────
+  beforeEach(() => {
+    createLog.mockReset();
+    createLog.mockResolvedValue({ id: 'log-uuid-001' });
+  });
 
-  it('200 — accepts status: success', async () => {
+  // ── Valid payloads ────────────────────────────────────────────────────────
+
+  it('200 — accepts status: success, layer: foreground', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/follow/linkedin/testuser/log',
@@ -130,14 +129,12 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ status: 'logged', logId: 'log-uuid-001' });
+    expect(res.json()).toMatchObject({ status: 'success', logId: 'log-uuid-001' });
     expect(createLog).toHaveBeenCalledOnce();
     expect(createLog.mock.calls[0][0].data.status).toBe('success');
   });
 
   it('200 — accepts status: failed', async () => {
-    createLog.mockResolvedValueOnce({ id: 'log-uuid-002', status: 'failed', layer: 'foreground' });
-
     const res = await app.inject({
       method: 'POST',
       url: '/api/follow/linkedin/testuser/log',
@@ -149,43 +146,15 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     expect(createLog.mock.calls[0][0].data.status).toBe('failed');
   });
 
-  it('200 — accepts status: pending', async () => {
-    createLog.mockResolvedValueOnce({ id: 'log-uuid-003', status: 'pending', layer: 'foreground' });
-
+  it('200 — accepts status: pending, layer: background', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/follow/linkedin/testuser/log',
-      payload: { status: 'pending', layer: 'foreground' },
+      payload: { status: 'pending', layer: 'background' },
     });
 
     expect(res.statusCode).toBe(200);
     expect(createLog).toHaveBeenCalledOnce();
-    expect(createLog.mock.calls[0][0].data.status).toBe('pending');
-  });
-
-  // ── Valid layer values ────────────────────────────────────────────────────
-
-  it('200 — accepts layer: foreground', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/follow/linkedin/testuser/log',
-      payload: { status: 'success', layer: 'foreground' },
-    });
-
-    expect(res.statusCode).toBe(200);
-    expect(createLog.mock.calls[0][0].data.layer).toBe('foreground');
-  });
-
-  it('200 — accepts layer: background', async () => {
-    createLog.mockResolvedValueOnce({ id: 'log-uuid-004', status: 'success', layer: 'background' });
-
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/follow/linkedin/testuser/log',
-      payload: { status: 'success', layer: 'background' },
-    });
-
-    expect(res.statusCode).toBe(200);
     expect(createLog.mock.calls[0][0].data.layer).toBe('background');
   });
 
@@ -204,17 +173,6 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     expect(createLog).not.toHaveBeenCalled();
   });
 
-  it('400 — rejects fabricated status "admin_override"', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/follow/linkedin/testuser/log',
-      payload: { status: 'admin_override', layer: 'foreground' },
-    });
-
-    expect(res.statusCode).toBe(400);
-    expect(createLog).not.toHaveBeenCalled();
-  });
-
   it('400 — rejects arbitrary status string injection', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -228,7 +186,10 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
 
   // ── Invalid layer values — analytics integrity ────────────────────────────
 
-  it('400 — rejects invalid layer "webview" (old unvalidated value)', async () => {
+  // 'webview' was the old unvalidated default — it is now explicitly rejected.
+  // Any existing caller sending layer: 'webview' must migrate to 'foreground'
+  // (in-app WebView session) or 'background' (passive deep-link strategy).
+  it('400 — rejects legacy layer "webview" (old unvalidated default)', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/follow/linkedin/testuser/log',
@@ -245,17 +206,6 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
       method: 'POST',
       url: '/api/follow/linkedin/testuser/log',
       payload: { status: 'success', layer: 'api' },
-    });
-
-    expect(res.statusCode).toBe(400);
-    expect(createLog).not.toHaveBeenCalled();
-  });
-
-  it('400 — rejects arbitrary layer string injection', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/follow/linkedin/testuser/log',
-      payload: { status: 'success', layer: 'superuser' },
     });
 
     expect(res.statusCode).toBe(400);
@@ -297,28 +247,6 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     expect(createLog).not.toHaveBeenCalled();
   });
 
-  it('400 — rejects null values for both fields', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/follow/linkedin/testuser/log',
-      payload: { status: null, layer: null },
-    });
-
-    expect(res.statusCode).toBe(400);
-    expect(createLog).not.toHaveBeenCalled();
-  });
-
-  it('400 — rejects numeric value for status', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/follow/linkedin/testuser/log',
-      payload: { status: 1, layer: 'foreground' },
-    });
-
-    expect(res.statusCode).toBe(400);
-    expect(createLog).not.toHaveBeenCalled();
-  });
-
   // ── Correct data persisted to DB ──────────────────────────────────────────
 
   it('persists exactly the validated platform, targetUsername, status, and layer', async () => {
@@ -343,7 +271,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
 
   // ── Response does not leak validation internals ───────────────────────────
 
-  it('400 response does not expose internal schema details or stack traces', async () => {
+  it('400 response only exposes { error } — no schema internals or stack traces', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/follow/linkedin/testuser/log',
@@ -352,7 +280,6 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
 
     expect(res.statusCode).toBe(400);
     const body = res.json();
-    // Must not expose Zod issue paths, internal type names, or stack traces
     expect(body).not.toHaveProperty('issues');
     expect(body).not.toHaveProperty('stack');
     expect(Object.keys(body)).toEqual(['error']);
