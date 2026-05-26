@@ -99,8 +99,9 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at 50% 0%, var(--primary-glow), transparent 40%),
-                radial-gradient(circle at 0% 100%, var(--accent-glow), transparent 30%);
+    background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.22), transparent 50%),
+                radial-gradient(circle at 0% 100%, rgba(168, 85, 247, 0.15), transparent 40%),
+                radial-gradient(circle at 100% 50%, rgba(99, 102, 241, 0.10), transparent 35%);
     pointer-events: none;
     z-index: -1;
     will-change: transform, opacity;
@@ -135,8 +136,8 @@
   .theme-toggle {
     width: 46px;
     height: 46px;
-    background: var(--btn-secondary-bg);
-    border: 1px solid var(--btn-secondary-border);
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
     border-radius: 50%;
     cursor: pointer;
     display: inline-flex;
@@ -148,7 +149,8 @@
 
   .theme-toggle:hover {
     transform: scale(1.05);
-    background: var(--btn-secondary-hover-bg);
+    background: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.3);
   }
 
   .theme-toggle:focus-visible {

@@ -10,8 +10,8 @@
   /* Backgrounds */
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
-  --bg-page: #f5f8ff;
-  --bg-glass: rgba(255, 255, 255, 0.75);
+  --bg-page: #eef2ff;
+  --bg-glass: rgba(255, 255, 255, 0.38);
   --bg-card: #ffffff;
 
   /* Text */
@@ -26,10 +26,11 @@
 
   /* Effects */
   --border: rgba(226, 232, 240, 0.9);
-  --border-glass: rgba(255, 255, 255, 0.35);
+  --border-glass: rgba(99, 102, 241, 0.25);
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 6px 18px -8px rgb(0 0 0 / 0.12), 0 4px 14px -12px rgb(0 0 0 / 0.08);
   --shadow-lg: 0 12px 24px -10px rgb(0 0 0 / 0.15), 0 6px 12px -14px rgb(0 0 0 / 0.08);
+  --shadow-nav: 0 8px 32px -8px rgba(99, 102, 241, 0.18), 0 2px 8px 0 rgba(99, 102, 241, 0.08);
 
   --radius: 14px;
   --radius-lg: 26px;
@@ -55,6 +56,7 @@ html.dark {
 
   --border: rgba(30, 41, 59, 0.85);
   --border-glass: rgba(255, 255, 255, 0.12);
+  --shadow-nav: 0 4px 24px -6px rgba(0, 0, 0, 0.45), 0 1px 4px 0 rgba(0, 0, 0, 0.25);
 }
 
 * {
@@ -65,7 +67,11 @@ html.dark {
 
 body {
   font-family: 'Inter', sans-serif;
-  background: radial-gradient(circle at top, rgba(99, 102, 241, 0.08), transparent 22%), var(--bg-page);
+  background:
+    radial-gradient(ellipse at 60% -10%, rgba(99, 102, 241, 0.28) 0%, transparent 55%),
+    radial-gradient(ellipse at -10% 80%, rgba(168, 85, 247, 0.18) 0%, transparent 45%),
+    radial-gradient(ellipse at 100% 60%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+    var(--bg-page);
   color: var(--text-primary);
   transition: var(--theme-transition);
   -webkit-font-smoothing: antialiased;
@@ -100,6 +106,7 @@ button {
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-nav);
 }
 
 .gradient-text {
