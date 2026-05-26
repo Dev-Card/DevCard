@@ -15,8 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../config';
-
-import { useNavigation } from '@react-navigation/native';
+import NfcManager, { Ndef, NfcTech } from 'react-native-nfc-manager';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
@@ -27,6 +26,51 @@ export default function SettingsScreen() {
   const [role, setRole] = useState(user?.role || '');
   const [company, setCompany] = useState(user?.company || '');
   const [saving, setSaving] = useState(false);
+  const [writingNfc, setWritingNfc] = useState(false);
+
+  const writeNfcTag = async () => {
+    try {
+      const supported = await NfcManager.isSupported();
+      if (!supported) {
+        Alert.alert('Error', 'NFC is not supported on this device');
+        return;
+      }
+
+      setWritingNfc(true);
+      await NfcManager.start();
+
+      const res = await fetch(`${API_BASE_URL}/api/nfc/payload`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch NFC payload');
+      }
+      
+      const data = await res.json();
+      if (!data.payload) {
+        throw new Error('Invalid payload received');
+      }
+
+      Alert.alert('NFC', 'Hold your phone near an NFC tag');
+      await NfcManager.requestTechnology(NfcTech.Ndef);
+      
+      const bytes = Ndef.encodeMessage([
+        Ndef.uriRecord(data.payload),
+      ]);
+      
+      if (bytes) {
+        await NfcManager.ndefHandler.writeNdefMessage(bytes);
+        Alert.alert('Success', 'Successfully wrote DevCard to NFC tag!');
+      }
+    } catch (ex: any) {
+      console.warn(ex);
+      Alert.alert('Error', ex.message || 'Failed to write NFC tag. Please try again.');
+    } finally {
+      NfcManager.cancelTechnologyRequest();
+      setWritingNfc(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -113,6 +157,23 @@ export default function SettingsScreen() {
             <View style={styles.settingRowLeft}>
               <Text style={styles.settingRowIcon}>🔌</Text>
               <Text style={styles.settingRowText}>Connected Platforms</Text>
+            </View>
+            <Text style={styles.settingRowArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Physical Cards */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionSubtitle}>Physical Cards</Text>
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={writeNfcTag}
+            disabled={writingNfc}>
+            <View style={styles.settingRowLeft}>
+              <Text style={styles.settingRowIcon}>💳</Text>
+              <Text style={styles.settingRowText}>
+                {writingNfc ? 'Writing to NFC...' : 'Write to NFC Card'}
+              </Text>
             </View>
             <Text style={styles.settingRowArrow}>→</Text>
           </TouchableOpacity>
