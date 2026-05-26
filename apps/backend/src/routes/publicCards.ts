@@ -84,6 +84,7 @@ export async function publicCardRoutes(fastify: FastifyInstance) {
             take: 1,
             select: {
               cardLinks: {
+                orderBy: { displayOrder: 'asc' },
                 select: {
                   platformLink: {
                     select: {
@@ -92,7 +93,6 @@ export async function publicCardRoutes(fastify: FastifyInstance) {
                     },
                   },
                 },
-                orderBy: { displayOrder: 'asc' },
               },
             },
           },
