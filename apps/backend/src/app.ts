@@ -97,12 +97,9 @@ export async function buildApp():Promise<FastifyInstance> {
   });
 
   // ─── Database & Cache Plugins ───
- if (process.env.NODE_ENV !== 'test') {
-  await app.register(prismaPlugin); //change 
-}
-  if (process.env.NODE_ENV !== 'test') {
+  await app.register(prismaPlugin);
   await app.register(redisPlugin);
-}
+
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
@@ -120,15 +117,15 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-await app.register(nfcRoutes, { prefix: '/api/nfc' });
-    await app.register(eventRoutes, { prefix: '/api/events' });
-  // ─── Health Check ───
-type HealthResponse = {
-  status: 'ok';
-};
+  await app.register(nfcRoutes, { prefix: '/api/nfc' });
+  await app.register(eventRoutes, { prefix: '/api/events' });
 
-app.get('/health', async (): Promise<HealthResponse> => {
-  return { status: 'ok' };
-});
+  // ─── Health Check ───
+  app.get('/health', async () => ({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'devcard-api',
+  }));
+
   return app;
 }
