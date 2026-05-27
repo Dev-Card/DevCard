@@ -85,7 +85,13 @@ export async function followRoutes(app: FastifyInstance) {
   ) => {
     const userId = (request.user as any).id;
     const { platform, targetUsername } = request.params;
-    const { status = 'success', layer = 'webview' } = request.body || {};
+
+    const parsed = followLogSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid follow log payload' });
+    }
+
+    const { status, layer } = parsed.data;
 
     try {
       const log = await app.prisma.followLog.create({
