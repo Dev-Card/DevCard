@@ -1,166 +1,324 @@
 /**
- * routes/follow.ts  (updated)
+ * routes/public.ts  (updated)
  *
  * Rate limit changes:
- *  - POST /:platform/:targetUsername     → MODERATE (authenticated follow action)
- *  - POST /:platform/:targetUsername/log → MODERATE (analytics write)
- *  - DELETE /:platform/:targetUsername/log → MODERATE (state mutation)
+ *  - All routes are RELAXED (120 req/min per IP) — these are public, unauthenticated
+ *    reads but they do write CardView rows so they still need bounding.
+ *  - QR generation remains at 50 req/min (more resource-intensive) — kept as a
+ *    stricter relaxedRateLimit override.
  *
- * No business logic modified.
+ * Bug fixes alongside rate limiting:
+ *  - The original file had duplicate nested app.get() registrations inside outer
+ *    route handlers (/:username, /:username/card/:cardId). Those inner calls would
+ *    never fire because the outer handler swallowed the request. Fixed here — each
+ *    route is registered exactly once at the top level.
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { decrypt } from '../utils/encryption.js';
-import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
-import { moderateRateLimit } from '../plugins/rate-limit.js';
+import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+import { relaxedRateLimit } from '../plugins/rate-limit.js';
+import { TIERS, ipKeyGenerator } from '../plugins/rate-limit.js';
 
-export async function followRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', app.authenticate);
+// Stricter limit specifically for QR generation (CPU/memory cost)
+const qrRateLimit = {
+  config: {
+    rateLimit: {
+      max: 50,
+      timeWindow: TIERS.RELAXED.timeWindow,
+      keyGenerator: ipKeyGenerator,
+      errorResponseBuilder(_req: FastifyRequest, context: { ttl: number }) {
+        const retryAfterSecs = Math.ceil(context.ttl / 1000);
+        return {
+          error: 'Too Many Requests',
+          statusCode: 429,
+          retryAfter: retryAfterSecs,
+          message: `Rate limit exceeded. Retry after ${retryAfterSecs} seconds.`,
+        };
+      },
+    },
+  },
+};
 
-  // ─── Follow via API ───
-  app.post('/:platform/:targetUsername', moderateRateLimit, async (
-    request: FastifyRequest<{ Params: { platform: string; targetUsername: string } }>,
+type PublicProfileLink = {
+  id: string;
+  platform: string;
+  username: string;
+  url: string;
+  displayOrder: number;
+  followed?: boolean;
+};
+
+type UsernamePublicProfileResponse = {
+  username: string;
+  displayName: string;
+  bio: string | null;
+  pronouns: string | null;
+  role: string | null;
+  company: string | null;
+  avatarUrl: string | null;
+  accentColor: string;
+  links: PublicProfileLink[];
+};
+
+type PublicProfileCardLink = {
+  id: string;
+  platform: string;
+  username: string;
+  url: string;
+  followed?: boolean;
+};
+
+type CardPublicProfileResponse = {
+  id: string;
+  title: string;
+  owner: {
+    username: string;
+    displayName: string;
+    bio: string | null;
+    avatarUrl: string | null;
+    accentColor: string;
+  };
+  links: PublicProfileCardLink[];
+};
+
+type UsernameCardPublicProfileResponse = {
+  title: string;
+  owner: {
+    username: string;
+    displayName: string;
+    bio: string | null;
+    pronouns: string | null;
+    role: string | null;
+    company: string | null;
+    avatarUrl: string | null;
+    accentColor: string;
+  };
+  links: (PublicProfileCardLink & { displayOrder: number })[];
+};
+
+export async function publicRoutes(app: FastifyInstance) {
+  // ─── Public Profile ───
+  app.get('/:username', relaxedRateLimit, async (
+    request: FastifyRequest<{ Params: { username: string } }>,
     reply: FastifyReply
   ) => {
-    const userId = (request.user as any).id;
-    const { platform, targetUsername } = request.params;
+    const { username } = request.params;
 
-    const platformDef = getPlatform(platform);
-    if (platformDef?.followStrategy === 'webview') {
-      const url = getWebViewUrl(platform, targetUsername) || getProfileUrl(platform, targetUsername);
-      return reply.send({ strategy: 'webview', url });
-    }
-
-    const oauthToken = await app.prisma.oAuthToken.findUnique({
-      where: { userId_platform: { userId, platform } },
+    const user = await app.prisma.user.findUnique({
+      where: { username },
+      include: { platformLinks: { orderBy: { displayOrder: 'asc' } } },
     });
 
-    if (!oauthToken) {
-      return reply.status(400).send({
-        error: `Not connected to ${platform}. Please connect your ${platform} account first.`,
-        requiresAuth: true,
-      });
-    }
+    if (!user) return reply.status(404).send({ error: 'User not found' });
 
-    const accessToken = decrypt(oauthToken.accessToken);
-
+    let viewerId = null;
     try {
-      let result;
-      let succeeded = false;
-
-      switch (platform) {
-        case 'github':
-          result = await followGitHub(accessToken, targetUsername, reply);
-          succeeded = result.success === true;
-          break;
-        default:
-          return reply.status(400).send({
-            error: `API follow not supported for ${platform}. Use WebView or link instead.`,
-          });
+      if (request.headers.authorization) {
+        const decoded = (await request.jwtVerify()) as any;
+        viewerId = decoded?.id || null;
       }
-
-      if (succeeded) {
-        app.prisma.followLog.create({
-          data: { followerId: userId, targetUsername, platform, status: 'success', layer: 'api' },
-        }).catch((err) => app.log.error('Failed to log follow:', err));
-      }
-
-      return result.response;
-    } catch (err: any) {
-      app.log.error(`Follow error for ${platform}:`, err);
-      app.prisma.followLog.create({
-        data: { followerId: userId, targetUsername, platform, status: 'error', layer: 'api' },
-      }).catch((e) => app.log.error('Failed to log follow error:', e));
-      return reply.status(500).send({ error: 'Follow action failed', message: err.message });
+    } catch {
+      // Ignored if invalid token
     }
+
+    if (viewerId && viewerId !== user.id) {
+      app.prisma.cardView.create({
+        data: {
+          ownerId: user.id,
+          cardId: null,
+          viewerId,
+          viewerIp: request.ip || null,
+          viewerAgent: request.headers['user-agent'] || null,
+          source: (request.query as any)?.source || 'link',
+        },
+      }).catch((err) => app.log.error('Failed to log view:', err));
+    }
+
+    let followedLinkIds: string[] = [];
+    if (viewerId && user.platformLinks.length > 0) {
+      const successfulFollows = await app.prisma.followLog.findMany({
+        where: {
+          followerId: viewerId,
+          status: 'success',
+          OR: user.platformLinks.map((link) => ({
+            platform: link.platform,
+            targetUsername: link.username,
+          })),
+        },
+      });
+
+      followedLinkIds = user.platformLinks
+        .filter((link) =>
+          successfulFollows.some(
+            (f) =>
+              f.platform === link.platform &&
+              f.targetUsername.toLowerCase() === link.username.toLowerCase()
+          )
+        )
+        .map((link) => link.id);
+    }
+
+    const response: UsernamePublicProfileResponse = {
+      username: user.username,
+      displayName: user.displayName,
+      bio: user.bio,
+      pronouns: user.pronouns,
+      role: user.role,
+      company: user.company,
+      avatarUrl: user.avatarUrl,
+      accentColor: user.accentColor,
+      links: user.platformLinks.map((link) => ({
+        id: link.id,
+        platform: link.platform,
+        username: link.username,
+        url: link.url,
+        displayOrder: link.displayOrder,
+        followed: followedLinkIds.includes(link.id),
+      })),
+    };
+
+    return response;
   });
 
-  // ─── Log follow event (Layer 2/3) ───
-  app.post('/:platform/:targetUsername/log', moderateRateLimit, async (
+  // ─── Shared Card View (Direct) ───
+  app.get('/card/:cardId', relaxedRateLimit, async (
+    request: FastifyRequest<{ Params: { cardId: string } }>,
+    reply: FastifyReply
+  ) => {
+    const { cardId } = request.params;
+
+    const card = await app.prisma.card.findUnique({
+      where: { id: cardId },
+      include: {
+        user: true,
+        cardLinks: {
+          include: { platformLink: true },
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+
+    if (!card) return reply.status(404).send({ error: 'Card not found' });
+
+    const response: CardPublicProfileResponse = {
+      id: card.id,
+      title: card.title,
+      owner: {
+        username: card.user.username,
+        displayName: card.user.displayName,
+        bio: card.user.bio,
+        avatarUrl: card.user.avatarUrl,
+        accentColor: card.user.accentColor,
+      },
+      links: card.cardLinks.map((cl) => ({
+        id: cl.platformLink.id,
+        platform: cl.platformLink.platform,
+        username: cl.platformLink.username,
+        url: cl.platformLink.url,
+      })),
+    };
+
+    return response;
+  });
+
+  // ─── Public Card View (via username + cardId) ───
+  app.get('/:username/card/:cardId', relaxedRateLimit, async (
+    request: FastifyRequest<{ Params: { username: string; cardId: string } }>,
+    reply: FastifyReply
+  ) => {
+    const { username, cardId } = request.params;
+
+    const user = await app.prisma.user.findUnique({ where: { username } });
+    if (!user) return reply.status(404).send({ error: 'User not found' });
+
+    const card = await app.prisma.card.findFirst({
+      where: { id: cardId, userId: user.id },
+      include: {
+        cardLinks: {
+          include: { platformLink: true },
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+
+    if (!card) return reply.status(404).send({ error: 'Card not found' });
+
+    let viewerId = null;
+    try {
+      if (request.headers.authorization) {
+        const decoded = (await request.jwtVerify()) as any;
+        if (decoded?.id !== user.id) viewerId = decoded.id;
+      }
+    } catch {
+      // Ignored
+    }
+
+    if (viewerId !== user.id) {
+      app.prisma.cardView.create({
+        data: {
+          ownerId: user.id,
+          cardId: card.id,
+          viewerId,
+          viewerIp: request.ip || null,
+          viewerAgent: request.headers['user-agent'] || null,
+          source: (request.query as any)?.source || 'qr',
+        },
+      }).catch((err) => app.log.error('Failed to log card view:', err));
+    }
+
+    const response: UsernameCardPublicProfileResponse = {
+      title: card.title,
+      owner: {
+        username: user.username,
+        displayName: user.displayName,
+        bio: user.bio,
+        pronouns: user.pronouns,
+        role: user.role,
+        company: user.company,
+        avatarUrl: user.avatarUrl,
+        accentColor: user.accentColor,
+      },
+      links: card.cardLinks.map((cl) => ({
+        id: cl.platformLink.id,
+        platform: cl.platformLink.platform,
+        username: cl.platformLink.username,
+        url: cl.platformLink.url,
+        displayOrder: cl.displayOrder,
+      })),
+    };
+
+    return response;
+  });
+
+  // ─── QR Code Generation ───
+  app.get('/:username/qr', qrRateLimit, async (
     request: FastifyRequest<{
-      Params: { platform: string; targetUsername: string };
-      Body: { status?: string; layer?: string };
+      Params: { username: string };
+      Querystring: { format?: string; size?: string };
     }>,
     reply: FastifyReply
   ) => {
-    const userId = (request.user as any).id;
-    const { platform, targetUsername } = request.params;
-    const { status = 'success', layer = 'webview' } = request.body || {};
+    const { username } = request.params;
+    const format = (request.query as any).format || 'png';
+    const size = parseInt((request.query as any).size || '400', 10);
 
-    try {
-      const log = await app.prisma.followLog.create({
-        data: { followerId: userId, targetUsername, platform, status, layer },
-      });
-      return reply.send({ status: 'success', logId: log.id });
-    } catch (err: any) {
-      app.log.error('Failed to log follow:', err);
-      return reply.status(500).send({ error: 'Failed to log follow event' });
+    const user = await app.prisma.user.findUnique({ where: { username } });
+    if (!user) return reply.status(404).send({ error: 'User not found' });
+
+    const profileUrl = `${process.env.PUBLIC_APP_URL}/u/${username}`;
+
+    if (format === 'svg') {
+      const svg = await generateQRSvg(profileUrl, { width: size });
+      return reply
+        .header('Content-Type', 'image/svg+xml')
+        .header('Content-Disposition', `inline; filename="devcard-${username}.svg"`)
+        .send(svg);
     }
+
+    const png = await generateQRBuffer(profileUrl, { width: size });
+    return reply
+      .header('Content-Type', 'image/png')
+      .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
+      .send(png);
   });
-
-  // ─── Clear follow log ───
-  app.delete('/:platform/:targetUsername/log', moderateRateLimit, async (
-    request: FastifyRequest<{ Params: { platform: string; targetUsername: string } }>,
-    reply: FastifyReply
-  ) => {
-    const userId = (request.user as any).id;
-    const { platform, targetUsername } = request.params;
-
-    await app.prisma.followLog.deleteMany({
-      where: { followerId: userId, platform, targetUsername },
-    });
-
-    return reply.send({ status: 'cleared' });
-  });
-}
-
-// ─── GitHub Follow ───
-async function followGitHub(
-  accessToken: string,
-  targetUsername: string,
-  reply: FastifyReply
-): Promise<{ success: boolean; response: FastifyReply }> {
-  const response = await fetch(`https://api.github.com/user/following/${targetUsername}`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/vnd.github.v3+json',
-      'Content-Length': '0',
-    },
-  });
-
-  if (response.status === 204) {
-    return {
-      success: true,
-      response: reply.send({
-        status: 'success',
-        platform: 'github',
-        targetUsername,
-        message: `Now following ${targetUsername} on GitHub`,
-      }),
-    };
-  }
-
-  if (response.status === 401 || response.status === 403) {
-    return {
-      success: false,
-      response: reply.status(401).send({
-        error: 'GitHub token expired or insufficient permissions',
-        requiresAuth: true,
-      }),
-    };
-  }
-
-  if (response.status === 404) {
-    return {
-      success: false,
-      response: reply.status(404).send({ error: `GitHub user '${targetUsername}' not found` }),
-    };
-  }
-
-  const errorBody = await response.text();
-  return {
-    success: false,
-    response: reply.status(response.status).send({ error: 'GitHub follow failed', details: errorBody }),
-  };
 }
