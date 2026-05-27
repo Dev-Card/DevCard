@@ -1,8 +1,8 @@
-import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
-import type { PlatformLink } from '@devcard/shared';
 import { getErrorMessage } from '../utils/error.util.js';
+import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 
+import type { PlatformLink } from '@devcard/shared';
+import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 // ── QR size bounds ────────────────────────────────────────────────────────────
 // Enforced before any DB query or image allocation.  Values outside this range
@@ -10,62 +10,63 @@ import { getErrorMessage } from '../utils/error.util.js';
 // unbounded memory allocation in the QR rasteriser.
 const MIN_QR_SIZE = 1;
 const MAX_QR_SIZE = 2048;
+
 type PublicProfileLink = {
   id: string;
   platform: string;
-  username: string; 
-  url: string; 
-  displayOrder: number; 
+  username: string;
+  url: string;
+  displayOrder: number;
   followed?: boolean;
-}
+};
 
-type UsernamePublicProfileResponse =  {
-  username: string; 
+type UsernamePublicProfileResponse = {
+  username: string;
   displayName: string;
-  bio: string | null; 
-  pronouns: string | null; 
-  role: string | null; 
+  bio: string | null;
+  pronouns: string | null;
+  role: string | null;
   company: string | null;
-  avatarUrl: string | null; 
+  avatarUrl: string | null;
   accentColor: string;
-  links: PublicProfileLink[]
-} 
+  links: PublicProfileLink[];
+};
 
 type PublicProfileCardLink = {
   id: string;
   platform: string;
-  username: string; 
-  url: string; 
+  username: string;
+  url: string;
   followed?: boolean;
-}
+};
 
 type CardPublicProfileResponse = {
-  id: string; 
-  title: string; 
+  id: string;
+  title: string;
   owner: {
-    username: string; 
-    displayName: string; 
+    username: string;
+    displayName: string;
     bio: string | null;
     avatarUrl: string | null;
-    accentColor: string; 
-  }; 
-  links: PublicProfileCardLink[]
-}
+    accentColor: string;
+  };
+  links: PublicProfileCardLink[];
+};
 
 type UsernameCardPublicProfileResponse = {
-  title: string; 
+  title: string;
   owner: {
-    username: string; 
+    username: string;
     displayName: string;
-    bio: string | null; 
-    pronouns: string | null; 
-    role: string | null; 
+    bio: string | null;
+    pronouns: string | null;
+    role: string | null;
     company: string | null;
-    avatarUrl: string | null; 
+    avatarUrl: string | null;
     accentColor: string;
-  }; 
-  links: PublicProfileCardLink[]
-}
+  };
+  links: PublicProfileCardLink[];
+};
 
 // Represents a CardLink record with the joined PlatformLink relation
 interface CardLinkWithPlatform {
@@ -74,8 +75,7 @@ interface CardLinkWithPlatform {
   platformLink: PlatformLink;
 }
 
-
-export async function publicRoutes(app: FastifyInstance) {
+export async function publicRoutes(app: FastifyInstance): Promise<void> {
   // ─── Public Profile ───
   app.get('/:username', {
     config: {
@@ -173,9 +173,9 @@ export async function publicRoutes(app: FastifyInstance) {
         displayOrder: link.displayOrder,
         followed: followedLinkIds.includes(link.id),
       })),
-    }
+    };
 
-    return response; 
+    return response;
 
   });
 
@@ -227,9 +227,9 @@ export async function publicRoutes(app: FastifyInstance) {
         username: cl.platformLink.username,
         url: cl.platformLink.url,
       })),
-    }
+    };
 
-    return response; 
+    return response;
 
   });
 
@@ -294,7 +294,6 @@ export async function publicRoutes(app: FastifyInstance) {
       }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`));
     }
 
-
     const response: UsernameCardPublicProfileResponse = {
       title: card.title,
       owner: {
@@ -314,8 +313,8 @@ export async function publicRoutes(app: FastifyInstance) {
         url: cl.platformLink.url,
         displayOrder: cl.displayOrder,
       })),
-    }
-    return response; 
+    };
+    return response;
   });
 
   // ─── QR Code Generation ───
