@@ -1,42 +1,34 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-import cookie from '@fastify/cookie';
+import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
+import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { config } from './config.js';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
-import { analyticsRoutes } from './routes/analytics.js';
+import { rateLimitPlugin } from './plugins/rate-limit.js';
 import { authRoutes } from './routes/auth.js';
-import { cardRoutes } from './routes/cards.js';
-import { connectRoutes } from './routes/connect.js';
-import { eventRoutes } from './routes/event.js';
-import { followRoutes } from './routes/follow.js';
-import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
+import { cardRoutes } from './routes/cards.js';
 import { publicRoutes } from './routes/public.js';
-import { validateEnv } from './utils/validateEnv.js';
+import { followRoutes } from './routes/follow.js';
+import { connectRoutes } from './routes/connect.js';
+import { analyticsRoutes } from './routes/analytics.js';
+import { nfcRoutes } from './routes/nfc.js';
+import { eventRoutes } from './routes/event.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function buildApp():Promise<FastifyInstance> {
-  // Validate all required secrets before registering any plugin.
-  // If validation fails the process exits here — no partially-initialised
-  // auth state can exist because Fastify is not yet instantiated.
-  validateEnv();
-
+export async function buildApp() {
   const app = Fastify({
     logger: {
-      level: config.server.nodeEnv === 'production' ? 'info' : 'debug',
+      level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
       transport:
-        config.server.nodeEnv !== 'production'
+        process.env.NODE_ENV !== 'production'
           ? { target: 'pino-pretty', options: { colorize: true } }
           : undefined,
     },
@@ -44,7 +36,7 @@ export async function buildApp():Promise<FastifyInstance> {
 
   // ─── Core Plugins ───
   await app.register(cors, {
-    origin: config.app.publicUrl,
+    origin: process.env.PUBLIC_APP_URL || 'http://localhost:5173',
     credentials: true,
   });
 
@@ -66,15 +58,11 @@ export async function buildApp():Promise<FastifyInstance> {
   });
 
   await app.register(jwt, {
-    secret: config.jwt.secret,
+    secret: process.env.JWT_SECRET || 'dev-secret-change-me',
   });
 
   await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
-  await app.register(rateLimit, {
-    max: 100,
-    timeWindow: '1 minute',
-  });
 
   // Static file serving for uploads
   await app.register(fastifyStatic, {
@@ -84,17 +72,24 @@ export async function buildApp():Promise<FastifyInstance> {
   });
 
   // ─── Database & Cache Plugins ───
- if (process.env.NODE_ENV !== 'test') {
-  await app.register(prismaPlugin); //change 
-}
-  if (process.env.NODE_ENV !== 'test') {
+  // Redis must be registered before rateLimitPlugin because the rate limiter
+  // decorates `app.redis` as its backing store.
+  await app.register(prismaPlugin);
   await app.register(redisPlugin);
-}
+
+  // ─── Rate Limiting ───
+  // Registered after Redis so app.redis is available to the plugin.
+  // The global default is the RELAXED tier (100 req/min per IP).
+  // Sensitive routes override this via their own `config.rateLimit` option —
+  // see routes/auth.ts and routes/connect.ts for STRICT, and routes/profiles.ts
+  // / routes/cards.ts for MODERATE.
+  await app.register(rateLimitPlugin);
+
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
-    } catch (_err) {
+    } catch (err) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
@@ -111,12 +106,12 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(eventRoutes, { prefix: '/api/events' });
 
   // ─── Health Check ───
-type HealthResponse = {
-  status: 'ok';
-};
+  // Excluded from rate limiting via the `skip` function in rateLimitPlugin.
+  app.get('/health', async () => ({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'devcard-api',
+  }));
 
-app.get('/health', async (): Promise<HealthResponse> => {
-  return { status: 'ok' };
-});
   return app;
 }
