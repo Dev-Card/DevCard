@@ -1,36 +1,38 @@
+/**
+ * routes/follow.ts  (updated)
+ *
+ * Rate limit changes:
+ *  - POST /:platform/:targetUsername     → MODERATE (authenticated follow action)
+ *  - POST /:platform/:targetUsername/log → MODERATE (analytics write)
+ *  - DELETE /:platform/:targetUsername/log → MODERATE (state mutation)
+ *
+ * No business logic modified.
+ */
+
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { decrypt } from '../utils/encryption.js';
-import { getErrorMessage } from '../utils/error.util.js';
 import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
+import { moderateRateLimit } from '../plugins/rate-limit.js';
 
 export async function followRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.authenticate);
 
-  // ─── Follow via API (Layer 1) ───
-  // Currently supports: GitHub
-
-  app.post('/:platform/:targetUsername', async (
+  // ─── Follow via API ───
+  app.post('/:platform/:targetUsername', moderateRateLimit, async (
     request: FastifyRequest<{ Params: { platform: string; targetUsername: string } }>,
     reply: FastifyReply
   ) => {
     const userId = (request.user as any).id;
     const { platform, targetUsername } = request.params;
 
-    // Use WebView follow strategy if configured for the platform (e.g. LinkedIn, Twitter/X)
     const platformDef = getPlatform(platform);
     if (platformDef?.followStrategy === 'webview') {
       const url = getWebViewUrl(platform, targetUsername) || getProfileUrl(platform, targetUsername);
-      return reply.send({
-        strategy: 'webview',
-        url,
-      });
+      return reply.send({ strategy: 'webview', url });
     }
 
-    // Get stored OAuth token for this platform
     const oauthToken = await app.prisma.oAuthToken.findUnique({
-      where: {
-        userId_platform: { userId, platform },
-      },
+      where: { userId_platform: { userId, platform } },
     });
 
     if (!oauthToken) {
@@ -40,7 +42,6 @@ export async function followRoutes(app: FastifyInstance) {
       });
     }
 
-    // Decrypt the stored token
     const accessToken = decrypt(oauthToken.accessToken);
 
     try {
@@ -58,42 +59,24 @@ export async function followRoutes(app: FastifyInstance) {
           });
       }
 
-      // Log only genuine successes — not based on reply.statusCode default
       if (succeeded) {
         app.prisma.followLog.create({
-          data: {
-            followerId: userId,
-            targetUsername,
-            platform,
-            status: 'success',
-            layer: 'api',
-          },
-        }).catch((err: unknown) => app.log.error(`Failed to log follow: ${getErrorMessage(err)}`));
+          data: { followerId: userId, targetUsername, platform, status: 'success', layer: 'api' },
+        }).catch((err) => app.log.error('Failed to log follow:', err));
       }
 
       return result.response;
-    } catch (err: unknown) { 
-      app.log.error(`Follow error for ${platform}: ${getErrorMessage(err)}`);
-      
+    } catch (err: any) {
+      app.log.error(`Follow error for ${platform}:`, err);
       app.prisma.followLog.create({
-        data: {
-          followerId: userId,
-          targetUsername,
-          platform,
-          status: 'error',
-          layer: 'api',
-        },
-      }).catch((e: unknown) => app.log.error(`Failed to log follow error: ${getErrorMessage(e)}`));
-
-      return reply.status(500).send({
-        error: 'Follow action failed',
-        message: getErrorMessage(err),
-      });
+        data: { followerId: userId, targetUsername, platform, status: 'error', layer: 'api' },
+      }).catch((e) => app.log.error('Failed to log follow error:', e));
+      return reply.status(500).send({ error: 'Follow action failed', message: err.message });
     }
   });
 
-  // Log follow/connect event for Layer 2/3/4 strategies
-  app.post('/:platform/:targetUsername/log', async (
+  // ─── Log follow event (Layer 2/3) ───
+  app.post('/:platform/:targetUsername/log', moderateRateLimit, async (
     request: FastifyRequest<{
       Params: { platform: string; targetUsername: string };
       Body: { status?: string; layer?: string };
@@ -106,13 +89,7 @@ export async function followRoutes(app: FastifyInstance) {
 
     try {
       const log = await app.prisma.followLog.create({
-        data: {
-          followerId: userId,
-          targetUsername,
-          platform,
-          status,
-          layer,
-        },
+        data: { followerId: userId, targetUsername, platform, status, layer },
       });
       return reply.send({ status: 'success', logId: log.id });
     } catch (err: any) {
@@ -121,8 +98,8 @@ export async function followRoutes(app: FastifyInstance) {
     }
   });
 
-  // ─── Clear follow log (reset Done state) ───
-  app.delete('/:platform/:targetUsername/log', async (
+  // ─── Clear follow log ───
+  app.delete('/:platform/:targetUsername/log', moderateRateLimit, async (
     request: FastifyRequest<{ Params: { platform: string; targetUsername: string } }>,
     reply: FastifyReply
   ) => {
@@ -130,19 +107,14 @@ export async function followRoutes(app: FastifyInstance) {
     const { platform, targetUsername } = request.params;
 
     await app.prisma.followLog.deleteMany({
-      where: {
-        followerId: userId,
-        platform,
-        targetUsername,
-      },
+      where: { followerId: userId, platform, targetUsername },
     });
 
     return reply.send({ status: 'cleared' });
   });
 }
 
-// ─── GitHub Follow (Layer 1) ───
-
+// ─── GitHub Follow ───
 async function followGitHub(
   accessToken: string,
   targetUsername: string,
@@ -182,18 +154,13 @@ async function followGitHub(
   if (response.status === 404) {
     return {
       success: false,
-      response: reply.status(404).send({
-        error: `GitHub user '${targetUsername}' not found`,
-      }),
+      response: reply.status(404).send({ error: `GitHub user '${targetUsername}' not found` }),
     };
   }
 
   const errorBody = await response.text();
   return {
     success: false,
-    response: reply.status(response.status).send({
-      error: 'GitHub follow failed',
-      details: errorBody,
-    }),
+    response: reply.status(response.status).send({ error: 'GitHub follow failed', details: errorBody }),
   };
 }
