@@ -8,7 +8,7 @@ import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
-import Fastify, {type FastifyInstance} from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
@@ -25,7 +25,7 @@ import { validateEnv } from './utils/validateEnv.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function buildApp():Promise<FastifyInstance> {
+export async function buildApp(): Promise<FastifyInstance> {
   // Validate all required secrets before registering any plugin.
   // If validation fails the process exits here — no partially-initialised
   // auth state can exist because Fastify is not yet instantiated.
@@ -84,12 +84,13 @@ export async function buildApp():Promise<FastifyInstance> {
   });
 
   // ─── Database & Cache Plugins ───
- if (process.env.NODE_ENV !== 'test') {
-  await app.register(prismaPlugin); //change 
-}
   if (process.env.NODE_ENV !== 'test') {
-  await app.register(redisPlugin);
-}
+    await app.register(prismaPlugin);
+  }
+  if (process.env.NODE_ENV !== 'test') {
+    await app.register(redisPlugin);
+  }
+
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
@@ -107,15 +108,17 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-await app.register(nfcRoutes, { prefix: '/api/nfc' });
-    await app.register(eventRoutes, { prefix: '/api/events' });
-  // ─── Health Check ───
-type HealthResponse = {
-  status: 'ok';
-};
+  await app.register(nfcRoutes, { prefix: '/api/nfc' });
+  await app.register(eventRoutes, { prefix: '/api/events' });
 
-app.get('/health', async (): Promise<HealthResponse> => {
-  return { status: 'ok' };
-});
+  // ─── Health Check ───
+  type HealthResponse = {
+    status: 'ok';
+  };
+
+  app.get('/health', async (): Promise<HealthResponse> => {
+    return { status: 'ok' };
+  });
+
   return app;
 }
