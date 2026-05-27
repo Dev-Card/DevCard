@@ -1,3 +1,4 @@
+import { getRequestUserId } from '../utils/auth.util.js';
 import { createEventSchema } from '../validations/event.validation.js';
 
 import type { Prisma } from '@prisma/client';
@@ -69,23 +70,6 @@ type EventAccessSubject = {
   isPublic: boolean;
   organizerId: string;
 };
-
-/**
- * Extracts the authenticated user ID from the Bearer JWT when present.
- * Returns null for unauthenticated requests or invalid/expired tokens.
- * Never throws — safe to call on any request regardless of auth state.
- */
-async function getRequestUserId(request: FastifyRequest): Promise<string | null> {
-  if (!request.headers.authorization) {
-    return null;
-  }
-  try {
-    const decoded = (await request.jwtVerify()) as { id: string };
-    return decoded?.id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Determines whether a caller may view the given event.
