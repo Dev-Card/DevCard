@@ -1,6 +1,27 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import DevCardSkeleton from '$lib/components/DevCardSkeleton.svelte';
+
 	let { data } = $props();
 	const card = $derived(data.card);
+	const skeletonTileCount = $derived(Math.min(Math.max(card.links?.length || 3, 3), 5));
+
+	let mounted = $state(false);
+	let showSkeleton = $state(true);
+
+	onMount(() => {
+		const frame = requestAnimationFrame(() => {
+			mounted = true;
+		});
+		const timer = setTimeout(() => {
+			showSkeleton = false;
+		}, 360);
+
+		return () => {
+			cancelAnimationFrame(frame);
+			clearTimeout(timer);
+		};
+	});
 
 	function getPlatformColor(platform: string) {
 		const colors: Record<string, string> = {
@@ -15,8 +36,8 @@
 		return colors[platform.toLowerCase()] || '#6366F1';
 	}
 
-	function handlePlatformClick(link: any) {
-		window.open(link.url, '_blank');
+	function handlePlatformClick(link: { url: string }) {
+		window.open(link.url, '_blank', 'noopener,noreferrer');
 	}
 </script>
 
@@ -26,78 +47,84 @@
 </svelte:head>
 
 <div class="page-container">
-	<div class="card-wrapper">
-		<!-- Premium Obsidian Card -->
-		<div class="premium-card">
-			<div class="card-glass"></div>
-			
-			<div class="card-top">
-				<div class="brand-row">
-					<div class="mini-chip"></div>
-					<span class="brand-text">DevCard PRO</span>
+	<div class="card-stage">
+		{#if showSkeleton}
+			<div class="loading-layer" class:exiting={mounted}>
+				<DevCardSkeleton linkCount={skeletonTileCount} />
+			</div>
+		{/if}
+
+		<div class="card-wrapper real-card {mounted ? 'loaded' : 'pre-load'}">
+			<div class="premium-card">
+				<div class="card-glass"></div>
+
+				<div class="card-top">
+					<div class="brand-row">
+						<div class="mini-chip"></div>
+						<span class="brand-text">DevCard PRO</span>
+					</div>
+					<span class="contactless">NFC</span>
 				</div>
-				<span class="contactless">📶</span>
+
+				<div class="card-mid">
+					<div class="avatar-container">
+						{#if card.owner.avatarUrl}
+							<img src={card.owner.avatarUrl} alt={card.owner.displayName} class="avatar" />
+						{:else}
+							<div class="avatar-placeholder" style="background: {card.owner.accentColor || '#6366F1'}">
+								{card.owner.displayName.charAt(0).toUpperCase()}
+							</div>
+						{/if}
+					</div>
+					<div class="main-info">
+						<h1>{card.owner.displayName}</h1>
+						<p class="role">
+							{card.owner.role || 'Developer'}{card.owner.company ? ` @ ${card.owner.company}` : ''}
+						</p>
+						{#if card.owner.pronouns}
+							<p class="pronouns">{card.owner.pronouns}</p>
+						{/if}
+					</div>
+				</div>
+
+				<div class="card-bottom">
+					<div class="bio-container">
+						{#if card.owner.bio}
+							<p class="bio-text">{card.owner.bio}</p>
+						{/if}
+					</div>
+					<div class="card-badge">
+						<span>PLATINUM</span>
+					</div>
+				</div>
 			</div>
 
-			<div class="card-mid">
-				<div class="avatar-container">
-					{#if card.owner.avatarUrl}
-						<img src={card.owner.avatarUrl} alt={card.owner.displayName} class="avatar" />
-					{:else}
-						<div class="avatar-placeholder" style="background: {card.owner.accentColor || '#6366F1'}">
-							{card.owner.displayName.charAt(0).toUpperCase()}
-						</div>
-					{/if}
-				</div>
-				<div class="main-info">
-					<h1>{card.owner.displayName}</h1>
-					<p class="role">
-						{card.owner.role || 'Developer'}{card.owner.company ? ` @ ${card.owner.company}` : ''}
-					</p>
-					{#if card.owner.pronouns}
-						<p class="pronouns">{card.owner.pronouns}</p>
-					{/if}
+			<div class="action-section">
+				<h2>Connections</h2>
+				<div class="platform-grid">
+					{#each card.links as link}
+						<button
+							class="platform-tile"
+							onclick={() => handlePlatformClick(link)}
+							style="--brand-color: {getPlatformColor(link.platform)}"
+						>
+							<div class="tile-icon">
+								{link.platform.charAt(0).toUpperCase()}
+							</div>
+							<div class="tile-info">
+								<span class="platform-name">{link.platform}</span>
+								<span class="username">@{link.username}</span>
+							</div>
+							<div class="tile-arrow">&rarr;</div>
+						</button>
+					{/each}
 				</div>
 			</div>
 
-			<div class="card-bottom">
-				<div class="bio-container">
-					{#if card.owner.bio}
-						<p class="bio-text">{card.owner.bio}</p>
-					{/if}
-				</div>
-				<div class="card-badge">
-					<span>PLATINUM</span>
-				</div>
-			</div>
+			<footer class="footer">
+				<p>Powered by <a href="/">DevCard</a> &#9889;</p>
+			</footer>
 		</div>
-
-		<!-- Action Section -->
-		<div class="action-section">
-			<h2>Connections</h2>
-			<div class="platform-grid">
-				{#each card.links as link}
-					<button 
-						class="platform-tile" 
-						onclick={() => handlePlatformClick(link)}
-						style="--brand-color: {getPlatformColor(link.platform)}"
-					>
-						<div class="tile-icon">
-							{link.platform.charAt(0).toUpperCase()}
-						</div>
-						<div class="tile-info">
-							<span class="platform-name">{link.platform}</span>
-							<span class="username">@{link.username}</span>
-						</div>
-						<div class="tile-arrow">→</div>
-					</button>
-				{/each}
-			</div>
-		</div>
-		
-		<footer class="footer">
-			<p>Powered by <a href="/">DevCard</a> ⚡</p>
-		</footer>
 	</div>
 </div>
 
@@ -116,6 +143,24 @@
 		padding: clamp(2rem, 6vw, 4rem) 1.25rem;
 	}
 
+	.card-stage {
+		position: relative;
+		width: 100%;
+		max-width: 560px;
+	}
+
+	.loading-layer {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		opacity: 1;
+		transition: opacity 0.28s ease;
+	}
+
+	.loading-layer.exiting {
+		opacity: 0;
+	}
+
 	.card-wrapper {
 		width: 100%;
 		max-width: 560px;
@@ -124,7 +169,20 @@
 		gap: 1.75rem;
 	}
 
-	/* Premium Card Styles */
+	.real-card {
+		transition: opacity 0.48s ease, transform 0.48s ease;
+	}
+
+	.real-card.pre-load {
+		opacity: 0;
+		transform: translateY(14px);
+	}
+
+	.real-card.loaded {
+		opacity: 1;
+		transform: translateY(0);
+	}
+
 	.premium-card {
 		background: rgba(15, 23, 42, 0.96);
 		border-radius: 32px;
@@ -176,7 +234,9 @@
 	}
 
 	.contactless {
-		font-size: 22px;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.14em;
 		opacity: 0.35;
 	}
 
@@ -208,11 +268,16 @@
 		background: rgba(99, 102, 241, 0.18);
 	}
 
+	.main-info {
+		min-width: 0;
+	}
+
 	.main-info h1 {
 		margin: 0;
 		font-size: clamp(2.1rem, 4vw, 2.5rem);
 		font-weight: 800;
-		letter-spacing: -0.6px;
+		letter-spacing: 0;
+		overflow-wrap: anywhere;
 	}
 
 	.role {
@@ -244,6 +309,7 @@
 		line-height: 1.75;
 		color: rgba(255, 255, 255, 0.72);
 		max-width: 320px;
+		overflow-wrap: anywhere;
 	}
 
 	.card-badge {
@@ -261,7 +327,6 @@
 		text-transform: uppercase;
 	}
 
-	/* Action Section */
 	h2 {
 		font-size: 0.85rem;
 		text-transform: uppercase;
@@ -312,6 +377,7 @@
 		font-size: 1.05rem;
 		font-weight: 800;
 		box-shadow: 0 10px 20px -12px rgba(0, 0, 0, 0.4);
+		flex-shrink: 0;
 	}
 
 	.tile-info {
@@ -320,19 +386,22 @@
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
+		text-align: left;
 	}
 
 	.platform-name {
 		font-size: 1rem;
 		font-weight: 700;
-		letter-spacing: -0.02em;
+		letter-spacing: 0;
 		color: #f8fafc;
+		overflow-wrap: anywhere;
 	}
 
 	.username {
 		font-size: 0.91rem;
 		color: rgba(148, 163, 184, 0.95);
 		margin-top: 0.2rem;
+		overflow-wrap: anywhere;
 	}
 
 	.tile-arrow {
@@ -359,17 +428,53 @@
 		text-decoration: none;
 	}
 
+	@media (prefers-reduced-motion: reduce) {
+		.loading-layer,
+		.real-card,
+		.platform-tile,
+		.tile-arrow {
+			transition: none;
+		}
+
+		.real-card.pre-load {
+			transform: none;
+		}
+	}
+
 	@media (max-width: 780px) {
-		.card-wrapper { max-width: 100%; }
-		.premium-card { min-height: auto; padding: 28px; }
-		.card-mid { flex-direction: column; align-items: flex-start; }
-		.card-bottom { flex-direction: column; align-items: flex-start; }
+		.card-wrapper,
+		.card-stage {
+			max-width: 100%;
+		}
+
+		.premium-card {
+			min-height: auto;
+			padding: 28px;
+		}
+
+		.card-mid,
+		.card-bottom {
+			flex-direction: column;
+			align-items: flex-start;
+		}
 	}
 
 	@media (max-width: 560px) {
-		.page-container { padding: 2rem 1rem; }
-		.main-info h1 { font-size: 2rem; }
-		.tile-icon { width: 42px; height: 42px; }
-		.platform-tile { padding: 14px; }
+		.page-container {
+			padding: 2rem 1rem;
+		}
+
+		.main-info h1 {
+			font-size: 2rem;
+		}
+
+		.tile-icon {
+			width: 42px;
+			height: 42px;
+		}
+
+		.platform-tile {
+			padding: 14px;
+		}
 	}
 </style>

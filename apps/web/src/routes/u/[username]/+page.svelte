@@ -1,10 +1,11 @@
 <script lang="ts">
   import { PLATFORMS, getProfileUrl } from '@devcard/shared';
   import { onMount } from 'svelte';
+  import ProfileSkeleton from '$lib/components/ProfileSkeleton.svelte';
 
   let { data } = $props();
-  const profile = data.profile;
-  const error = data.error;
+  const profile = $derived(data.profile);
+  const error = $derived(data.error);
 
   const platformColors: Record<string, string> = {
     github: '#181717', linkedin: '#0A66C2', twitter: '#000000',
@@ -15,17 +16,25 @@
   };
 
   let mounted = $state(false);
+  let showSkeleton = $state(true);
   let copyMessage = $state('');
   let copyStatus = $state<'success' | 'error'>('success');
-  let copyMessageTimeout: ReturnType<typeof setTimeout>;
+  let copyTimeout: ReturnType<typeof setTimeout>;
+  const skeletonLinkCount = $derived(Math.min(Math.max(profile?.links?.length || 3, 3), 5));
+  const shouldShowSkeleton = $derived(Boolean(showSkeleton && profile && !error));
 
   onMount(() => {
-    mounted = true;
+    const frame = requestAnimationFrame(() => {
+      mounted = true;
+    });
+    const skeletonTimer = setTimeout(() => {
+      showSkeleton = false;
+    }, 360);
 
     return () => {
-      if (copyMessageTimeout) {
-        clearTimeout(copyMessageTimeout);
-      }
+      cancelAnimationFrame(frame);
+      clearTimeout(skeletonTimer);
+      if (copyTimeout) clearTimeout(copyTimeout);
     };
   });
 
@@ -33,11 +42,7 @@
     copyMessage = message;
     copyStatus = status;
 
-    if (copyMessageTimeout) {
-      clearTimeout(copyMessageTimeout);
-    }
-
-    clearTimeout(copyTimeout);
+    if (copyTimeout) clearTimeout(copyTimeout);
 
     copyTimeout = setTimeout(() => {
       copyMessage = '';
@@ -70,85 +75,93 @@
 
 <div class="bg-gradient" style="--accent: {profile?.accentColor || '#6366f1'}"></div>
 
-<main class="profile-container {mounted ? 'loaded' : ''}">
-  {#if error || !profile}
-    <div class="error-glass glass">
-      <div class="error-emoji">😕</div>
-      <h1>Profile not found</h1>
-      <p>This DevCard has vanished into the digital void.</p>
-      <a href="/" class="btn-primary">Return Home</a>
-    </div>
-  {:else}
-    <div class="profile-card glass" style="--accent: {profile.accentColor}">
-      <header class="profile-header">
-        <div class="avatar-wrapper">
-          {#if profile.avatarUrl}
-            <img src={profile.avatarUrl} alt={profile.displayName} class="avatar" />
-          {:else}
-            <div class="avatar avatar-placeholder" style="background: {profile.accentColor}">
-              {profile.displayName.charAt(0).toUpperCase()}
-            </div>
-          {/if}
-          <div class="avatar-glow" style="background: {profile.accentColor}"></div>
-        </div>
-        
-        <h1 class="display-name">{profile.displayName}</h1>
-        {#if profile.role}
-          <div class="role-badge">
-            {profile.role}{profile.company ? ` @ ${profile.company}` : ''}
-          </div>
-        {/if}
-        
-        {#if profile.bio}
-          <p class="bio">{profile.bio}</p>
-        {/if}
-      </header>
-
-      <div class="links-grid">
-        {#each profile.links as link, i}
-          {@const platform = PLATFORMS[link.platform]}
-          {@const color = platformColors[link.platform] || '#6366f1'}
-          <a
-            href={link.url || getProfileUrl(link.platform, link.username)}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="link-tile glass"
-            style="--delay: {i * 0.1}s"
-          >
-            <div class="tile-icon" style="background: {color}">
-              <span class="platform-initial">{platform?.name.charAt(0) || '?'}</span>
-            </div>
-            <div class="tile-content">
-              <span class="platform-name">{platform?.name || link.platform}</span>
-              <span class="username">@{link.username}</span>
-            </div>
-            <span class="arrow">→</span>
-          </a>
-        {/each}
-      </div>
-      
-      <footer class="card-footer">
-        <p>Verified Developer Profile</p>
-        <div class="logo-sm">⚡ DevCard</div>
-      </footer>
-    </div>
-
-    <div class="get-your-own">
-      <p>Want a card like this?</p>
-      <div class="profile-actions">
-        <a href="/" class="gradient-text get-devcard-link">Create your DevCard ⚡</a>
-        <button type="button" class="copy-link-button" onclick={copyProfileUrl}>
-          Copy Link
-        </button>
-      </div>
-      {#if copyMessage}
-        <p class="copy-message {copyStatus}" aria-live="polite">
-          {copyMessage}
-        </p>
-      {/if}
+<div class="profile-stage">
+  {#if shouldShowSkeleton}
+    <div class="loading-layer" class:exiting={mounted}>
+      <ProfileSkeleton linkCount={skeletonLinkCount} />
     </div>
   {/if}
-</main>
+
+  <main class="profile-container {mounted ? 'loaded' : 'pre-load'}">
+    {#if error || !profile}
+      <div class="error-glass glass">
+        <div class="error-emoji">?</div>
+        <h1>Profile not found</h1>
+        <p>This DevCard is unavailable or has moved.</p>
+        <a href="/" class="btn-primary">Return Home</a>
+      </div>
+    {:else}
+      <div class="profile-card glass" style="--accent: {profile.accentColor}">
+        <header class="profile-header">
+          <div class="avatar-wrapper">
+            {#if profile.avatarUrl}
+              <img src={profile.avatarUrl} alt={profile.displayName} class="avatar" />
+            {:else}
+              <div class="avatar avatar-placeholder" style="background: {profile.accentColor}">
+                {profile.displayName.charAt(0).toUpperCase()}
+              </div>
+            {/if}
+            <div class="avatar-glow" style="background: {profile.accentColor}"></div>
+          </div>
+
+          <h1 class="display-name">{profile.displayName}</h1>
+          {#if profile.role}
+            <div class="role-badge">
+              {profile.role}{profile.company ? ` @ ${profile.company}` : ''}
+            </div>
+          {/if}
+
+          {#if profile.bio}
+            <p class="bio">{profile.bio}</p>
+          {/if}
+        </header>
+
+        <div class="links-grid">
+          {#each profile.links as link, i}
+            {@const platform = PLATFORMS[link.platform]}
+            {@const color = platformColors[link.platform] || '#6366f1'}
+            <a
+              href={link.url || getProfileUrl(link.platform, link.username)}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="link-tile glass"
+              style="--delay: {i * 0.1}s"
+            >
+              <div class="tile-icon" style="background: {color}">
+                <span class="platform-initial">{platform?.name.charAt(0) || '?'}</span>
+              </div>
+              <div class="tile-content">
+                <span class="platform-name">{platform?.name || link.platform}</span>
+                <span class="username">@{link.username}</span>
+              </div>
+              <span class="arrow">&rarr;</span>
+            </a>
+          {/each}
+        </div>
+
+        <footer class="card-footer">
+          <p>Verified Developer Profile</p>
+          <div class="logo-sm">&#9889; DevCard</div>
+        </footer>
+      </div>
+
+      <div class="get-your-own">
+        <p>Want a card like this?</p>
+        <div class="profile-actions">
+          <a href="/" class="gradient-text get-devcard-link">Create your DevCard &#9889;</a>
+          <button type="button" class="copy-link-button" onclick={copyProfileUrl}>
+            Copy Link
+          </button>
+        </div>
+        {#if copyMessage}
+          <p class="copy-message {copyStatus}" aria-live="polite">
+            {copyMessage}
+          </p>
+        {/if}
+      </div>
+    {/if}
+  </main>
+</div>
 
 <style>
   .bg-gradient {
@@ -163,20 +176,41 @@
     z-index: -1;
   }
 
+  .profile-stage {
+    position: relative;
+    min-height: 100vh;
+  }
+
+  .loading-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    opacity: 1;
+    transition: opacity 0.28s ease;
+  }
+
+  .loading-layer.exiting {
+    opacity: 0;
+  }
+
   .profile-container {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: clamp(2rem, 6vw, 5rem) 1.25rem 3rem;
+  }
+
+  .profile-container.pre-load {
     opacity: 0;
-    transform: translateY(22px);
-    transition: opacity 0.65s ease, transform 0.65s ease;
+    transform: translateY(14px);
+    transition: opacity 0.48s ease, transform 0.48s ease;
   }
 
   .profile-container.loaded {
     opacity: 1;
     transform: translateY(0);
+    transition: opacity 0.48s ease, transform 0.48s ease;
   }
 
   .profile-card {
@@ -228,8 +262,9 @@
   .display-name {
     font-size: clamp(2rem, 4vw, 2.5rem);
     font-weight: 800;
-    letter-spacing: -0.5px;
+    letter-spacing: 0;
     margin-bottom: 0.75rem;
+    overflow-wrap: anywhere;
   }
 
   .role-badge {
@@ -244,6 +279,8 @@
     font-weight: 700;
     color: var(--text-secondary);
     margin-bottom: 1rem;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .bio {
@@ -252,6 +289,7 @@
     line-height: 1.85;
     max-width: 640px;
     margin: 0 auto;
+    overflow-wrap: anywhere;
   }
 
   .links-grid {
@@ -302,17 +340,20 @@
     font-weight: 800;
     font-size: 1.1rem;
     box-shadow: 0 8px 18px -10px rgba(0,0,0,0.4);
+    flex-shrink: 0;
   }
 
   .tile-content {
     flex: 1;
     margin-left: 1.1rem;
+    min-width: 0;
   }
 
   .platform-name {
     display: block;
     font-weight: 700;
     font-size: 1rem;
+    overflow-wrap: anywhere;
   }
 
   .username {
@@ -320,6 +361,7 @@
     font-size: 0.9rem;
     color: var(--text-muted);
     margin-top: 0.1rem;
+    overflow-wrap: anywhere;
   }
 
   .arrow {
@@ -418,6 +460,27 @@
     padding: 3rem;
     border-radius: var(--radius-xl);
     width: min(100%, 520px);
+  }
+
+  .error-emoji {
+    font-size: 2.5rem;
+    line-height: 1;
+    margin-bottom: 1rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .loading-layer,
+    .profile-container,
+    .link-tile,
+    .arrow,
+    .copy-link-button {
+      animation: none;
+      transition: none;
+    }
+
+    .profile-container.pre-load {
+      transform: none;
+    }
   }
 
   @media (max-width: 720px) {
