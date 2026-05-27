@@ -1,101 +1,161 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type {
+  FastifyInstance,
+  FastifyRequest,
+  FastifyReply,
+} from 'fastify';
 
-export async function analyticsRoutes(app: FastifyInstance) {
-  
-  app.get('/overview', {
-    preHandler: [app.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+export async function analyticsRoutes(
+  app: FastifyInstance
+): Promise<void> {
 
-    const [totalViews, viewsToday, totalFollows, recentViews] = await Promise.all([
-      // Total views of this user's cards/profile
-      app.prisma.cardView.count({
-        where: { ownerId: userId },
-      }),
-      // Views today
-      app.prisma.cardView.count({
-        where: { ownerId: userId, createdAt: { gte: today } },
-      }),
-      // Follows performed BY this user
-      app.prisma.followLog.count({
-        where: { followerId: userId, status: 'success' },
-      }),
-      // Recent views (last 5)
-      app.prisma.cardView.findMany({
-        where: { ownerId: userId },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        include: {
-          viewer: {
-            select: { displayName: true, avatarUrl: true },
+  app.get(
+    '/overview',
+    {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      preHandler: [app.authenticate],
+    },
+    async (
+      request: FastifyRequest,
+      _reply: FastifyReply
+    ) => {
+      const userId = (request.user as any).id;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const [totalViews, viewsToday, totalFollows, recentViews] = await Promise.all([
+        // Total views of this user's cards/profile
+        app.prisma.cardView.count({
+          where: { ownerId: userId },
+        }),
+
+        // Views today
+        app.prisma.cardView.count({
+          where: {
+            ownerId: userId,
+            createdAt: { gte: today },
           },
-          card: {
-            select: { title: true },
+        }),
+
+        // Follows performed BY this user
+        app.prisma.followLog.count({
+          where: {
+            followerId: userId,
+            status: 'success',
           },
-        },
-      }),
-    ]);
+        }),
 
-    // Count unique viewers
-    // In raw SQL this is `SELECT COUNT(DISTINCT viewer_id) FROM card_views WHERE owner_id = ?`
-    // Prisma group-by as workaround:
-    const uniqueViewersQuery = await app.prisma.cardView.groupBy({
-      by: ['viewerId', 'viewerIp'],
-      where: { ownerId: userId },
-    });
-    const uniqueViewers = uniqueViewersQuery.length;
+        // Recent views (last 5)
+        app.prisma.cardView.findMany({
+          where: { ownerId: userId },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: {
+            viewer: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+            card: {
+              select: {
+                title: true,
+              },
+            },
+          },
+        }),
+      ]);
 
-    return {
-      totalViews,
-      viewsToday,
-      totalFollows,
-      uniqueViewers,
-      recentViews,
-    };
-  });
+      // Count unique viewers
+      // In raw SQL this is `SELECT COUNT(DISTINCT viewer_id) FROM card_views WHERE owner_id = ?`
+      // Prisma group-by as workaround:
+      const uniqueViewersQuery =
+        await app.prisma.cardView.groupBy({
+          by: ['viewerId', 'viewerIp'],
+          where: { ownerId: userId },
+        });
 
-  app.get('/views', {
-    preHandler: [app.authenticate],
-  }, async (request: FastifyRequest<{ Querystring: { page?: string, cardId?: string } }>, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
-    const page = parseInt(request.query.page || '1', 10);
-    const limit = 20;
-    const skip = (page - 1) * limit;
-    
-    const whereClause: any = { ownerId: userId };
-    if (request.query.cardId) {
-      whereClause.cardId = request.query.cardId;
+      const uniqueViewers = uniqueViewersQuery.length;
+
+      return {
+        totalViews,
+        viewsToday,
+        totalFollows,
+        uniqueViewers,
+        recentViews,
+      };
     }
+  );
 
-    const [total, views] = await Promise.all([
-      app.prisma.cardView.count({ where: whereClause }),
-      app.prisma.cardView.findMany({
-        where: whereClause,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-        include: {
-          viewer: {
-            select: { id: true, username: true, displayName: true, avatarUrl: true },
-          },
-          card: {
-            select: { id: true, title: true },
-          },
-        },
-      }),
-    ]);
-
-    return {
-      data: views,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+  app.get<{
+    Querystring: {
+      page?: string;
+      cardId?: string;
     };
-  });
+  }>(
+    '/views',
+    {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      preHandler: [app.authenticate],
+    },
+    async (
+      request: FastifyRequest<{
+        Querystring: {
+          page?: string;
+          cardId?: string;
+        };
+      }>,
+      _reply: FastifyReply
+    ) => {
+      const userId = (request.user as any).id;
+      const page = parseInt(request.query.page || '1', 10);
+      const limit = 20;
+      const skip = (page - 1) * limit;
+
+      const whereClause: any = { ownerId: userId };
+
+      if (request.query.cardId) {
+        whereClause.cardId = request.query.cardId;
+      }
+
+      const [total, views] = await Promise.all([
+        app.prisma.cardView.count({
+          where: whereClause,
+        }),
+
+        app.prisma.cardView.findMany({
+          where: whereClause,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+          include: {
+            viewer: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+            card: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      return {
+        data: views,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    }
+  );
 }
