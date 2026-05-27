@@ -76,12 +76,8 @@ export async function buildApp():Promise<FastifyInstance> {
     timeWindow: '1 minute',
   });
 
-  // Static file serving for uploads
-  await app.register(fastifyStatic, {
-    root: path.join(__dirname, '..', 'uploads'),
-    prefix: '/uploads/',
-    decorateReply: false,
-  });
+// Files must be served through authenticated route handlers
+// with ownership validation.
 
   // ─── Database & Cache Plugins ───
  if (process.env.NODE_ENV !== 'test') {
