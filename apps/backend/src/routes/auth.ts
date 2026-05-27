@@ -1,7 +1,10 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { randomBytes } from 'crypto';
 import { encrypt } from '../utils/encryption.js';
-import { config } from '../config.js';
+import {
+  STRICT_RATE_LIMIT,
+  RELAXED_RATE_LIMIT,
+} from '../plugins/rate-limit.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -16,44 +19,45 @@ interface OAuthCallbackQuery {
 }
 
 export async function authRoutes(app: FastifyInstance) {
-  // ─── Developer Login Bypass (development only) ───
-  // This endpoint is intentionally disabled in production.
-  // It allows local dev/testing without going through a full OAuth flow.
-  if (process.env.NODE_ENV !== 'production') {
-    app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
-      const user = await app.prisma.user.findUnique({
-        where: { username: 'devcard-demo' },
-      });
-      if (!user) {
-        return reply.status(404).send({ error: 'Demo user not seeded' });
-      }
-      const token = app.jwt.sign(
-        { id: user.id, username: user.username },
-        { expiresIn: '30d' }
-      );
-      return { token };
+  // ─── Developer Login Bypass ───
+  // STRICT: brute-forcing this endpoint could enumerate valid usernames.
+  app.post('/dev-login', {
+    config: { rateLimit: STRICT_RATE_LIMIT },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = await app.prisma.user.findUnique({
+      where: { username: 'devcard-demo' },
     });
-  }
+    if (!user) {
+      return reply.status(404).send({ error: 'Demo user not seeded' });
+    }
+    const token = app.jwt.sign(
+      { id: user.id, username: user.username },
+      { expiresIn: '30d' }
+    );
+    return { token };
+  });
 
   // ─── GitHub OAuth ───
 
-  app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
-    const redirectUri = `${config.app.backendUrl}/auth/github/callback`;
+  // STRICT: initiating an OAuth flow is a cheap but abusable operation.
+  app.get('/github', {
+    config: { rateLimit: STRICT_RATE_LIMIT },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
     const clientState = (request.query as any).state || '';
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
-    // Store state in a short-lived signed cookie before redirecting
     reply.setCookie('oauth_state', state, {
       httpOnly: true,
-      secure: config.server.nodeEnv === 'production',
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 600, // 10 minutes — plenty for a login round-trip
+      maxAge: 600,
     });
 
     const params = new URLSearchParams({
-      client_id: config.github.clientId,
+      client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
       redirect_uri: redirectUri,
       scope: 'read:user user:email',
       state,
@@ -64,24 +68,23 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.redirect(authUrl);
   });
 
-  app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+  // STRICT: callbacks carry a code that can be traded for a token — high value target.
+  app.get('/github/callback', {
+    config: { rateLimit: STRICT_RATE_LIMIT },
+  }, async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
 
-    // ── CSRF check ──────────────────────────────────────────────────────────────
     const storedState = (request.cookies as any)?.oauth_state;
     if (!state || !storedState || state !== storedState) {
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
-    // Clear the state cookie immediately — prevents replay
     reply.clearCookie('oauth_state', { path: '/' });
-    // ────────────────────────────────────────────────────────────────────────────
 
     if (!code) {
       return reply.status(400).send({ error: 'Missing authorization code' });
     }
 
     try {
-      // Exchange code for token
       const tokenRes = await fetch(GITHUB_TOKEN_URL, {
         method: 'POST',
         headers: {
@@ -89,10 +92,10 @@ export async function authRoutes(app: FastifyInstance) {
           Accept: 'application/json',
         },
         body: JSON.stringify({
-          client_id: config.github.clientId,
-          client_secret: config.github.clientSecret,
+          client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
+          client_secret: (process.env.GITHUB_CLIENT_SECRET || '').trim(),
           code,
-          redirect_uri: `${config.app.backendUrl}/auth/github/callback`,
+          redirect_uri: `${process.env.BACKEND_URL}/auth/github/callback`,
         }),
       });
       const tokenData = (await tokenRes.json()) as any;
@@ -102,13 +105,11 @@ export async function authRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: 'Failed to authenticate with GitHub' });
       }
 
-      // Fetch user profile
       const userRes = await fetch(GITHUB_USER_URL, {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
       const githubUser = (await userRes.json()) as any;
 
-      // Fetch email if not public
       let email = githubUser.email;
       if (!email) {
         const emailsRes = await fetch('https://api.github.com/user/emails', {
@@ -119,7 +120,6 @@ export async function authRoutes(app: FastifyInstance) {
         email = primary?.email || emails[0]?.email;
       }
 
-      // Upsert user
       const user = await app.prisma.user.upsert({
         where: {
           provider_providerId: {
@@ -144,7 +144,6 @@ export async function authRoutes(app: FastifyInstance) {
         },
       });
 
-      // Save the authentication token for 'user:email read:user' so we have a basic platform connection.
       try {
         const encryptedToken = encrypt(tokenData.access_token);
         await app.prisma.oAuthToken.upsert({
@@ -156,28 +155,25 @@ export async function authRoutes(app: FastifyInstance) {
         app.log.error({ err, userId: user.id }, 'Failed to persist GitHub OAuth token — authentication proceeds');
       }
 
-      // Generate JWT
       const token = app.jwt.sign(
         { id: user.id, username: user.username },
         { expiresIn: '30d' }
       );
 
-      // For mobile app: redirect with token as URL fragment
       if (request.query.state?.startsWith('mobile_')) {
-        const mobileRedirect = getMobileRedirectUri(request.query.state) || config.app.mobileRedirectUri;
+        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
-      // For web: set cookie and redirect
       reply.setCookie('token', token, {
         httpOnly: true,
-        secure: config.server.nodeEnv === 'production',
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
+        maxAge: 30 * 24 * 60 * 60,
       });
 
-      return reply.redirect(`${config.app.publicUrl}/dashboard`);
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       app.log.error({ err, message }, 'GitHub auth error');
@@ -187,23 +183,24 @@ export async function authRoutes(app: FastifyInstance) {
 
   // ─── Google OAuth ───
 
-  app.get('/google', async (request: FastifyRequest, reply: FastifyReply) => {
-    const redirectUri = `${config.app.backendUrl}/auth/google/callback`;
+  app.get('/google', {
+    config: { rateLimit: STRICT_RATE_LIMIT },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
     const clientState = (request.query as any).state || '';
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
-    // Store state in a short-lived signed cookie before redirecting
     reply.setCookie('oauth_state', state, {
       httpOnly: true,
-      secure: config.server.nodeEnv === 'production',
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: 600,
     });
 
     const params = new URLSearchParams({
-      client_id: config.google.clientId,
+      client_id: (process.env.GOOGLE_CLIENT_ID || '').trim(),
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'openid email profile',
@@ -216,16 +213,16 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.redirect(authUrl);
   });
 
-  app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+  app.get('/google/callback', {
+    config: { rateLimit: STRICT_RATE_LIMIT },
+  }, async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
 
-    // ── CSRF check ──────────────────────────────────────────────────────────────
     const storedState = (request.cookies as any)?.oauth_state;
     if (!state || !storedState || state !== storedState) {
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
     reply.clearCookie('oauth_state', { path: '/' });
-    // ────────────────────────────────────────────────────────────────────────────
 
     if (!code) {
       return reply.status(400).send({ error: 'Missing authorization code' });
@@ -236,10 +233,10 @@ export async function authRoutes(app: FastifyInstance) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client_id: config.google.clientId,
-          client_secret: config.google.clientSecret,
+          client_id: process.env.GOOGLE_CLIENT_ID,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET,
           code,
-          redirect_uri: `${config.app.backendUrl}/auth/google/callback`,
+          redirect_uri: `${process.env.BACKEND_URL}/auth/google/callback`,
           grant_type: 'authorization_code',
         }),
       });
@@ -255,7 +252,6 @@ export async function authRoutes(app: FastifyInstance) {
       });
       const googleUser = (await userRes.json()) as any;
 
-      // Generate username from email
       const baseUsername = googleUser.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
 
       const user = await app.prisma.user.upsert({
@@ -286,19 +282,19 @@ export async function authRoutes(app: FastifyInstance) {
       );
 
       if (request.query.state?.startsWith('mobile_')) {
-        const mobileRedirect = getMobileRedirectUri(request.query.state) || config.app.mobileRedirectUri;
+        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
       reply.setCookie('token', token, {
         httpOnly: true,
-        secure: config.server.nodeEnv === 'production',
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
         maxAge: 30 * 24 * 60 * 60,
       });
 
-      return reply.redirect(`${config.app.publicUrl}/dashboard`);
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       app.log.error({ err, message }, 'Google auth error');
@@ -307,9 +303,10 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // ─── Current User ───
-
+  // RELAXED: read-only, authenticated — low risk.
   app.get('/me', {
     preHandler: [app.authenticate],
+    config: { rateLimit: RELAXED_RATE_LIMIT },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const user = await app.prisma.user.findUnique({
@@ -345,8 +342,10 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // ─── Logout ───
-
-  app.post('/logout', async (request: FastifyRequest, reply: FastifyReply) => {
+  // RELAXED: clearing a cookie is essentially free.
+  app.post('/logout', {
+    config: { rateLimit: RELAXED_RATE_LIMIT },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     reply.clearCookie('token', { path: '/' });
     return { message: 'Logged out' };
   });
