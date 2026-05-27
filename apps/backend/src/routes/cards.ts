@@ -107,9 +107,12 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       // Check if user's first card -> make it default.
       // Prisma wraps the nested cardLinks.create inside card.create in a single
       // implicit transaction, so either both the card and its links are written or neither is.
-      const cardCount = await app.prisma.card.count({ where: { userId } });
+      const card = await app.prisma.$transaction(async (tx) => {
+  const cardCount = await tx.card.count({
+    where: { userId },
+  });
 
-      const card = await app.prisma.card.create({
+  return tx.card.create({
         data: {
           userId,
           title: parsed.data.title,
@@ -128,7 +131,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
           },
         },
       });
-
+    }};
       const response = {
         id: card.id, 
         title: card.title,
