@@ -3,8 +3,8 @@
   import { onMount } from 'svelte';
 
   let { data } = $props();
-  const profile = data.profile;
-  const error = data.error;
+  const profile = $derived(data.profile);
+  const error = $derived(data.error);
 
   const platformColors: Record<string, string> = {
     github: '#181717', linkedin: '#0A66C2', twitter: '#000000',
@@ -17,7 +17,7 @@
   let mounted = $state(false);
   let copyMessage = $state('');
   let copyStatus = $state<'success' | 'error'>('success');
-  let copyMessageTimeout: ReturnType<typeof setTimeout>;
+  let copyMessageTimeout: ReturnType<typeof setTimeout> | undefined;
 
   onMount(() => {
     mounted = true;
@@ -37,9 +37,7 @@
       clearTimeout(copyMessageTimeout);
     }
 
-    clearTimeout(copyTimeout);
-
-    copyTimeout = setTimeout(() => {
+    copyMessageTimeout = setTimeout(() => {
       copyMessage = '';
     }, 3000);
   }
@@ -89,7 +87,7 @@
               {profile.displayName.charAt(0).toUpperCase()}
             </div>
           {/if}
-          <div class="avatar-glow" style="background: {profile.accentColor}"></div>
+          <div class="avatar-glow" style="background: {profile.accentColor}" aria-hidden="true"></div>
         </div>
         
         <h1 class="display-name">{profile.displayName}</h1>
@@ -114,15 +112,16 @@
             rel="noopener noreferrer"
             class="link-tile glass"
             style="--delay: {i * 0.1}s"
+            aria-label="Open {platform?.name || link.platform} profile: @{link.username} (opens in new tab)"
           >
-            <div class="tile-icon" style="background: {color}">
+            <div class="tile-icon" style="background: {color}" aria-hidden="true">
               <span class="platform-initial">{platform?.name.charAt(0) || '?'}</span>
             </div>
             <div class="tile-content">
               <span class="platform-name">{platform?.name || link.platform}</span>
               <span class="username">@{link.username}</span>
             </div>
-            <span class="arrow">→</span>
+            <span class="arrow" aria-hidden="true">→</span>
           </a>
         {/each}
       </div>
@@ -137,7 +136,13 @@
       <p>Want a card like this?</p>
       <div class="profile-actions">
         <a href="/" class="gradient-text get-devcard-link">Create your DevCard ⚡</a>
-        <button type="button" class="copy-link-button" onclick={copyProfileUrl}>
+        <button
+          type="button"
+          class="copy-link-button"
+          onclick={copyProfileUrl}
+          aria-label="Copy {profile.displayName}'s profile link to clipboard"
+          title="Copy profile link"
+        >
           Copy Link
         </button>
       </div>

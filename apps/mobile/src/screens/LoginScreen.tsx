@@ -37,7 +37,10 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={[styles.oauthButton, styles.githubButton]}
             onPress={handleGitHubLogin}
-            activeOpacity={0.85}>
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with GitHub"
+          >
             <Text style={styles.oauthIcon}>🐙</Text>
             <Text style={styles.oauthText}>Continue with GitHub</Text>
           </TouchableOpacity>
@@ -45,7 +48,10 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={[styles.oauthButton, styles.googleButton]}
             onPress={handleGoogleLogin}
-            activeOpacity={0.85}>
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Google"
+          >
             <Text style={styles.oauthIcon}>🔍</Text>
             <Text style={styles.oauthText}>Continue with Google</Text>
           </TouchableOpacity>

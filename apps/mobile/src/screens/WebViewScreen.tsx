@@ -378,7 +378,13 @@ export default function WebViewScreen({ navigation, route }: Props) {
       {/* Header Container */}
       <View>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Close ${platformDisplayName} web view`}
+            accessibilityHint="Returns to the DevCard profile"
+          >
             <Text style={styles.closeText}>✕ Close</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{platformDisplayName}</Text>
@@ -474,14 +480,22 @@ export default function WebViewScreen({ navigation, route }: Props) {
                 <TouchableOpacity
                   style={styles.overlayPrimaryButton}
                   onPress={handleOpenDeepLink}
-                  activeOpacity={0.8}>
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${platformDisplayName} in its app`}
+                  accessibilityHint="Leaves DevCard and opens the platform app if available"
+                >
                   <Text style={styles.overlayPrimaryButtonText}>Open in {platformDisplayName} App</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.overlaySecondaryButton}
                   onPress={handleOpenBrowser}
-                  activeOpacity={0.8}>
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open profile in default browser"
+                  accessibilityHint="Leaves DevCard and opens this profile in your browser"
+                >
                   <Text style={styles.overlaySecondaryButtonText}>Open in Default Browser</Text>
                 </TouchableOpacity>
 
@@ -489,13 +503,19 @@ export default function WebViewScreen({ navigation, route }: Props) {
                   <TouchableOpacity
                     style={styles.overlayTextButton}
                     onPress={handleRetryWebView}
-                    activeOpacity={0.7}>
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry loading profile"
+                  >
                     <Text style={styles.overlayTextButtonText}>Retry Loading</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.overlayTextButton}
                     onPress={() => navigation.goBack()}
-                    activeOpacity={0.7}>
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel profile loading"
+                  >
                     <Text style={styles.overlayTextButtonText}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
@@ -514,7 +534,11 @@ export default function WebViewScreen({ navigation, route }: Props) {
         <TouchableOpacity
           style={styles.doneButton}
           onPress={handleDonePress}
-          activeOpacity={0.8}>
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Done with ${platformDisplayName}`}
+          accessibilityHint="Checks whether the connection succeeded and returns to the DevCard profile"
+        >
           <Text style={styles.doneButtonText}>Done</Text>
         </TouchableOpacity>
       </View>

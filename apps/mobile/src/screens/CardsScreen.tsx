@@ -140,7 +140,7 @@ export default function CardsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
-        <View style={styles.header}>        
+        <View style={styles.header}>
           <Skeleton width={180} height={34} borderRadius={12} />
           <Skeleton width={100} height={36} borderRadius={18} />
         </View>
@@ -167,7 +167,10 @@ export default function CardsScreen() {
         <Text style={styles.title}>Context Cards</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowCreate(true)}>
+          onPress={() => setShowCreate(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Create new card"
+        >
           <Text style={styles.addButtonText}>+ New Card</Text>
         </TouchableOpacity>
       </View>
@@ -209,7 +212,12 @@ export default function CardsScreen() {
                 </View>
                 <View style={styles.platformIcons}>
                   {item.links.slice(0, 3).map(link => (
-                    <View key={link.id} style={[styles.platformDot, { backgroundColor: PLATFORMS[link.platform]?.color || COLORS.primary }]} />
+                    <View
+                      key={link.id}
+                      style={[styles.platformDot, { backgroundColor: PLATFORMS[link.platform]?.color || COLORS.primary }]}
+                      accessibilityElementsHidden={true}
+                      importantForAccessibility="no-hide-descendants"
+                    />
                   ))}
                   {item.links.length > 3 && (
                     <Text style={styles.morePlatforms}>+{item.links.length - 3}</Text>
@@ -224,7 +232,12 @@ export default function CardsScreen() {
             {/* Card Actions Below the Card */}
             <View style={styles.actionRow}>
               {!item.isDefault ? (
-                <TouchableOpacity onPress={() => setDefault(item.id)} style={styles.actionBtn}>
+                <TouchableOpacity
+                  onPress={() => setDefault(item.id)}
+                  style={styles.actionBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Set "${item.title}" as primary card`}
+                >
                   <Text style={styles.actionBtnText}>Set as Primary</Text>
                 </TouchableOpacity>
               ) : (
@@ -232,7 +245,12 @@ export default function CardsScreen() {
                   <Text style={styles.activeBadgeText}>ACTIVE CARD</Text>
                 </View>
               )}
-              <TouchableOpacity onPress={() => deleteCard(item.id)} style={styles.deleteBtn}>
+              <TouchableOpacity
+                onPress={() => deleteCard(item.id)}
+                style={styles.deleteBtn}
+                accessibilityRole="button"
+                accessibilityLabel={`Delete card: ${item.title}`}
+              >
                 <Text style={styles.deleteBtnText}>Delete</Text>
               </TouchableOpacity>
             </View>
@@ -258,6 +276,8 @@ export default function CardsScreen() {
               placeholderTextColor={COLORS.textMuted}
               value={newTitle}
               onChangeText={setNewTitle}
+              accessibilityLabel="Card title"
+              returnKeyType="next"
             />
             <Text style={styles.selectLabel}>Select platforms to include:</Text>
             {allLinks.length === 0 ? (
@@ -270,7 +290,11 @@ export default function CardsScreen() {
                 <TouchableOpacity
                   key={link.id}
                   style={[styles.linkOption, selectedLinkIds.includes(link.id) && styles.linkSelected]}
-                  onPress={() => toggleLink(link.id)}>
+                  onPress={() => toggleLink(link.id)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selectedLinkIds.includes(link.id) }}
+                  accessibilityLabel={`${PLATFORMS[link.platform]?.name || link.platform}: ${link.username}`}
+                >
                   <View style={[styles.dot, { backgroundColor: PLATFORMS[link.platform]?.color || COLORS.primary }]} />
                   <Text style={styles.linkOptionText}>
                     {PLATFORMS[link.platform]?.name || link.platform} — {link.username}
@@ -279,12 +303,20 @@ export default function CardsScreen() {
                 </TouchableOpacity>
               ))
             )}
-            <TouchableOpacity style={styles.submitBtn} onPress={createCard}>
+            <TouchableOpacity
+              style={styles.submitBtn}
+              onPress={createCard}
+              accessibilityRole="button"
+              accessibilityLabel="Create card"
+            >
               <Text style={styles.submitBtnText}>Create Card</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.cancelBtn}
-              onPress={() => { setShowCreate(false); setNewTitle(''); setSelectedLinkIds([]); }}>
+              onPress={() => { setShowCreate(false); setNewTitle(''); setSelectedLinkIds([]); }}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel card creation"
+            >
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>

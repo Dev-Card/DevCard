@@ -11,7 +11,7 @@ export async function apiRequest<T>(
   endpoint: string,
   { method = 'GET', body, token, onUnauthorized }: RequestOptions
 ): Promise<T> {
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };

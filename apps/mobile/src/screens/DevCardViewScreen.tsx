@@ -341,7 +341,10 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         <View style={styles.errorState}>
           <Text style={styles.errorEmoji}>😕</Text>
           <Text style={styles.errorText}>User not found</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <Text style={styles.backLink}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -354,8 +357,20 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
 
       {/* Close Button */}
-      <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.closeBtnText}>✕</Text>
+      <TouchableOpacity
+        style={styles.closeBtn}
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+        accessibilityHint="Returns to the previous screen"
+      >
+        <Text
+          style={styles.closeBtnText}
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no"
+        >
+          ✕
+        </Text>
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -454,21 +469,30 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
                   }
                 }}
                 activeOpacity={isDone ? 0.9 : 0.8}
-                disabled={state === 'loading'}>
+                disabled={state === 'loading'}
+                accessibilityRole="button"
+                accessibilityLabel={`${platform?.name || link.platform}: ${link.username}. ${getButtonLabel(link)}`}
+                accessibilityHint={isDone ? 'Long press to reset connection' : `Tap to ${getButtonLabel(link).toLowerCase()} on ${platform?.name || link.platform}`}
+                accessibilityState={{ disabled: state === 'loading', busy: state === 'loading' }}
+              >
 
-                {/* Icon */}
-                <View style={[
-                  styles.tileIcon,
-                  styles.tileIconBorder,
-                  {
-                    backgroundColor: isDone
-                      ? 'rgba(34,197,94,0.12)'
-                      : (platform?.color || COLORS.primary) + '22',
-                    borderColor: isDone
-                      ? COLORS.success
-                      : (platform?.color || COLORS.primary) + '66',
-                  },
-                ]}>
+                {/* Icon — hidden from screen readers, context given by accessibilityLabel */}
+                <View
+                  style={[
+                    styles.tileIcon,
+                    styles.tileIconBorder,
+                    {
+                      backgroundColor: isDone
+                        ? 'rgba(34,197,94,0.12)'
+                        : (platform?.color || COLORS.primary) + '22',
+                      borderColor: isDone
+                        ? COLORS.success
+                        : (platform?.color || COLORS.primary) + '66',
+                    },
+                  ]}
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                >
                   {isDone ? (
                     <Text style={styles.tileIconDoneText}>✓</Text>
                   ) : (

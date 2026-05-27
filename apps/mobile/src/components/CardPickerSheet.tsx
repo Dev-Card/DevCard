@@ -96,6 +96,13 @@ const CardPickerSheet = React.forwardRef<BottomSheetModal, Props>(
                     ]}
                     onPress={() => onSelect(card.id)}
                     disabled={isSelected}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      isSelected
+                        ? `${card.title} is the selected card`
+                        : `Select ${card.title} card`
+                    }
+                    accessibilityState={{ selected: isSelected, disabled: isSelected }}
                   >
                     <Text
                       style={[

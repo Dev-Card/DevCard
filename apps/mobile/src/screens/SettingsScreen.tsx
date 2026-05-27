@@ -16,7 +16,6 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../config';
 
-import { useNavigation } from '@react-navigation/native';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
@@ -98,7 +97,11 @@ export default function SettingsScreen() {
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
-          disabled={saving}>
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel={saving ? 'Saving profile changes' : 'Save profile changes'}
+          accessibilityState={{ disabled: saving, busy: saving }}
+        >
           <Text style={styles.saveButtonText}>
             {saving ? 'Saving...' : 'Save Changes'}
           </Text>
@@ -109,16 +112,25 @@ export default function SettingsScreen() {
           <Text style={styles.sectionSubtitle}>Integrations</Text>
           <TouchableOpacity
             style={styles.settingRow}
-            onPress={() => (navigation as any).navigate('ConnectPlatforms')}>
+            onPress={() => (navigation as any).navigate('ConnectPlatforms')}
+            accessibilityRole="button"
+            accessibilityLabel="Connected Platforms"
+            accessibilityHint="Navigates to the connected platforms screen"
+          >
             <View style={styles.settingRowLeft}>
-              <Text style={styles.settingRowIcon}>🔌</Text>
+              <Text style={styles.settingRowIcon} accessibilityElementsHidden={true} importantForAccessibility="no">🔌</Text>
               <Text style={styles.settingRowText}>Connected Platforms</Text>
             </View>
-            <Text style={styles.settingRowArrow}>→</Text>
+            <Text style={styles.settingRowArrow} accessibilityElementsHidden={true} importantForAccessibility="no">→</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          accessibilityRole="button"
+          accessibilityLabel="Log out of DevCard"
+        >
           <Text style={styles.logoutButtonText}>Log Out</Text>
         </TouchableOpacity>
 
@@ -156,6 +168,8 @@ function FormField({
         placeholderTextColor={COLORS.textMuted}
         multiline={multiline}
         numberOfLines={multiline ? 3 : 1}
+        accessibilityLabel={label}
+        returnKeyType={multiline ? 'default' : 'next'}
       />
     </View>
   );
@@ -194,7 +208,7 @@ const styles = StyleSheet.create({
   logoutButtonText: { color: COLORS.error, fontWeight: '600', fontSize: FONT_SIZE.md },
   sectionContainer: { marginBottom: SPACING.xl },
   sectionSubtitle: { fontSize: FONT_SIZE.md, fontWeight: '700', color: COLORS.textSecondary, marginBottom: SPACING.sm },
-  settingRow: { 
+  settingRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: COLORS.bgCard, padding: SPACING.md, borderRadius: BORDER_RADIUS.md,
     borderWidth: 1, borderColor: COLORS.border

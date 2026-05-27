@@ -176,6 +176,10 @@ export default function ScanScreen({ navigation }: Props) {
               ]}
               onPress={handleOpenPicker}
               disabled={!cards.length}
+              accessibilityRole="button"
+              accessibilityLabel="Switch active card"
+              accessibilityHint="Opens the card picker to choose which card to display"
+              accessibilityState={{ disabled: !cards.length }}
             >
               <Text style={styles.switchButtonText}>Switch Card</Text>
             </TouchableOpacity>
@@ -188,12 +192,18 @@ export default function ScanScreen({ navigation }: Props) {
                 <Skeleton width={140} height={14} borderRadius={8} style={styles.qrSkeletonText} />
               </View>
             ) : qrUrl ? (
-              <QRCode
-                value={qrUrl}
-                size={200}
-                color={COLORS.textPrimary}
-                backgroundColor={COLORS.bgCard}
-              />
+              <View
+                accessible={true}
+                accessibilityRole="image"
+                accessibilityLabel={`QR code for your DevCard: ${qrUrl}`}
+              >
+                <QRCode
+                  value={qrUrl}
+                  size={200}
+                  color={COLORS.textPrimary}
+                  backgroundColor={COLORS.bgCard}
+                />
+              </View>
             ) : (
               <EmptyState
                 title="No card to share"
@@ -235,9 +245,15 @@ export default function ScanScreen({ navigation }: Props) {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="go"
+              accessibilityLabel="Username or DevCard URL"
               onSubmitEditing={handleManualEntry}
             />
-            <TouchableOpacity style={styles.goButton} onPress={handleManualEntry}>
+            <TouchableOpacity
+              style={styles.goButton}
+              onPress={handleManualEntry}
+              accessibilityRole="button"
+              accessibilityLabel="Open DevCard for entered username"
+            >
               <Text style={styles.goButtonText}>→</Text>
             </TouchableOpacity>
           </View>

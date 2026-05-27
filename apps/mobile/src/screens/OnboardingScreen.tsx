@@ -43,7 +43,10 @@ export default function OnboardingScreen({ navigation }: Props) {
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={() => navigation.navigate('Login')}
-            activeOpacity={0.85}>
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Get started with DevCard"
+          >
             <Text style={styles.primaryButtonText}>Get Started</Text>
           </TouchableOpacity>
 

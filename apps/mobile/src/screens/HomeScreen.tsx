@@ -42,7 +42,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [searchUsername, setSearchUsername] = useState('');
 
-  const profileUrl = user?.defaultCardId 
+  const profileUrl = user?.defaultCardId
     ? `${APP_URL}/devcard/${user.defaultCardId}`
     : `${APP_URL}/u/${user?.username}`;
 
@@ -185,7 +185,11 @@ export default function HomeScreen({ navigation }: Props) {
         <TouchableOpacity
           style={styles.qrSection}
           onPress={() => setShowQR(!showQR)}
-          activeOpacity={0.85}>
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={showQR ? 'Hide QR code' : 'Show QR code'}
+          accessibilityState={{ expanded: showQR }}
+        >
           {showQR ? (
             <View style={styles.qrContainer}>
               <QRCode
@@ -209,24 +213,36 @@ export default function HomeScreen({ navigation }: Props) {
           <TouchableOpacity
             style={styles.actionButton}
             onPress={handleShare}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>📤</Text>
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Share Card"
+            accessibilityHint="Opens the system share menu for your DevCard"
+          >
+            <Text style={styles.actionEmoji} accessibilityElementsHidden={true} importantForAccessibility="no">📤</Text>
             <Text style={styles.actionText}>Share Card</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => (navigation as any).navigate('Views')}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>📈</Text>
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Analytics"
+            accessibilityHint="Opens your card analytics and view statistics"
+          >
+            <Text style={styles.actionEmoji} accessibilityElementsHidden={true} importantForAccessibility="no">📈</Text>
             <Text style={styles.actionText}>Analytics</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => (navigation as any).navigate('DevCardView', { username: user?.username || '' })}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>👁️</Text>
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Preview your DevCard"
+            accessibilityHint="Opens a preview of your public DevCard profile"
+          >
+            <Text style={styles.actionEmoji} accessibilityElementsHidden={true} importantForAccessibility="no">👁️</Text>
             <Text style={styles.actionText}>Preview</Text>
           </TouchableOpacity>
         </View>
@@ -244,6 +260,7 @@ export default function HomeScreen({ navigation }: Props) {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="go"
+              accessibilityLabel="DevCard username"
               onSubmitEditing={() => {
                 const u = searchUsername.trim();
                 if (u) (navigation as any).navigate('DevCardView', { username: u });
@@ -255,6 +272,8 @@ export default function HomeScreen({ navigation }: Props) {
                 const u = searchUsername.trim();
                 if (u) (navigation as any).navigate('DevCardView', { username: u });
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Search DevCard by username"
             >
               <Text style={styles.searchBtnText}>Go →</Text>
             </TouchableOpacity>

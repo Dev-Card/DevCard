@@ -45,9 +45,11 @@
         id="theme-toggle"
         class="theme-toggle"
         on:click={toggleTheme}
-        aria-label="Toggle theme"
+        aria-label="Switch to {theme === 'light' ? 'dark' : 'light'} mode"
+        aria-pressed={theme === 'dark'}
+        title="Toggle colour theme"
       >
-        {theme === 'light' ? '🌙' : '☀️'}
+        <span aria-hidden="true">{theme === 'light' ? '🌙' : '☀️'}</span>
       </button>
     </div>
   </nav>
@@ -64,26 +66,28 @@
         class="btn-primary"
         target="_blank"
         rel="noopener"
+        title="Star DevCard on GitHub (opens in new tab)"
+        aria-label="Star DevCard on GitHub (opens in new tab)"
       >
-        ⭐ Star on GitHub
+        <span aria-hidden="true">⭐</span> Star on GitHub
       </a>
-      <a href="/u/devcard-demo" class="btn-secondary">View Demo Profile →</a>
+      <a href="/u/devcard-demo" class="btn-secondary" aria-label="View Demo Profile">View Demo Profile <span aria-hidden="true">→</span></a>
     </div>
   </section>
 
   <section id="features" class="features">
     <div class="feature-card glass">
-      <div class="feature-icon">🔗</div>
+      <div class="feature-icon" aria-hidden="true">🔗</div>
       <h3>Unified Identity</h3>
       <p>Combine your fragmented online presence into a cohesive professional identity.</p>
     </div>
     <div class="feature-card glass">
-      <div class="feature-icon">⚡</div>
+      <div class="feature-icon" aria-hidden="true">⚡</div>
       <h3>Instant Follow</h3>
       <p>Integrated APIs allow followers to connect with you instantly across platforms.</p>
     </div>
     <div class="feature-card glass">
-      <div class="feature-icon">🔒</div>
+      <div class="feature-icon" aria-hidden="true">🔒</div>
       <h3>Private by Design</h3>
       <p>No tracking, no data selling. Your information stays where it belongs: with you.</p>
     </div>

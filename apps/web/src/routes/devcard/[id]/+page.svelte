@@ -33,7 +33,7 @@
 			
 			<div class="card-top">
 				<div class="brand-row">
-					<div class="mini-chip"></div>
+					<div class="mini-chip" aria-hidden="true"></div>
 					<span class="brand-text">DevCard PRO</span>
 				</div>
 				<span class="contactless">📶</span>
@@ -81,15 +81,17 @@
 						class="platform-tile" 
 						onclick={() => handlePlatformClick(link)}
 						style="--brand-color: {getPlatformColor(link.platform)}"
+						aria-label="Open {link.platform} profile for @{link.username}"
+						title="Visit {link.platform}: @{link.username}"
 					>
-						<div class="tile-icon">
+						<div class="tile-icon" aria-hidden="true">
 							{link.platform.charAt(0).toUpperCase()}
 						</div>
 						<div class="tile-info">
 							<span class="platform-name">{link.platform}</span>
 							<span class="username">@{link.username}</span>
 						</div>
-						<div class="tile-arrow">→</div>
+						<div class="tile-arrow" aria-hidden="true">→</div>
 					</button>
 				{/each}
 			</div>

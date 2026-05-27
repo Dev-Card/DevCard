@@ -55,7 +55,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     Settings: '⚙️',
   };
   return (
-    <View style={styles.tabIcon}>
+    <View style={styles.tabIcon} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
       <Text style={[styles.tabEmoji, focused && styles.tabEmojiActive]}>
         {icons[name] || '•'}
       </Text>
@@ -87,8 +87,9 @@ function TabNavigator() {
         component={ScanScreen}
         options={{
           tabBarLabel: '',
+          tabBarAccessibilityLabel: 'Scan DevCard',
           tabBarIcon: () => (
-            <View style={styles.scanButton}>
+            <View style={styles.scanButton} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
               <Text style={styles.scanEmoji}>📷</Text>
             </View>
           ),

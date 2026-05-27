@@ -119,6 +119,9 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigatio
             <TouchableOpacity 
               style={styles.disconnectBtn}
               onPress={() => handleDisconnect(platformId)}
+              accessibilityRole="button"
+              accessibilityLabel={`Disconnect ${name}`}
+              accessibilityHint={`Disconnects your ${name} integration from DevCard`}
             >
               <Text style={styles.disconnectBtnText}>Disconnect</Text>
             </TouchableOpacity>
@@ -127,6 +130,9 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigatio
           <TouchableOpacity 
             style={styles.connectBtn}
             onPress={() => handleConnect(platformId)}
+            accessibilityRole="button"
+            accessibilityLabel={`Connect ${name}`}
+            accessibilityHint={`Starts the connection flow for ${name}`}
           >
             <Text style={styles.connectBtnText}>Connect {name}</Text>
           </TouchableOpacity>

@@ -119,7 +119,10 @@ export default function LinksScreen() {
         <Text style={styles.title}>Platform Links</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowAddModal(true)}>
+          onPress={() => setShowAddModal(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Add platform link"
+        >
           <Text style={styles.addButtonText}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -139,7 +142,10 @@ export default function LinksScreen() {
               </View>
               <TouchableOpacity
                 onPress={() => deleteLink(item.id)}
-                style={styles.deleteBtn}>
+                style={styles.deleteBtn}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${platform?.name || item.platform} link for ${item.username}`}
+              >
                 <Text style={styles.deleteBtnText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -169,7 +175,10 @@ export default function LinksScreen() {
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.platformOption}
-                    onPress={() => setSelectedPlatform(item)}>
+                    onPress={() => setSelectedPlatform(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${item.name} link`}
+                  >
                     <View style={[styles.platformColorDot, { backgroundColor: item.color }]} />
                     <Text style={styles.platformOptionText}>{item.name}</Text>
                   </TouchableOpacity>
@@ -186,8 +195,16 @@ export default function LinksScreen() {
                   onChangeText={setUsernameInput}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  accessibilityLabel={`${selectedPlatform.name} username`}
+                  returnKeyType="done"
+                  onSubmitEditing={addLink}
                 />
-                <TouchableOpacity style={styles.submitButton} onPress={addLink}>
+                <TouchableOpacity
+                  style={styles.submitButton}
+                  onPress={addLink}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Add ${selectedPlatform.name} link`}
+                >
                   <Text style={styles.submitButtonText}>Add Link</Text>
                 </TouchableOpacity>
               </View>
@@ -199,7 +216,10 @@ export default function LinksScreen() {
                 setShowAddModal(false);
                 setSelectedPlatform(null);
                 setUsernameInput('');
-              }}>
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel adding platform link"
+            >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
