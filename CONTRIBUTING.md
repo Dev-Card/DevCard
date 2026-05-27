@@ -1,189 +1,117 @@
-# Contributing to DevCard
+# Rate Limiting
 
-[![Discord Server](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/QueQN83wn)
+> **Location:** `apps/backend/src/plugins/rate-limit.ts`
 
-**Join the community** — ask questions, get help, discuss ideas, and meet other contributors on our [Discord server](https://discord.gg/QueQN83wn).
+DevCard uses Redis-backed, tiered rate limiting applied per-route across all sensitive backend paths. The implementation uses [`@fastify/rate-limit`](https://github.com/fastify/fastify-rate-limit) (already in `package.json`) with the existing `ioredis` client so state **persists across server restarts** and is shared across all backend replicas.
 
-## Development Setup
+---
 
-### Prerequisites
+## Why per-user keying matters
 
-- **Node.js** >= 20
-- **pnpm** >= 9
-- **Docker** & Docker Compose
-- **React Native** dev environment — follow the [official setup guide](https://reactnative.dev/docs/environment-setup)
+Unauthenticated routes key on the client IP address. Authenticated routes key on the **JWT user ID** extracted from `request.user`. This means:
 
+- A legitimate user behind a shared IP (office NAT, mobile carrier) is never throttled by another user's traffic.
+- An attacker cannot bypass per-user limits by rotating IPs after obtaining a valid token.
 
-### Getting Started
+---
 
-```bash
-# 1. Fork and clone the repo
-git clone https://github.com/Dev-Card/DevCard.git
-cd devcard
+## Tiers
 
-# 2. Install dependencies
-pnpm install
+| Tier | Routes | Limit | Window | Key |
+|------|--------|-------|--------|-----|
+| **STRICT** | OAuth initiation (`/auth/github`, `/auth/google`), OAuth callbacks, `/auth/dev-login`, `/api/connect/github`, `/api/connect/github/callback` | **10 req** | 15 min | per IP |
+| **MODERATE** | Profile mutations (`PUT /api/profiles/me`, link CRUD), card CRUD, follow actions, follow log writes, analytics reads, connect status, platform disconnect | **60 req** | 1 min | per user ID (falls back to IP when unauthenticated) |
+| **RELAXED** | Public profile reads, card views, `/api/u/*` | **120 req** | 1 min | per IP |
+| **QR** (sub-RELAXED) | `GET /api/u/:username/qr` — QR PNG/SVG generation is CPU-intensive | **50 req** | 1 min | per IP |
 
-# 3. Start PostgreSQL + Redis
-docker compose up -d
+> All numbers are tunable via the `TIERS` constant in `src/plugins/rate-limit.ts` — no change to route files is needed.
 
-# 4. Configure environment
-cp .env.example .env
-# Edit .env with your OAuth credentials
+---
 
-# 5. Run database migrations and seed
-pnpm db:migrate
-pnpm db:seed
+## Response headers
 
-# 6. Start development
-pnpm dev:backend    # Backend API on :3000
-pnpm dev:mobile     # React Native app
+Every rate-limited response (both under-limit and 429) includes:
+
+| Header | Meaning |
+|--------|---------|
+| `X-RateLimit-Limit` | Max requests allowed in this window |
+| `X-RateLimit-Remaining` | Requests remaining before a 429 |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets |
+| `Retry-After` | Seconds until the client may retry (only on 429) |
+
+---
+
+## 429 error body
+
+All 429 responses match the project's existing error envelope:
+
+```json
+{
+  "error": "Too Many Requests",
+  "statusCode": 429,
+  "retryAfter": 42,
+  "message": "Rate limit exceeded. Retry after 42 seconds."
+}
 ```
 
 ---
 
-## Environment Configuration
+## Applying a tier to a new route
 
-The backend uses a **validated configuration module** (`apps/backend/src/config.ts`) that reads, validates, and types all environment variables at startup.
-
-### Why this exists
-
-Without validation, a server can boot silently with placeholder secrets from `.env.example`, then fail at runtime in ways that are hard to debug. The config module makes misconfiguration a **startup-time crash** with a clear, human-readable error instead of a mysterious runtime failure.
-
-### How it works
-
-1. On startup, `config.ts` reads every variable defined in `.env.example`.
-2. Each variable is checked: it must be present, non-empty, not a placeholder value, and meet any security constraints (e.g. minimum length for secrets).
-3. If **any** check fails the process exits immediately — before the server binds to a port — printing a message like:
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║         DevCard — Environment Configuration Error           ║
-╚══════════════════════════════════════════════════════════════╝
-
-The server cannot start because the following environment
-variable(s) are missing, empty, or invalid:
-
-  ✗  JWT_SECRET: looks like an unfilled placeholder. Replace it with a real value.
-  ✗  DATABASE_URL: is required but was not set
-
-How to fix:
-  1. Copy .env.example to .env  →  cp .env.example .env
-  2. Fill in every value listed above
-  3. Restart the server
-```
-
-### Security constraints enforced at startup
-
-| Variable | Constraint |
-|---|---|
-| `JWT_SECRET` | Minimum 32 characters |
-| `ENCRYPTION_KEY` | Minimum 32 characters |
-| All secrets | Must not match `.env.example` placeholder patterns (e.g. `your-…`, `…-here`) |
-| `PORT` | Must be a valid integer between 1 and 65535 |
-| `NODE_ENV` | Must be one of `development`, `production`, `test` |
-
-### Rules for contributors
-
-> **Never read `process.env` directly anywhere inside `apps/backend`.**
-
-All configuration values must be imported from the config module:
+Import the helper that matches your route's sensitivity and spread it into the route options:
 
 ```ts
-// ❌ Forbidden — direct process.env access
-const secret = process.env.JWT_SECRET;
+import { strictRateLimit, moderateRateLimit, relaxedRateLimit } from '../plugins/rate-limit.js';
 
-// ✅ Correct — import from config
-import { config } from "./config";
-const secret = config.jwt.secret;
+// Auth / OAuth — STRICT
+app.get('/some-auth-route', strictRateLimit, handler);
+
+// Mutation behind authenticate — MODERATE
+app.post('/some-write', { preHandler: [app.authenticate], ...moderateRateLimit }, handler);
+
+// Public read — RELAXED
+app.get('/some-public-read', relaxedRateLimit, handler);
 ```
 
-This rule is enforced by ESLint. A PR that introduces a direct `process.env` read in `apps/backend` will fail the lint check.
-
-### Adding a new environment variable
-
-1. Add the variable to `.env.example` with a clear placeholder and comment.
-2. Add a corresponding field to the `AppConfig` interface in `config.ts`.
-3. Parse and validate it in `buildConfig()` using the existing helper functions (`getString`, `getPort`, etc.).
-4. Export it on the returned config object.
-5. Add tests in `apps/backend/src/__tests__/config.test.ts` covering at least: missing value, empty value, and (if applicable) constraint violations.
+If you need a custom limit that doesn't fit a tier, configure `config.rateLimit` directly and use `ipKeyGenerator` or `userOrIpKeyGenerator` from `rate-limit.ts` to stay consistent with the rest of the codebase.
 
 ---
 
-## Running Tests
+## Configuration
 
-This project uses `pnpm` to run tests across different parts of the codebase.
-
-#### Run all tests
-
-```bash
-pnpm -r test
-```
-
-#### apps/backend
-
-The backend uses Vitest:
-
-```bash
-pnpm --filter @devcard/backend test
-pnpm --filter @devcard/backend test:watch
-```
-
-#### apps/mobile
-
-The mobile app uses Jest:
-
-```bash
-pnpm --filter @devcard/mobile test
-```
-
-#### apps/web
-
-Currently, the web app does not define a test script.
-
-#### packages/shared
-
-The shared package does not include test scripts. It only provides linting and type checking.
-
-## Project Structure
+Rate limit tiers live entirely in `src/plugins/rate-limit.ts`. The Redis connection is controlled by `REDIS_URL` in `.env` (already used for QR session caching). No additional environment variables are needed.
 
 ```
-devcard/
-├── apps/backend/     # Fastify API (TypeScript)
-├── apps/mobile/      # React Native mobile app
-├── apps/web/         # SvelteKit web backup
-└── packages/shared/  # Shared types, utils, platform registry
+# .env
+REDIS_URL=redis://localhost:6379
 ```
 
-## Coding Standards
-
-- **TypeScript** for all new code
-- **ESLint + Prettier** for formatting (run `pnpm lint` before committing)
-- **Conventional Commits** for commit messages (`feat:`, `fix:`, `docs:`, `chore:`)
-- Write tests for new features and bug fixes
-
-
-## Pull Request Process
-
-1. Create a feature branch from `main`: `git checkout -b feat/your-feature`
-2. Make your changes with clear, descriptive commits
-3. Ensure all tests pass: `pnpm test`
-4. Ensure linting passes: `pnpm lint`
-5. Open a PR against `main` with a clear description of the change
-6. Wait for review — maintainers will respond within 48 hours
-
-
-## Reporting Issues
-
-- Use GitHub Issues for bug reports and feature requests
-- Include reproduction steps for bugs
-- Search existing issues before creating a new one
-
-
-## Code of Conduct
-
-Be kind, inclusive, and constructive. We follow the [Contributor Covenant](https://www.contributor-covenant.org/).
+In production, point `REDIS_URL` at your managed Redis instance. Because the limits are stored in Redis, they survive backend restarts and are consistent across horizontal replicas.
 
 ---
 
-Thank you for helping make DevCard better! 🎉
+## Tests
+
+Integration tests are in `apps/backend/tests/rate-limit.test.ts`. They use [`ioredis-mock`](https://github.com/stipsan/ioredis-mock) (an in-process Redis stub) so they run in CI with no external services.
+
+```bash
+pnpm test                # run all tests once
+pnpm test:watch          # watch mode
+```
+
+Each tier has tests covering:
+- Requests under the limit pass with correct `X-RateLimit-*` headers
+- The first request over the limit returns 429 with `Retry-After` and a correctly shaped body
+- Per-user and per-IP counters are isolated (exhausting one principal's bucket does not affect another's)
+
+To add a test for a new route, use the in-process `buildTestApp()` helper in the test file and register a representative route with the correct tier config.
+
+---
+
+## Adding `ioredis-mock` as a dev dependency
+
+```bash
+pnpm add -D ioredis-mock --filter @devcard/backend
+```
+
+This is only required for tests; the production code uses the real `ioredis` client.
