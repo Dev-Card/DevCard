@@ -101,6 +101,7 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(profileRoutes, { prefix: '/api/profiles' });
   await app.register(cardRoutes, { prefix: '/api/cards' });
   await app.register(publicRoutes, { prefix: '/api/u' });
+  await app.register(publicRoutes, { prefix: '/api/public' });
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
