@@ -59,8 +59,8 @@ export default function CardsScreen() {
         const data = await profileRes.json();
         setAllLinks(data.platformLinks || []);
       }
-    } catch (err) {
-      console.error('Failed to fetch:', err);
+    } catch (error) {
+      console.error('Failed to fetch:', error);
     } finally {
       setRefreshing(false);
       if (showLoading) setLoading(false);

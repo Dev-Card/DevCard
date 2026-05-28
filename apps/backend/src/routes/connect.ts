@@ -141,9 +141,9 @@ app.get('/github', {
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=github`);
 
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      app.log.error({ err, message }, 'GitHub connect error');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      app.log.error({ error, message }, 'GitHub connect error');
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
     }
   });
@@ -172,7 +172,7 @@ app.get('/github', {
         },
       });
       return { success: true };
-    } catch (err) {
+    } catch (error) {
       return reply.status(404).send({ error: 'Connection not found' });
     }
   });

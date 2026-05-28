@@ -65,8 +65,8 @@ export default function HomeScreen({ navigation }: Props) {
       if (analyticsRes.ok) {
         setAnalytics(await analyticsRes.json());
       }
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
     } finally {
       setLoading(false);
     }
@@ -88,8 +88,8 @@ export default function HomeScreen({ navigation }: Props) {
         message: `Check out my DevCard: ${profileUrl}`,
         url: profileUrl,
       });
-    } catch (err) {
-      console.error('Share failed:', err);
+    } catch (error) {
+      console.error('Share failed:', error);
     }
   };
 
