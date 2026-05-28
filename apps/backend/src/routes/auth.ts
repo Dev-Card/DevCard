@@ -5,6 +5,8 @@ import { buildOAuthState, getMobileRedirectUri } from '../services/authService.j
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
+const GITHUB_LOGIN_SCOPES = 'read:user user:email';
+const GITHUB_FOLLOW_SCOPE = 'user:follow';
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USER_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
@@ -117,13 +119,25 @@ export async function authRoutes(app: FastifyInstance) {
         },
       });
 
+      // Save the authentication token — only when it would not overwrite a
+      // follow-scoped token with a narrower login-only credential.
+      // Failure here is non-fatal: authentication (JWT issuance) proceeds
+      // even when token storage fails.
       try {
         const encryptedToken = encrypt(tokenData.access_token);
-        await app.prisma.oAuthToken.upsert({
+        const loginScopes = tokenData.scope || GITHUB_LOGIN_SCOPES;
+        const existingGitHubToken = await app.prisma.oAuthToken.findUnique({
           where: { userId_platform: { userId: user.id, platform: 'github' } },
-          update: { accessToken: encryptedToken, scopes: 'read:user user:email' },
-          create: { userId: user.id, platform: 'github', accessToken: encryptedToken, scopes: 'read:user user:email' },
+          select: { scopes: true },
         });
+
+        if (!shouldPreserveExistingGitHubToken(existingGitHubToken?.scopes, loginScopes)) {
+          await app.prisma.oAuthToken.upsert({
+            where: { userId_platform: { userId: user.id, platform: 'github' } },
+            update: { accessToken: encryptedToken, scopes: loginScopes },
+            create: { userId: user.id, platform: 'github', accessToken: encryptedToken, scopes: loginScopes },
+          });
+        }
       } catch (err) {
         app.log.error({ err, userId: user.id }, 'Failed to persist GitHub OAuth token — authentication proceeds');
       }
@@ -290,4 +304,20 @@ export async function authRoutes(app: FastifyInstance) {
     reply.clearCookie('token', { path: '/' });
     return { message: 'Logged out' };
   });
+}
+
+// ── Token scope helpers ───────────────────────────────────────────────────────
+
+/**
+ * Returns true when the existing stored token carries follow-capable scopes
+ * that the incoming login token does not.  In that case the stored token
+ * should be left untouched so the user does not lose GitHub follow
+ * functionality after a routine re-login.
+ */
+function shouldPreserveExistingGitHubToken(existingScopes: string | undefined, newScopes: string): boolean {
+  return hasScope(existingScopes, GITHUB_FOLLOW_SCOPE) && !hasScope(newScopes, GITHUB_FOLLOW_SCOPE);
+}
+
+function hasScope(scopes: string | undefined, scope: string): boolean {
+  return scopes?.split(/[,\s]+/).includes(scope) ?? false;
 }
