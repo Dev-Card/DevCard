@@ -5,6 +5,13 @@ import { encrypt } from '../utils/encryption.js';
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 
+// Follow-capable tokens are stored under a dedicated platform key so that
+// the authentication flow (read:user user:email scope, key = 'github') and
+// the connect flow (user:follow scope, key = 'github_follow') never share
+// the same OAuthToken record.  Whichever flow runs last can no longer
+// silently overwrite the other's access token.
+const GITHUB_FOLLOW_PLATFORM = 'github_follow';
+
 interface OAuthCallbackQuery {
   code: string;
   state?: string;
@@ -113,14 +120,16 @@ export async function connectRoutes(app: FastifyInstance) {
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
-      // Encrypt and store the token
+      // Encrypt and store the token under the dedicated follow-scope key so
+      // that a subsequent login (which writes to 'github') cannot overwrite
+      // this follow-capable credential.
       const encryptedToken = encrypt(tokenData.access_token);
 
       await app.prisma.oAuthToken.upsert({
         where: {
           userId_platform: {
             userId,
-            platform: 'github',
+            platform: GITHUB_FOLLOW_PLATFORM,
           },
         },
         update: {
@@ -129,7 +138,7 @@ export async function connectRoutes(app: FastifyInstance) {
         },
         create: {
           userId,
-          platform: 'github',
+          platform: GITHUB_FOLLOW_PLATFORM,
           accessToken: encryptedToken,
           scopes: tokenData.scope || 'user:follow',
         },

@@ -27,10 +27,15 @@ export async function followRoutes(app: FastifyInstance) {
       });
     }
 
+    // GitHub follow tokens are stored under 'github_follow' to prevent the
+    // authentication flow (which writes to 'github') from silently overwriting
+    // the follow-capable credential.  All other platforms use their plain name.
+    const tokenPlatform = platform === 'github' ? 'github_follow' : platform;
+
     // Get stored OAuth token for this platform
     const oauthToken = await app.prisma.oAuthToken.findUnique({
       where: {
-        userId_platform: { userId, platform },
+        userId_platform: { userId, platform: tokenPlatform },
       },
     });
 
