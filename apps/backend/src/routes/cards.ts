@@ -230,40 +230,40 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params;
 
     try {
-      const existing = await app.prisma.card.findFirst({
-        where: { id, userId },
-      });
+      await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const existing = await tx.card.findFirst({ where: { id, userId } });
 
-      if (!existing) {
-        reply.status(404).send({ error: 'Card not found' });
-        return;
-      }
-
-      // Prevent deleting the last card — every user must retain at least one.
-      const userCardCount = await app.prisma.card.count({ where: { userId } });
-      if (userCardCount <= 1) {
-        reply.status(400).send({ error: 'Cannot delete the last remaining card. A user must have at least one card.' });
-        return;
-      }
-
-      // If the card being deleted is the default, promote the next-oldest card
-      // before deletion so the user always has an active default.
-      if (existing.isDefault) {
-        const oldestRemainingCard = await app.prisma.card.findFirst({
-          where: { userId, id: { not: id } },
-          orderBy: { createdAt: 'asc' },
-        });
-
-        if (oldestRemainingCard) {
-          await app.prisma.card.update({
-            where: { id: oldestRemainingCard.id },
-            data: { isDefault: true },
-          });
+        if (!existing) {
+          reply.status(404).send({ error: 'Card not found' });
+          return;
         }
-      }
 
-      await app.prisma.card.delete({ where: { id } });
-      reply.status(204).send();
+        // Prevent deleting the last card — every user must retain at least one.
+        const userCardCount = await tx.card.count({ where: { userId } });
+        if (userCardCount <= 1) {
+          reply.status(400).send({ error: 'Cannot delete the last remaining card. A user must have at least one card.' });
+          return;
+        }
+
+        // If the card being deleted is the default, promote the next-oldest card
+        // before deletion so the user always has an active default.
+        if (existing.isDefault) {
+          const oldestRemainingCard = await tx.card.findFirst({
+            where: { userId, id: { not: id } },
+            orderBy: { createdAt: 'asc' },
+          });
+
+          if (oldestRemainingCard) {
+            await tx.card.update({
+              where: { id: oldestRemainingCard.id },
+              data: { isDefault: true },
+            });
+          }
+        }
+
+        await tx.card.delete({ where: { id } });
+        reply.status(204).send();
+      });
     } catch (error) {
       return handleDbError(error, request, reply);
     }
