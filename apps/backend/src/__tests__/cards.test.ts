@@ -438,3 +438,106 @@ describe('PUT /api/cards/:id/default', () => {
     expect(mockPrisma.card.update).toHaveBeenCalled();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/cards — default-card concurrency guard
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('POST /api/cards — default-card concurrency guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    wireTransaction();
+  });
+
+  it('first card is created as default and count+create run inside a transaction', async () => {
+    // Verifies that $transaction wraps both the count check and the create so
+    // that concurrent requests cannot both observe count=0 and both set isDefault=true.
+    mockPrisma.card.count.mockResolvedValue(0);
+    mockPrisma.card.create.mockResolvedValue({ ...mockCard, isDefault: true, cardLinks: [] });
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/cards',
+      payload: { title: 'First Card', linkIds: [] },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json().isDefault).toBe(true);
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
+    expect(mockPrisma.card.count).toHaveBeenCalledWith({ where: { userId: USER_ID } });
+    expect(mockPrisma.card.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ isDefault: true }) }),
+    );
+  });
+
+  it('subsequent card is not default when the user already has one', async () => {
+    mockPrisma.card.count.mockResolvedValue(1);
+    mockPrisma.card.create.mockResolvedValue({ ...mockCard, isDefault: false, cardLinks: [] });
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/cards',
+      payload: { title: 'Second Card', linkIds: [] },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json().isDefault).toBe(false);
+    expect(mockPrisma.card.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ isDefault: false }) }),
+    );
+  });
+
+  it('exactly one of two concurrent first-card requests becomes default', async () => {
+    // Request A: transaction-internal count=0 → creates as default.
+    // Request B: transaction-internal count=1 (after A committed) → creates as non-default.
+    const app = await buildApp();
+
+    mockPrisma.card.count
+      .mockResolvedValueOnce(0)  // Tx A observes 0 existing cards
+      .mockResolvedValueOnce(1); // Tx B observes 1 (A committed first)
+    mockPrisma.card.create
+      .mockResolvedValueOnce({ ...mockCard, isDefault: true, cardLinks: [] })
+      .mockResolvedValueOnce({ ...mockCard, id: 'card-b', isDefault: false, cardLinks: [] });
+
+    const resA = await app.inject({
+      method: 'POST',
+      url: '/api/cards',
+      payload: { title: 'Card A', linkIds: [] },
+    });
+    const resB = await app.inject({
+      method: 'POST',
+      url: '/api/cards',
+      payload: { title: 'Card B', linkIds: [] },
+    });
+
+    expect(resA.statusCode).toBe(201);
+    expect(resB.statusCode).toBe(201);
+    expect(resA.json().isDefault).toBe(true);
+    expect(resB.json().isDefault).toBe(false);
+  });
+
+  it('invariant: exactly one default card exists after concurrent first-card requests', async () => {
+    const app = await buildApp();
+
+    mockPrisma.card.count
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(1);
+    mockPrisma.card.create
+      .mockResolvedValueOnce({ ...mockCard, isDefault: true, cardLinks: [] })
+      .mockResolvedValueOnce({ ...mockCard, id: 'card-b', isDefault: false, cardLinks: [] });
+
+    const [resA, resB] = await Promise.all([
+      app.inject({ method: 'POST', url: '/api/cards', payload: { title: 'Card A', linkIds: [] } }),
+      app.inject({ method: 'POST', url: '/api/cards', payload: { title: 'Card B', linkIds: [] } }),
+    ]);
+
+    const defaultCount = [resA, resB].filter(
+      (r) => r.statusCode === 201 && r.json().isDefault === true,
+    ).length;
+    // Only one card may be default — the invariant must hold.
+    expect(defaultCount).toBe(1);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+});
