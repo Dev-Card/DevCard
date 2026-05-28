@@ -1,7 +1,10 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { Card } from '@devcard/shared';
-import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 import { handleDbError } from '../utils/error.util.js';
+import { createCardSchema, updateCardSchema } from '../utils/validators.js';
+
+import type { Card } from '@devcard/shared';
+import type { Prisma } from '@prisma/client';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
 
 interface CreateCardBody {
   title: string;
@@ -17,8 +20,36 @@ interface CardParams {
   id: string;
 }
 
+interface PlatformLink {
+  id: string;
+  userId: string;
+  platform: string;
+  username: string;
+  url: string;
+  displayOrder: number;
+  createdAt: Date;
+}
+
+interface CardLinkWithPlatform {
+  id: string;
+  cardId: string;
+  platformLinkId: string;
+  displayOrder: number;
+  platformLink: PlatformLink;
+}
+
+interface CardWithLinks {
+  id: string;
+  userId: string;
+  title: string;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  cardLinks: CardLinkWithPlatform[];
+}
+
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
-  app.addHook('preHandler', app.authenticate);
+  app.addHook('preHandler', app.authenticate.bind(app));
 
   // ─── List Cards ───
 
@@ -38,11 +69,11 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         orderBy: { createdAt: 'asc' },
       });
 
-      return cards.map((card) => ({
+      return cards.map((card:CardWithLinks) => ({
         id: card.id,
         title: card.title,
         isDefault: card.isDefault,
-        links: card.cardLinks.map((cl) => cl.platformLink) as any,
+        links: card.cardLinks.map((cl) => cl.platformLink),
       }));
     } catch (error) {
       return handleDbError(error, request, reply);
@@ -98,12 +129,14 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         },
       });
 
-      return reply.status(201).send({
-        id: card.id,
+      const response = {
+        id: card.id, 
         title: card.title,
         isDefault: card.isDefault,
-        links: card.cardLinks.map((cl) => cl.platformLink) as any,
-      });
+        links: card.cardLinks.map((cl: CardLinkWithPlatform) => cl.platformLink),
+      }
+
+      return reply.status(201).send(response);
     } catch (error) {
       return handleDbError(error, request, reply);
     }
@@ -153,7 +186,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         // Replace links inside a transaction so the card is never left linkless
         // when deleteMany succeeds but createMany subsequently fails.
         const linkIds = parsed.data.linkIds;
-        await app.prisma.$transaction(async (tx) => {
+        await app.prisma.$transaction(async (tx:Prisma.TransactionClient) => {
           await tx.cardLink.deleteMany({ where: { cardId: id } });
           if (linkIds.length > 0) {
             await tx.cardLink.createMany({
@@ -181,7 +214,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         id: updated!.id,
         title: updated!.title,
         isDefault: updated!.isDefault,
-        links: updated!.cardLinks.map((cl) => cl.platformLink) as any,
+        links: updated!.cardLinks.map((cl:CardLinkWithPlatform) => cl.platformLink) as any,
       };
 
       return response;
@@ -253,7 +286,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
       // Clear then set in a single transaction so there is never a window where
       // the user has zero default cards if the second write fails.
-      await app.prisma.$transaction(async (tx) => {
+      await app.prisma.$transaction(async (tx:Prisma.TransactionClient) => {
         await tx.card.updateMany({ where: { userId }, data: { isDefault: false } });
         await tx.card.update({ where: { id }, data: { isDefault: true } });
       });

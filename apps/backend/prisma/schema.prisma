@@ -30,8 +30,10 @@ model User {
   viewedCards   CardView[]     @relation("cardViewer")
   followLogs    FollowLog[]
   organizer     Event[]    
-  attendedEvents           EventAttendee[] 
+  attendedEvents EventAttendee[] 
 
+  ownedTeams       Team[]          @relation("TeamOwner")
+  teamMemberships  TeamMember[]    @relation("TeamMember")
 
   @@unique([provider, providerId])
   @@map("users")
@@ -154,4 +156,42 @@ model EventAttendee {
   user User @relation(fields: [userId],references: [id])
 
   @@unique([userId, eventId])
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Team{
+  id String @id @default(uuid())
+  name String 
+  slug String @unique
+  description String? 
+  avatarUrl String? 
+  ownerId String 
+  createdAt DateTime @default(now()) 
+  updatedAt DateTime @updatedAt
+
+  owner User @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members TeamMember[] @relation("TeamMember")
+
+  @@map("teams")
+  @@index([slug])
+}
+
+model TeamMember{
+  id String @id @default(uuid())
+  teamId String
+  userId String
+  role TeamRole
+  joinedAt DateTime 
+
+  team Team @relation("TeamMember",fields: [teamId] , references: [id])
+  user User @relation("TeamMember",fields: [userId] , references: [id])
+
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@map("team_members")
 }

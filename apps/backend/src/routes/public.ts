@@ -90,14 +90,19 @@ type CachedProfileEntry = UsernamePublicProfileResponse & { _userId: string };
 
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───────────────────────────────────────────────────────
+  // ─── Public Profile ───
+ /**
+   * GET /api/u/:username
+   * Returns the public profile information for a user.
+   */
   app.get('/:username', {
     config: {
       rateLimit: {
         max: 100,
-        timeWindow: '1 minute'
-      }
-    } as FastifyContextConfig
-  }, async (request: FastifyRequest<{ Params: { username: string }; Querystring: { source?: string } }>, reply: FastifyReply) => {
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
     const cacheKey = `profile:${username}`;
 
@@ -174,7 +179,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: request.query?.source || 'link',
         },
-      }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`));
+      }).catch((error: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(error)}`));
     }
 
     // Fetch viewer's successful follow logs for this profile's links
@@ -310,19 +315,20 @@ export async function publicRoutes(app: FastifyInstance) {
   });
 
   // ─── Public Card View ─────────────────────────────────────────────────────
+  // ─── Public Card View ───
+  /**
+   * GET /api/u/:username/card/:cardId
+   * Returns full owner profile + specific card data.
+   * Used when viewing a card through username + cardId (e.g. QR code scans).
+   */
   app.get('/:username/card/:cardId', {
     config: {
       rateLimit: {
         max: 100,
-        timeWindow: '1 minute'
-      }
-    } as FastifyContextConfig
-  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string }; Querystring: { source?: string } }>, reply: FastifyReply) => {
-    /**
-     * GET /api/public/:username/card/:cardId
-     * Returns full owner profile + specific card data.
-     * Used when viewing a card through username + cardId (e.g. QR code scans).
-    */
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
     const { username, cardId } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -367,7 +373,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: request.query?.source || 'qr',
         },
-      }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`));
+      }).catch((error: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(error)}`));
     }
 
 
@@ -529,8 +535,8 @@ export async function publicRoutes(app: FastifyInstance) {
         .header('Content-Type', 'image/png')
         .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
         .send(png);
-    } catch (err) {
-      app.log.error({ err, username, size, format }, 'QR generation failed');
+    } catch (error) {
+      app.log.error({ error, username, size, format }, 'QR generation failed');
       return reply.status(500).send({ error: 'QR code generation failed' });
     }
   });
