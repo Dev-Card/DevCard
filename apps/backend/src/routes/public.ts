@@ -1,4 +1,5 @@
 import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { PlatformLink } from '@prisma/client';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 import { loadFonts } from '../utils/fonts.js';
 import { getErrorMessage } from '../utils/error.util.js';
@@ -9,6 +10,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 
 
 
@@ -85,6 +87,10 @@ interface CardLinkWithPlatform {
 
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───
+  /**
+    * GET /api/public/:username
+    * Returns the public profile information for a user.
+  */
   app.get('/:username', {
     config: {
       rateLimit: {
@@ -92,12 +98,7 @@ export async function publicRoutes(app: FastifyInstance) {
         timeWindow: '1 minute'
       }
     }
-  }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
-  /**
-    * GET /api/public/:username
-    * Returns the public profile information for a user.
-  */
-  app.get('/:username', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { username: string }; Querystring: { source?: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -138,7 +139,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: request.query?.source || 'link',
         },
-      }).catch((err) => app.log.error('Failed to log view:', getErrorMessage(err)));
+      }).catch((err: unknown) => app.log.error({ err }, 'Failed to log view'));
     }
 
     // Fetch viewer's successful follow logs for this profile's links
@@ -247,6 +248,11 @@ export async function publicRoutes(app: FastifyInstance) {
   });
 
   // ─── Public Card View ───
+  /**
+    * GET /api/public/:username/card/:cardId
+    * Returns full owner profile + specific card data.
+    * Used when viewing a card through username + cardId (e.g. QR code scans).
+  */
   app.get('/:username/card/:cardId', {
     config: {
       rateLimit: {
@@ -254,13 +260,7 @@ export async function publicRoutes(app: FastifyInstance) {
         timeWindow: '1 minute'
       }
     }
-  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
-  /**
-    * GET /api/public/:username/card/:cardId
-    * Returns full owner profile + specific card data.
-    * Used when viewing a card through username + cardId (e.g. QR code scans).
-  */
-  app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string }; Querystring: { source?: string } }>, reply: FastifyReply) => {
     const { username, cardId } = request.params;
 
     const user = await app.prisma.user.findUnique({
@@ -305,7 +305,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: request.query?.source || 'qr',
         },
-      }).catch((err) => app.log.error('Failed to log card view:', getErrorMessage(err)));
+      }).catch((err: unknown) => app.log.error({ err }, 'Failed to log card view'));
     }
 
 
@@ -346,12 +346,12 @@ export async function publicRoutes(app: FastifyInstance) {
     Querystring: { format?: string; size?: string };
   }>, reply: FastifyReply) => {
     const { username } = request.params;
-    const format = (request.query as any).format || 'png';
+    const format = request.query.format || 'png';
 
     // Parse and validate size before touching the DB or allocating any buffers.
     // parseInt safely handles non-numeric strings (returns NaN) and ignores any
     // trailing fractional part, so '400.9' → 400 which is within bounds.
-    const rawSize = (request.query as any).size;
+    const rawSize = request.query.size;
     const size = rawSize !== undefined ? parseInt(rawSize, 10) : 400;
 
     if (!Number.isInteger(size) || size < MIN_QR_SIZE || size > MAX_QR_SIZE) {
@@ -413,7 +413,7 @@ export async function publicRoutes(app: FastifyInstance) {
             .send(cached);
         }
       } catch (err) {
-        app.log.error('Redis cache fetch error:', getErrorMessage(err));
+        app.log.error({ err }, 'Redis cache fetch error');
       }
     }
 
@@ -466,8 +466,8 @@ export async function publicRoutes(app: FastifyInstance) {
       // Load fonts dynamically (regular and bold)
       const fonts = await loadFonts();
 
-      // Render to SVG via satori
-      const svg = await (satori as any)(
+      const svg = await satori(
+        // @ts-expect-error Satori expects ReactNode but works with structural objects
         {
           type: 'div',
           props: {
@@ -725,7 +725,7 @@ export async function publicRoutes(app: FastifyInstance) {
                                 width: '100%',
                               },
                               children: userProfile.platformLinks.length > 0
-                                ? userProfile.platformLinks.slice(0, 6).map((link) => {
+                                ? userProfile.platformLinks.slice(0, 6).map((link: PlatformLink) => {
                                     const platformName = link.platform.charAt(0).toUpperCase() + link.platform.slice(1);
                                     return {
                                       type: 'div',
@@ -860,7 +860,7 @@ export async function publicRoutes(app: FastifyInstance) {
           await app.redis.setex(cacheKey, 3600, pngBuffer);
           app.log.info(`[OG Image] Cached generated preview for @${username}`);
         } catch (err) {
-          app.log.error('Redis cache save error:', getErrorMessage(err));
+          app.log.error({ err }, 'Redis cache save error');
         }
       }
 
@@ -869,9 +869,9 @@ export async function publicRoutes(app: FastifyInstance) {
         .header('Cache-Control', 'public, max-age=3600')
         .send(pngBuffer);
 
-    } catch (err: any) {
-      app.log.error('Error generating OG image:', getErrorMessage(err));
-      return reply.status(500).send({ error: 'Failed to generate OG image', details: err?.message || err });
+    } catch (err) {
+      app.log.error({ err }, 'Error generating OG image');
+      return reply.status(500).send({ error: 'Failed to generate OG image', details: getErrorMessage(err) });
     }
   });
 }

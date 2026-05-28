@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError, PrismaClientValidationError } from '@prisma/client/runtime/library';
 
 export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -7,8 +7,8 @@ export function getErrorMessage(err: unknown): string {
 
 export function handleDbError(error: unknown, request: FastifyRequest, reply: FastifyReply) {
   request.log.error(error);
-  
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+
+  if (error instanceof PrismaClientKnownRequestError) {
     // P2002: Unique constraint failed
     if (error.code === 'P2002') {
       return reply.status(409).send({ error: 'Conflict: Record already exists or violates unique constraint' });
@@ -23,10 +23,10 @@ export function handleDbError(error: unknown, request: FastifyRequest, reply: Fa
     }
     return reply.status(400).send({ error: `Database error: ${error.message}` });
   }
-  
-  if (error instanceof Prisma.PrismaClientValidationError) {
+
+  if (error instanceof PrismaClientValidationError) {
     return reply.status(400).send({ error: 'Database validation failed' });
   }
-  
+
   return reply.status(500).send({ error: 'Internal Server Error' });
 }

@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify from 'fastify';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import Fastify, { FastifyInstance } from 'fastify';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { profileRoutes } from '../routes/profiles.js';
 import type { PrismaClient } from '@prisma/client';
 
@@ -106,7 +107,10 @@ describe('PUT /api/profiles/me', () => {
     // Both requests pass the findFirst check; the DB unique constraint fires on
     // the losing write — Prisma raises P2002.
     mockPrisma.user.findFirst.mockResolvedValue(null);
-    const p2002 = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+    const p2002 = new PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: '6.19.3',
+    });
     mockPrisma.user.update.mockRejectedValue(p2002);
 
     const app = await buildApp();
@@ -117,7 +121,7 @@ describe('PUT /api/profiles/me', () => {
     });
 
     expect(res.statusCode).toBe(409);
-    expect(res.json().error).toBe('Username already taken');
+    expect(res.json().error).toBe('Conflict: Record already exists or violates unique constraint');
   });
 
   it('should return 500 for unexpected database errors during update', async () => {
@@ -132,7 +136,7 @@ describe('PUT /api/profiles/me', () => {
     });
 
     expect(res.statusCode).toBe(500);
-    expect(res.json().error).toBe('Internal server error');
+    expect(res.json().error).toBe('Internal Server Error');
   });
 
   it('should not call findFirst when no username is provided in the update', async () => {

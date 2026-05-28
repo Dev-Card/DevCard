@@ -5,7 +5,7 @@ import {
   createLinkSchema,
   reorderLinksSchema,
 } from '../utils/validators.js';
-import { getErrorMessage } from '../utils/error.util.js';
+import { getErrorMessage, handleDbError } from '../utils/error.util.js';
 
 async function invalidateOgCache(app: FastifyInstance, userId: string) {
   if (app.redis && app.redis.status === 'ready') {
@@ -19,7 +19,7 @@ async function invalidateOgCache(app: FastifyInstance, userId: string) {
         app.log.info(`[OG Cache] Invalidated cache for @${user.username}`);
       }
     } catch (err) {
-      app.log.error('[OG Cache] Failed to invalidate cache:', getErrorMessage(err));
+      app.log.error({ err }, '[OG Cache] Failed to invalidate cache');
     }
   }
 }
@@ -120,20 +120,11 @@ export async function profileRoutes(app: FastifyInstance) {
         },
       });
 
-    await invalidateOgCache(app, userId);
+      await invalidateOgCache(app, userId);
 
-    return updated;
       return response;
-    } catch (err: any) {
-      // Unique constraint violation — two concurrent requests raced through the
-      // findFirst check above and both attempted the write. The DB constraint
-      // fires on the losing request; surface it as a deterministic 409 rather
-      // than leaking a raw Prisma error as a 500.
-      if (err?.code === 'P2002') {
-        return reply.status(409).send({ error: 'Username already taken' });
-      }
-      app.log.error({ err }, 'DB error in PUT /profiles/me');
-      return reply.status(500).send({ error: 'Internal server error' });
+    } catch (err) {
+      return handleDbError(err, request, reply);
     }
   });
 
