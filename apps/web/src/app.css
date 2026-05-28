@@ -264,4 +264,8 @@ button:hover {
 }
 .theme-toggle:hover {
   transform: rotate(180deg) scale(1.08);
-}
+/* Light mode btn-secondary fix */
+:root:not(.dark) .btn-secondary {
+  border-color: var(--border);
+  background: rgba(0, 0, 0, 0.04);
+}}

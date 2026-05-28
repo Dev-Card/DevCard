@@ -50,9 +50,9 @@ export async function nfcRoutes(app: FastifyInstance) {
         }
 
         username = user.username;
-      } catch (err) {
+      } catch (error) {
         request.log.error(
-          { err },
+          { error },
           'Failed to fetch user for NFC payload'
         );
         return reply.status(500).send({
@@ -73,9 +73,9 @@ export async function nfcRoutes(app: FastifyInstance) {
               error: 'Card not found',
             });
           }
-        } catch (err) {
+        } catch (error) {
           request.log.error(
-            { err },
+            { error },
             'Failed to fetch card for NFC payload'
           );
           return reply.status(500).send({

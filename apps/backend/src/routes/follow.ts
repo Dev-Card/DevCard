@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { decrypt } from '../utils/encryption.js';
 import { getErrorMessage } from '../utils/error.util.js';
 import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
+import { followLogSchema } from '../validations/follow.validation.js';
 
 export async function followRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.authenticate);
@@ -26,10 +27,15 @@ export async function followRoutes(app: FastifyInstance) {
       });
     }
 
+    // GitHub follow tokens are stored under 'github_follow' to prevent the
+    // authentication flow (which writes to 'github') from silently overwriting
+    // the follow-capable credential.  All other platforms use their plain name.
+    const tokenPlatform = platform === 'github' ? 'github_follow' : platform;
+
     // Get stored OAuth token for this platform
     const oauthToken = await app.prisma.oAuthToken.findUnique({
       where: {
-        userId_platform: { userId, platform },
+        userId_platform: { userId, platform: tokenPlatform },
       },
     });
 
@@ -92,7 +98,11 @@ export async function followRoutes(app: FastifyInstance) {
     }
   });
 
-  // Log follow/connect event for Layer 2/3/4 strategies
+  // Log follow/connect event for Layer 2/3/4 strategies (WebView, deep-link, etc.)
+  //
+  // status and layer are analytics-impacting fields: they drive totalFollows counters
+  // and the follower-state dashboard.  Both are validated against a strict allowlist
+  // before any database write — arbitrary client values are rejected with 400.
   app.post('/:platform/:targetUsername/log', async (
     request: FastifyRequest<{
       Params: { platform: string; targetUsername: string };
@@ -102,7 +112,13 @@ export async function followRoutes(app: FastifyInstance) {
   ) => {
     const userId = (request.user as any).id;
     const { platform, targetUsername } = request.params;
-    const { status = 'success', layer = 'webview' } = request.body || {};
+
+    const parsed = followLogSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid follow log payload' });
+    }
+
+    const { status, layer } = parsed.data;
 
     try {
       const log = await app.prisma.followLog.create({
@@ -115,8 +131,8 @@ export async function followRoutes(app: FastifyInstance) {
         },
       });
       return reply.send({ status: 'success', logId: log.id });
-    } catch (err: any) {
-      app.log.error('Failed to log follow:', err);
+    } catch (error: any) {
+      app.log.error('Failed to log follow:', error);
       return reply.status(500).send({ error: 'Failed to log follow event' });
     }
   });

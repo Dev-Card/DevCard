@@ -35,8 +35,8 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigatio
         const data = await response.json();
         setConnectedPlatforms(data.connectedPlatforms || []);
       }
-    } catch (err) {
-      console.error('Failed to fetch connected platforms', err);
+    } catch (error) {
+      console.error('Failed to fetch connected platforms', error);
     } finally {
       setLoading(false);
     }
