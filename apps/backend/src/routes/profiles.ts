@@ -23,6 +23,7 @@ async function invalidateOgCache(app: FastifyInstance, userId: string) {
     }
   }
 }
+import { getErrorMessage } from '../utils/error.util.js';
 
 // ── Response types ────────────────────────────────────────────────────────────
 // Declared explicitly so the API contract is visible without tracing through
@@ -102,6 +103,13 @@ export async function profileRoutes(app: FastifyInstance) {
       }
     }
 
+    // Fetch current username before the update so we can invalidate the correct
+    // Redis cache key even if the username is being changed in this request.
+    const currentUser = await app.prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    });
+
     try {
       const response: ProfileUpdateResponse = await app.prisma.user.update({
         where: { id: userId },
@@ -125,6 +133,28 @@ export async function profileRoutes(app: FastifyInstance) {
       return response;
     } catch (err) {
       return handleDbError(err, request, reply);
+      // Invalidate the public profile cache so stale data is not served after
+      // an update.  Fire-and-forget — a cache miss on the next request is
+      // preferable to blocking the response on a Redis round-trip.
+      if (app.redis && currentUser) {
+        app.redis
+          .del(`profile:${currentUser.username}`)
+          .catch((err: unknown) =>
+            app.log.warn(`Failed to invalidate profile cache: ${getErrorMessage(err)}`)
+          );
+      }
+
+      return response;
+    } catch (error: any) {
+      // Unique constraint violation — two concurrent requests raced through the
+      // findFirst check above and both attempted the write. The DB constraint
+      // fires on the losing request; surface it as a deterministic 409 rather
+      // than leaking a raw Prisma error as a 500.
+      if (error?.code === 'P2002') {
+        return reply.status(409).send({ error: 'Username already taken' });
+      }
+      app.log.error({ error }, 'DB error in PUT /profiles/me');
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
