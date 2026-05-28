@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,9 @@ import {
   StatusBar,
   Image,
   RefreshControl,
+  TextInput,
 } from 'react-native';
+import { Skeleton } from '../components/Skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
@@ -37,16 +39,15 @@ export default function HomeScreen({ navigation }: Props) {
   const [analytics, setAnalytics] = useState<any>(null);
   const [showQR, setShowQR] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [searchUsername, setSearchUsername] = useState('');
 
   const profileUrl = user?.defaultCardId 
     ? `${APP_URL}/devcard/${user.defaultCardId}`
     : `${APP_URL}/u/${user?.username}`;
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const [profileRes, analyticsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/profiles/me`, {
@@ -64,10 +65,16 @@ export default function HomeScreen({ navigation }: Props) {
       if (analyticsRes.ok) {
         setAnalytics(await analyticsRes.json());
       }
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -81,10 +88,25 @@ export default function HomeScreen({ navigation }: Props) {
         message: `Check out my DevCard: ${profileUrl}`,
         url: profileUrl,
       });
-    } catch (err) {
-      console.error('Share failed:', err);
+    } catch (error) {
+      console.error('Share failed:', error);
     }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
+        <View style={styles.loadingRoot}>
+          <Skeleton width={140} height={28} borderRadius={12} />
+          <Skeleton width="75%" height={20} borderRadius={12} style={styles.loadingSpacer} />
+          <Skeleton width="100%" height={180} borderRadius={24} style={styles.loadingSection} />
+          <Skeleton width="100%" height={120} borderRadius={24} style={styles.loadingSection} />
+          <Skeleton width="100%" height={92} borderRadius={24} style={styles.loadingSection} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -135,20 +157,26 @@ export default function HomeScreen({ navigation }: Props) {
 
           {/* Platform Links Summary */}
           <View style={styles.linksSummary}>
-            {links.slice(0, 4).map(link => {
-              const platform = PLATFORMS[link.platform];
-              return (
-                <View key={link.id} style={styles.linkBadge}>
-                  <Text style={styles.linkBadgeText}>
-                    {platform?.name || link.platform}
-                  </Text>
-                </View>
-              );
-            })}
-            {links.length > 4 && (
-              <View style={styles.linkBadge}>
-                <Text style={styles.linkBadgeText}>+{links.length - 4}</Text>
-              </View>
+            {links.length > 0 ? (
+              <>
+                {links.slice(0, 4).map(link => {
+                  const platform = PLATFORMS[link.platform];
+                  return (
+                    <View key={link.id} style={styles.linkBadge}>
+                      <Text style={styles.linkBadgeText}>
+                        {platform?.name || link.platform}
+                      </Text>
+                    </View>
+                  );
+                })}
+                {links.length > 4 && (
+                  <View style={styles.linkBadge}>
+                    <Text style={styles.linkBadgeText}>+{links.length - 4}</Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <Text style={styles.emptyHint}>No platform links added yet. Add links in the Links tab to populate your preview.</Text>
             )}
           </View>
         </View>
@@ -201,6 +229,36 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.actionEmoji}>👁️</Text>
             <Text style={styles.actionText}>Preview</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Search / Lookup */}
+        <View style={styles.searchSection}>
+          <Text style={styles.searchLabel}>🔍 View a DevCard</Text>
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Enter username..."
+              placeholderTextColor={COLORS.textMuted}
+              value={searchUsername}
+              onChangeText={setSearchUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="go"
+              onSubmitEditing={() => {
+                const u = searchUsername.trim();
+                if (u) (navigation as any).navigate('DevCardView', { username: u });
+              }}
+            />
+            <TouchableOpacity
+              style={styles.searchBtn}
+              onPress={() => {
+                const u = searchUsername.trim();
+                if (u) (navigation as any).navigate('DevCardView', { username: u });
+              }}
+            >
+              <Text style={styles.searchBtnText}>Go →</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Stats */}
@@ -299,4 +357,48 @@ const styles = StyleSheet.create({
   statNumber: { fontSize: FONT_SIZE.xl, fontWeight: '800', color: COLORS.primary },
   statLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, marginTop: 4 },
   statDivider: { width: 1, backgroundColor: COLORS.border },
+  loadingRoot: {
+    flex: 1,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.bgPrimary,
+  },
+  loadingSpacer: {
+    marginTop: SPACING.sm,
+  },
+  loadingSection: {
+    marginTop: SPACING.lg,
+  },
+  emptyHint: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+    lineHeight: 20,
+    marginTop: SPACING.sm,
+    maxWidth: '70%',
+  },
+  // Search
+  searchSection: {
+    marginBottom: SPACING.lg,
+  },
+  searchLabel: {
+    fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.textSecondary,
+    marginBottom: SPACING.sm, letterSpacing: 0.3,
+  },
+  searchRow: {
+    flexDirection: 'row', gap: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md, paddingVertical: 12,
+    color: COLORS.textPrimary, fontSize: FONT_SIZE.md,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  searchBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.lg,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  searchBtnText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZE.md },
 });

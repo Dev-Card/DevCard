@@ -1,7 +1,16 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { randomBytes } from 'crypto';
+import { encrypt } from '../utils/encryption.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
+
+// Follow-capable tokens are stored under a dedicated platform key so that
+// the authentication flow (read:user user:email scope, key = 'github') and
+// the connect flow (user:follow scope, key = 'github_follow') never share
+// the same OAuthToken record.  Whichever flow runs last can no longer
+// silently overwrite the other's access token.
+const GITHUB_FOLLOW_PLATFORM = 'github_follow';
 
 interface OAuthCallbackQuery {
   code: string;
@@ -34,25 +43,34 @@ export async function connectRoutes(app: FastifyInstance) {
   app.get('/github', {
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    // Generate a secure state token linking back to this user session
-    // In a real app, store this in Redis to cross-check in callback
-    const state = JSON.stringify({
-      userId: (request.user as any).id,
-      nonce: generateState(),
-    });
+    const userId = (request.user as any).id;
+    const nonce = generateState();
+
+    // Store nonce in Redis with 10-minute TTL.
+    // The callback verifies this to prevent CSRF attacks.
+    await app.redis.set(
+      `oauth:nonce:${nonce}`,
+      userId,
+      'EX',
+      600
+    );
+
+    const state = JSON.stringify({ userId, nonce });
 
     const redirectUri = `${process.env.BACKEND_URL}/api/connect/github/callback`;
     const params = new URLSearchParams({
       client_id: process.env.GITHUB_CLIENT_ID || '',
       redirect_uri: redirectUri,
-      scope: 'user:follow', // ONLY asking for follow scope to avoid full profile access
+      scope: 'user:follow',
       state: Buffer.from(state).toString('base64'),
     });
 
     return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
   });
 
-  app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+  app.get('/github/callback', {
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
 
     if (!code || !state) {
@@ -61,16 +79,24 @@ export async function connectRoutes(app: FastifyInstance) {
 
     try {
       // Decode state to find which user requested the connect
-      const decodedState = parseGoogleState(state);
+      const decodedState = parseOAuthState(state);
 
       if (!decodedState) {
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
-      const userId = decodedState.userId;
 
-      if (!userId) {
+      // Verify nonce was issued by this server -- prevents CSRF
+      const storedUserId = await app.redis.get(`oauth:nonce:${decodedState.nonce}`);
+
+      if (!storedUserId || storedUserId !== decodedState.userId) {
+        app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed: nonce mismatch');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
       }
+
+      // Consume the nonce -- one-time use only
+      await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+
+      const userId = decodedState.userId;
 
       // Exchange code for token
       const tokenRes = await fetch(GITHUB_TOKEN_URL, {
@@ -94,14 +120,16 @@ export async function connectRoutes(app: FastifyInstance) {
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
-      // Encrypt and store the token
-      const encryptedToken = app.encryption.encrypt(tokenData.access_token);
+      // Encrypt and store the token under the dedicated follow-scope key so
+      // that a subsequent login (which writes to 'github') cannot overwrite
+      // this follow-capable credential.
+      const encryptedToken = encrypt(tokenData.access_token);
 
       await app.prisma.oAuthToken.upsert({
         where: {
           userId_platform: {
             userId,
-            platform: 'github',
+            platform: GITHUB_FOLLOW_PLATFORM,
           },
         },
         update: {
@@ -110,7 +138,7 @@ export async function connectRoutes(app: FastifyInstance) {
         },
         create: {
           userId,
-          platform: 'github',
+          platform: GITHUB_FOLLOW_PLATFORM,
           accessToken: encryptedToken,
           scopes: tokenData.scope || 'user:follow',
         },
@@ -124,8 +152,9 @@ export async function connectRoutes(app: FastifyInstance) {
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=github`);
 
-    } catch (err) {
-      app.log.error('GitHub connect error:', err);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      app.log.error({ error, message }, 'GitHub connect error');
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
     }
   });
@@ -139,6 +168,11 @@ export async function connectRoutes(app: FastifyInstance) {
     const userId = (request.user as any).id;
     const { platform } = request.params;
 
+    const SUPPORTED_PLATFORMS = ['github', 'google', 'twitter', 'linkedin'];
+    if (!SUPPORTED_PLATFORMS.includes(platform)) {
+      return reply.status(400).send({ error: `Unsupported platform: ${platform}` });
+    }
+
     try {
       await app.prisma.oAuthToken.delete({
         where: {
@@ -149,13 +183,13 @@ export async function connectRoutes(app: FastifyInstance) {
         },
       });
       return { success: true };
-    } catch (err) {
+    } catch (error) {
       return reply.status(404).send({ error: 'Connection not found' });
     }
   });
 }
 
-function parseGoogleState(state: string): ParsedOAuthState | null {
+function parseOAuthState(state: string): ParsedOAuthState | null {
   try {
     const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
 

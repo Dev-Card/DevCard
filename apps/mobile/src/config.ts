@@ -1,12 +1,24 @@
+import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
+
 // DevCard API Configuration
 
-// For Android emulator, use localhost with 'adb reverse tcp:3000 tcp:3000'
+const getDevServerHost = () => {
+  const constants = Constants as any;
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    constants.manifest2?.extra?.expoGo?.debuggerHost ||
+    constants.manifest?.debuggerHost;
+
+  return hostUri?.split(':')[0] || '10.155.14.65';
+};
+
 export const API_BASE_URL = __DEV__
-  ? 'http://localhost:3000'
+  ? `http://${getDevServerHost()}:3000`
   : 'https://api.devcard.dev';
 
 export const APP_URL = __DEV__
-  ? 'http://localhost:5173'
+  ? `http://${getDevServerHost()}:5173`
   : 'https://devcard.dev';
 
-export const OAUTH_REDIRECT_URI = 'devcard://oauth/callback';
+export const OAUTH_REDIRECT_URI = Linking.createURL('oauth/callback');

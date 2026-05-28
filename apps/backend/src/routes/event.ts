@@ -1,6 +1,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createEventSchema, joinEventSchema} from '../validations/event.validation';
 
+import {generateUniqueSlug} from '../utils/slug'
+
+
 type EventDetails = {
     id: string; 
     name: string; 
@@ -35,14 +38,32 @@ type PaginatedAttendeesResponse = {
   };
 }
 
+type EventWithAttendees = {
+  _count: {
+    attendees: number;
+  };
+  attendees: {
+    user: {
+      id: string;
+      username: string;
+      displayName: string;
+      bio: string | null;
+      pronouns: string | null;
+      company: string | null;
+      avatarUrl: string | null;
+      accentColor: string;
+    };
+  }[];
+}
+
 export async function eventRoutes(app:FastifyInstance) {
-    app.post('/api/events' , async(request: FastifyRequest<{
+    app.post('/' , async(request: FastifyRequest<{
         Body: {
             name: string,
-            description?: string, 
-            startDate: string, 
+            description?: string,
+            startDate: string,
             location: string,
-            endDate: string, 
+            endDate: string,
             isPublic?: boolean
     }}>, reply: FastifyReply) => {
         let decoded; 
@@ -59,18 +80,11 @@ export async function eventRoutes(app:FastifyInstance) {
         
         const {name, description, startDate, endDate, isPublic ,location} = parsed.data
 
-        let cleanSlug = name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]+/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '')
-        let finalSlug = cleanSlug; 
-
-        while(true){
-            const existing = await app.prisma.event.findUnique({where: {slug : finalSlug}}); 
-
-            if(!existing){
-                break; 
-            }
-            const randomSuffix  = Math.random().toString(36).substring(2,6); 
-            finalSlug = `${cleanSlug}-${randomSuffix}`
-        }
+        let finalSlug = await generateUniqueSlug(name, async(slug) => {
+            const existing = await app.prisma.event.findUnique({where: {slug : slug}})
+            
+            return !!existing
+        })
 
         const startDateObj = new Date(startDate); 
         const endDateObj = new Date(endDate); 
@@ -98,7 +112,7 @@ export async function eventRoutes(app:FastifyInstance) {
     })
 
     //Returns event details and attendees count
-    app.get('/api/events/:slug', async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+    app.get('/:slug', async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
         const paramsSlug = request.params.slug; 
         const details = await app.prisma.event.findUnique({
             where: {
@@ -132,7 +146,7 @@ export async function eventRoutes(app:FastifyInstance) {
         return response; 
     })
 
-    app.post('/api/events/:slug/join' , async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+    app.post('/:slug/join' , async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
         let decoded; 
         try {
             decoded = await request.jwtVerify() as any; 
@@ -172,7 +186,7 @@ export async function eventRoutes(app:FastifyInstance) {
 
     })
 
-    app.delete('/api/events/:slug/leave',async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+    app.delete('/:slug/leave',async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
         let decoded; 
         try {
             decoded = await request.jwtVerify() as any
@@ -211,7 +225,7 @@ export async function eventRoutes(app:FastifyInstance) {
         }
     })
 
-    app.get('/api/events/:slug/attendees', async(request: FastifyRequest<{Params: {slug: string}, Querystring: {page?:string; limit?: string}}>, reply: FastifyReply) => {
+    app.get('/:slug/attendees', async(request: FastifyRequest<{Params: {slug: string}, Querystring: {page?:string; limit?: string}}>, reply: FastifyReply) => {
         const paramsSlug = request.params.slug; 
         const page = Math.max(1, Number(request.query.page) || 1); 
         const limit = Math.min(50, Number(request.query.limit) || 10); 
@@ -221,6 +235,9 @@ export async function eventRoutes(app:FastifyInstance) {
                 slug: paramsSlug
             }, 
             include: {
+                _count: {
+                    select: { attendees: true }
+                },
                 attendees : {
                     include: {
                         user: {
@@ -241,14 +258,14 @@ export async function eventRoutes(app:FastifyInstance) {
                     orderBy: {joinedAt: 'desc'}
                 }
             }, 
-        })
+        })as EventWithAttendees | null;
 
         if(!event){
             return reply.status(404).send({error: 'Event not found'})
         }
 
          
-        const attendees = event.attendees.map(attendee => ({
+        const attendees = event.attendees.map((attendee: EventWithAttendees['attendees'][number]) => ({
             id: attendee.user.id,
             username: attendee.user.username,
             displayName: attendee.user.displayName,
@@ -264,7 +281,7 @@ export async function eventRoutes(app:FastifyInstance) {
             pagination: {
                 page, 
                 limit, 
-                total : event.attendees.length,
+                total : event._count.attendees,
             }
         }
 
