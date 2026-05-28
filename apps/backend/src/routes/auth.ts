@@ -166,8 +166,8 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
           update: { accessToken: encryptedToken, scopes: 'read:user user:email' },
           create: { userId: user.id, platform: 'github', accessToken: encryptedToken, scopes: 'read:user user:email' },
         });
-      } catch (err) {
-        app.log.error({ err, userId: user.id }, 'Failed to persist GitHub OAuth token — authentication proceeds');
+      } catch (error) {
+        app.log.error({ error, userId: user.id }, 'Failed to persist GitHub OAuth token — authentication proceeds');
       }
 
       // Generate JWT
@@ -192,9 +192,9 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
       });
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      app.log.error({ err, message }, 'GitHub auth error');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      app.log.error({ error, message }, 'GitHub auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -326,9 +326,9 @@ app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthC
       });
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      app.log.error({ err, message }, 'Google auth error');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      app.log.error({ error, message }, 'Google auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });

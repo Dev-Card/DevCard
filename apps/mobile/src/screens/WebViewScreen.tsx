@@ -129,8 +129,8 @@ export default function WebViewScreen({ navigation, route }: Props) {
           },
           body: JSON.stringify({ status: 'success', layer: 'webview' }),
         });
-      } catch (err) {
-        console.warn('Failed to log WebView follow success:', err);
+      } catch (error) {
+        console.warn('Failed to log WebView follow success:', error);
       }
     }
 
@@ -221,7 +221,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
         for (var k = 0; k < kws.length; k++) {
           if (bodyText.includes(kws[k])) {
             window.__devcardSuccessReported = true;
-            try { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success' })); } catch(e){}
+            try { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success' })); } catch(error){}
             return;
           }
         }
@@ -232,7 +232,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
           for (var j = 0; j < kws.length; j++) {
             if (t.includes(kws[j]) || l.includes(kws[j])) {
               window.__devcardSuccessReported = true;
-              try { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success' })); } catch(e){}
+              try { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success' })); } catch(error){}
               return;
             }
           }
@@ -259,7 +259,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
       function log(msg) {
         try {
           window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'debug', message: msg }));
-        } catch(e){}
+        } catch(error){}
       }
 
       log('LinkedIn JS Engine Started');
@@ -292,7 +292,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
         if (successReported) return;
         successReported = true;
         if (window.__devcardSuccessReported !== undefined) window.__devcardSuccessReported = true;
-        try { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success' })); } catch(e){}
+        try { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success' })); } catch(error){}
         log('Success: ' + reason);
       }
 

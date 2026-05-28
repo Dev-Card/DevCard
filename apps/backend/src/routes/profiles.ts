@@ -103,15 +103,15 @@ export async function profileRoutes(app: FastifyInstance) {
       });
 
       return response;
-    } catch (err: any) {
+    } catch (error: any) {
       // Unique constraint violation — two concurrent requests raced through the
       // findFirst check above and both attempted the write. The DB constraint
       // fires on the losing request; surface it as a deterministic 409 rather
       // than leaking a raw Prisma error as a 500.
-      if (err?.code === 'P2002') {
+      if (error?.code === 'P2002') {
         return reply.status(409).send({ error: 'Username already taken' });
       }
-      app.log.error({ err }, 'DB error in PUT /profiles/me');
+      app.log.error({ error }, 'DB error in PUT /profiles/me');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

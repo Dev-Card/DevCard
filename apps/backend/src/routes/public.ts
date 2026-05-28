@@ -129,7 +129,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: request.query?.source || 'link',
         },
-      }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`));
+      }).catch((error: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(error)}`));
     }
 
     // Fetch viewer's successful follow logs for this profile's links
@@ -295,7 +295,7 @@ export async function publicRoutes(app: FastifyInstance) {
           viewerAgent: request.headers['user-agent'] || null,
           source: request.query?.source || 'qr',
         },
-      }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`));
+      }).catch((error: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(error)}`));
     }
 
 
@@ -375,8 +375,8 @@ export async function publicRoutes(app: FastifyInstance) {
         .header('Content-Type', 'image/png')
         .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
         .send(png);
-    } catch (err) {
-      app.log.error({ err, username, size, format }, 'QR generation failed');
+    } catch (error) {
+      app.log.error({ error, username, size, format }, 'QR generation failed');
       return reply.status(500).send({ error: 'QR code generation failed' });
     }
   });

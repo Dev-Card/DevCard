@@ -48,8 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = await res.json();
         setUser(userData);
       }
-    } catch (err) {
-      console.error('Failed to fetch user:', err);
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
     }
   };
 
@@ -69,8 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = await res.json();
         setUser(userData);
       }
-    } catch (err) {
-      console.error('Failed to refresh user:', err);
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
     }
   };
 

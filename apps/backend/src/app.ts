@@ -91,7 +91,7 @@ export async function buildApp():Promise<FastifyInstance> {
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
-    } catch (_err) {
+    } catch (error) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });

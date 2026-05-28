@@ -70,8 +70,8 @@ export default function ScanScreen({ navigation }: Props) {
       if (res.ok) {
         setCards(await res.json());
       }
-    } catch (err) {
-      console.error('Failed to fetch cards:', err);
+    } catch (error) {
+      console.error('Failed to fetch cards:', error);
     } finally {
       setLoadingCards(false);
     }
@@ -132,8 +132,8 @@ export default function ScanScreen({ navigation }: Props) {
     setSelectedCardId(cardId);
     try {
       await AsyncStorage.setItem(LAST_SELECTED_CARD_KEY, cardId);
-    } catch (err) {
-      console.error('Failed to persist selected card:', err);
+    } catch (error) {
+      console.error('Failed to persist selected card:', error);
     } finally {
       sheetRef.current?.dismiss();
     }
