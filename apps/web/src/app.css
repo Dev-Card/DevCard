@@ -55,7 +55,26 @@ html.dark {
   padding: 0;
   box-sizing: border-box;
 }
+html,
+body {
+  transition:
+    background-color 0.35s ease,
+    color 0.35s ease;
+}
 
+button,
+.btn-primary,
+.btn-secondary,
+.glass,
+.premium-card,
+a {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.25s ease;
+}
 body {
   font-family: 'Inter', sans-serif;
   background:
@@ -203,4 +222,7 @@ html {
 :root:not(.dark) .btn-secondary {
   border-color: var(--border);
   background: rgba(0, 0, 0, 0.04);
+}
+.theme-toggle:hover {
+  transform: rotate(180deg) scale(1.08);
 }
