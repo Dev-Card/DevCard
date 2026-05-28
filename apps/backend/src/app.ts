@@ -22,6 +22,7 @@ import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
 import { validateEnv } from './utils/validateEnv.js';
+import { teamRoutes } from './routes/team.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -103,8 +104,11 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-await app.register(nfcRoutes, { prefix: '/api/nfc' });
-    await app.register(eventRoutes, { prefix: '/api/events' });
+  await app.register(nfcRoutes, { prefix: '/api/nfc' });
+  await app.register(eventRoutes, {prefix: '/api/events'})
+  await app.register(teamRoutes, {prefix: '/api/teams'})
+
+
   // ─── Health Check ───
 type HealthResponse = {
   status: 'ok';
