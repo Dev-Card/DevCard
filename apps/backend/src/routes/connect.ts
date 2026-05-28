@@ -107,7 +107,7 @@ app.get('/github', {
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
-        app.log.error('GitHub connect token error:', tokenData);
+        app.log.error(tokenData, 'GitHub connect token error');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 

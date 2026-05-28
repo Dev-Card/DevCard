@@ -10,6 +10,13 @@ import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify, {type FastifyInstance} from 'fastify';
 
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: any;
+  }
+}
+
+
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
 import { analyticsRoutes } from './routes/analytics.js';
@@ -89,6 +96,9 @@ export async function buildApp():Promise<FastifyInstance> {
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
+      if (!request.headers.authorization && request.cookies && request.cookies.token) {
+        request.headers.authorization = `Bearer ${request.cookies.token}`;
+      }
       await request.jwtVerify();
     } catch (_err) {
       reply.status(401).send({ error: 'Unauthorized' });
