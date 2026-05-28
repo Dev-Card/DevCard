@@ -2,7 +2,6 @@ import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyRepl
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 import type { PlatformLink } from '@devcard/shared';
 import { getErrorMessage } from '../utils/error.util.js';
-
 type PublicProfileLink = {
   id: string;
   platform: string;
@@ -12,7 +11,7 @@ type PublicProfileLink = {
   followed?: boolean;
 }
 
-type UsernamePublicProfileResponse = {
+type UsernamePublicProfileResponse =  {
   username: string; 
   displayName: string;
   bio: string | null; 
@@ -60,6 +59,7 @@ type UsernameCardPublicProfileResponse = {
   links: PublicProfileCardLink[]
 }
 
+// Represents a CardLink record with the joined PlatformLink relation
 interface CardLinkWithPlatform {
   id: string;
   displayOrder: number;
@@ -103,6 +103,8 @@ export async function publicRoutes(app: FastifyInstance) {
         } else {
           viewerId = decoded?.id ?? null;
         }
+      } else {
+        viewerId = null; // Unauthenticated viewer
       }
     } catch {
       // Ignored if invalid token
@@ -110,10 +112,11 @@ export async function publicRoutes(app: FastifyInstance) {
 
     // Don't track if the owner is viewing their own profile
     if (!isSelfView && viewerId !== user.id) {
+      // Background view tracking
       app.prisma.cardView.create({
         data: {
           ownerId: user.id,
-          cardId: null,
+          cardId: null, // this is a profile view, not a card view
           viewerId,
           viewerIp: request.ip || null,
           viewerAgent: request.headers['user-agent'] || null,
@@ -170,6 +173,7 @@ export async function publicRoutes(app: FastifyInstance) {
     }
 
     return response; 
+
   });
 
   /**
@@ -223,6 +227,7 @@ export async function publicRoutes(app: FastifyInstance) {
     }
 
     return response; 
+
   });
 
   // ─── Public Card View ───
@@ -267,11 +272,11 @@ export async function publicRoutes(app: FastifyInstance) {
     let isSelfView = false;
     try {
       if (request.headers.authorization) {
-        const decoded = await request.jwtVerify() as any;
+        const decoded = (await request.jwtVerify()) as { id?: string };
         if (decoded?.id === user.id) {
           isSelfView = true;
         } else {
-          viewerId = decoded.id;
+          viewerId = decoded?.id ?? null;
         }
       }
     } catch (e) {
@@ -290,6 +295,7 @@ export async function publicRoutes(app: FastifyInstance) {
         },
       }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`));
     }
+
 
     const response: UsernameCardPublicProfileResponse = {
       title: card.title,
@@ -319,7 +325,7 @@ export async function publicRoutes(app: FastifyInstance) {
   app.get('/:username/qr', {
     config: {
       rateLimit: {
-        max: 50,
+        max: 50, // Lower limit for QR generation as it's more resource intensive
         timeWindow: '1 minute'
       }
     } as FastifyContextConfig
@@ -331,6 +337,7 @@ export async function publicRoutes(app: FastifyInstance) {
     const format = request.query.format || 'png';
     const size = parseInt(request.query.size || '400', 10);
 
+    // Verify user exists
     const user = await app.prisma.user.findUnique({
       where: { username },
     });
