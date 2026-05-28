@@ -84,10 +84,10 @@ export async function nfcRoutes(app: FastifyInstance) {
         }
       }
 
-      const payloadUrl = `https://dev-card.vercel.app/${username}${
-        cardId ? `?card=${cardId}` : ''
-      }`;
-
+const safeUsername = encodeURIComponent(username);
+const payloadUrl = `https://dev-card.vercel.app/${safeUsername}${
+  cardId ? `?card=${encodeURIComponent(cardId)}` : ''
+}`;
       const response: NfcPayloadResponse = {
         type: 'URI',
         payload: payloadUrl,
