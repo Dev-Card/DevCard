@@ -56,20 +56,6 @@ html.dark {
   box-sizing: border-box;
 }
 
-body,
-a,
-button,
-.btn-primary,
-.btn-secondary,
-.glass,
-.premium-card {
-  transition:
-    background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.25s ease;
-}
 body {
   font-family: 'Inter', sans-serif;
   background:
@@ -99,13 +85,7 @@ a {
 button,
 .btn-primary,
 .btn-secondary {
-  transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease,
-    background-color 0.3s ease,
-    border-color 0.3s ease,
-    color 0.3s ease;
-  will-change: transform;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, background-color 0.24s ease, border-color 0.24s ease, color 0.24s ease;
 }
 
 button {
@@ -219,53 +199,8 @@ html {
   }
 }
 
-.premium-card {
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
-}
-
-.premium-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
-}
-
-.card-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px;
-}
-
-.page-container {
-  background: #f9fafb;
-  min-height: 100vh;
-}
-
-.brand-text {
-  font-weight: 600;
-  font-size: 16px;
-  color: #374151;
-}
-
-
-button {
-  border-radius: 8px;
-  padding: 10px 16px;
-  background: #4f46e5;
-  color: white;
-  transition: 0.3s;
-}
-
-button:hover {
-  background: #4338ca;
-}
-.theme-toggle:hover {
-  transform: rotate(180deg) scale(1.08);
 /* Light mode btn-secondary fix */
 :root:not(.dark) .btn-secondary {
   border-color: var(--border);
   background: rgba(0, 0, 0, 0.04);
-}}
+}
