@@ -1,7 +1,13 @@
 import Fastify from 'fastify';
+import cookie from '@fastify/cookie';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authRoutes } from '../routes/auth.js';
+
+// Mock the encrypt import used directly in auth.ts
+vi.mock('../utils/encryption.js', () => ({
+  encrypt: vi.fn((token: string) => `encrypted:${token}`),
+}));
 
 const githubUser = {
   id: 12345,
@@ -21,8 +27,15 @@ function mockGitHubResponses(scope: string) {
     } as Response);
 }
 
+// Convenience: inject the callback URL with the oauth_state cookie pre-set
+// so the upstream CSRF check passes without affecting the token-preservation logic.
+const CALLBACK_STATE = 'mobile_github';
+const CALLBACK_COOKIE = `oauth_state=${CALLBACK_STATE}`;
+
 async function buildApp(existingToken: { scopes: string } | null) {
   const app = Fastify({ logger: false });
+  await app.register(cookie); // required for request.cookies (CSRF check)
+
   const findUniqueToken = vi.fn().mockResolvedValue(existingToken);
   const upsertToken = vi.fn().mockResolvedValue({});
   const upsertUser = vi.fn().mockResolvedValue({
@@ -41,9 +54,6 @@ async function buildApp(existingToken: { scopes: string } | null) {
     },
   } as any);
   app.decorate('jwt', { sign } as any);
-  app.decorate('encryption', {
-    encrypt: vi.fn((token: string) => `encrypted:${token}`),
-  } as any);
   app.decorate('authenticate', async (request: any) => {
     request.user = { id: 'user-1' };
   });
@@ -75,11 +85,12 @@ describe('GitHub OAuth token persistence', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/auth/github/callback?code=login-code&state=mobile_github',
+      url: `/auth/github/callback?code=login-code&state=${CALLBACK_STATE}`,
+      headers: { Cookie: CALLBACK_COOKIE },
     });
 
     expect(response.statusCode).toBe(302);
-    expect(response.headers.location).toBe('devcard://auth?token=jwt-token');
+    expect(response.headers.location).toBe('devcard://auth#token=jwt-token');
     expect(sign).toHaveBeenCalledWith(
       { id: 'user-1', username: githubUser.login },
       { expiresIn: '30d' }
@@ -99,7 +110,8 @@ describe('GitHub OAuth token persistence', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/auth/github/callback?code=login-code&state=mobile_github',
+      url: `/auth/github/callback?code=login-code&state=${CALLBACK_STATE}`,
+      headers: { Cookie: CALLBACK_COOKIE },
     });
 
     expect(response.statusCode).toBe(302);
@@ -123,7 +135,8 @@ describe('GitHub OAuth token persistence', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/auth/github/callback?code=login-code&state=mobile_github',
+      url: `/auth/github/callback?code=login-code&state=${CALLBACK_STATE}`,
+      headers: { Cookie: CALLBACK_COOKIE },
     });
 
     expect(response.statusCode).toBe(302);
