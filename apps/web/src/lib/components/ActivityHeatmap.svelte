@@ -10,12 +10,12 @@
   
   onMount(() => {
     const today = new Date();
+    const generatedData = [];
     for (let w = 0; w < weeks; w++) {
       let weekData = [];
       for (let d = 0; d < daysPerWeek; d++) {
         const date = new Date(today);
         date.setDate(date.getDate() - ((weeks - 1 - w) * 7 + (6 - d)));
-        // Random intensity between 0 and 4, weighted towards 0
         const random = Math.random();
         let intensity = 0;
         if (random > 0.85) intensity = 4;
@@ -25,9 +25,9 @@
         
         weekData.push({ intensity, date });
       }
-      heatmapData.push(weekData);
+      generatedData.push(weekData);
     }
-    heatmapData = heatmapData; // trigger reactivity
+    heatmapData = generatedData;
   });
 
   function getIntensityColor(intensity: number): string {
@@ -56,6 +56,9 @@
           {#each week as day, dIndex}
             <div 
               class="day" 
+              role="button"
+              aria-label="Contribution activity on {day.date.toDateString()}"
+              tabindex="0"
               style="background-color: {getIntensityColor(day.intensity)};"
               title="{day.date.toDateString()}: {day.intensity * 3} contributions"
             ></div>

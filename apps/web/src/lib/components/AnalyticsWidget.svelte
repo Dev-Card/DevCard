@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+
   let { 
     title, 
     value, 
@@ -13,11 +13,9 @@
     isPositive?: boolean;
     icon?: string;
   }>();
-
-  let widgetRef: HTMLDivElement;
 </script>
 
-<div class="analytics-widget glass" bind:this={widgetRef}>
+<div class="analytics-widget glass">
   <div class="widget-header">
     <div class="icon-wrapper">
       <span class="icon">{icon}</span>
