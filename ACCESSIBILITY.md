@@ -1,12 +1,5 @@
 # ACCESSIBILITY.md — DevCard Accessibility Audit & Compliance Report
 
-> **Standard Compliance**: WCAG 2.1 Level AA
-> **Audit Date**: 2026-05-29
-> **Auditor**: Senior Accessibility Architect (Antigravity Agent)
-> **Compliance Status**: ✅ **100% Fully Compliant** (All AA-level issues audited, documented, and fixed)
-
----
-
 ## Table of Contents
 
 1. [Web App Audits & Resolution (By Page & Severity)](#1-web-app-audits--resolution-by-page--severity)
