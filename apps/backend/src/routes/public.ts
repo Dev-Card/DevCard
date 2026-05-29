@@ -2,8 +2,7 @@ import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyRepl
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 import type { PlatformLink } from '@devcard/shared';
 import { getErrorMessage } from '../utils/error.util.js';
-<<<<<<< HEAD
-=======
+import * as publicService from '../services/publicService'
 
 
 // ── QR size bounds ────────────────────────────────────────────────────────────
@@ -20,7 +19,6 @@ const MAX_QR_SIZE = 2048;
 const PROFILE_CACHE_TTL = 300; // seconds (5 minutes)
 const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60';
 
->>>>>>> upstream/main
 type PublicProfileLink = {
   id: string;
   platform: string;
@@ -98,7 +96,6 @@ function transformPublicProfileLink(
   };
 }
 
-<<<<<<< HEAD
 function transformCardPlatformLink(
   cl: CardLinkWithPlatform
 ) {
@@ -138,14 +135,6 @@ function transformOwnerProfile(user: {
     accentColor: user.accentColor,
   };
 }
-=======
-// ── Internal Redis cache shape ────────────────────────────────────────────────
-// Extends the public response with the owner's DB id so that background view
-// tracking can still fire on cache-HIT requests without an extra DB read.
-type CachedProfileEntry = UsernamePublicProfileResponse & { _userId: string };
-
-
->>>>>>> upstream/main
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───────────────────────────────────────────────────────
   // ─── Public Profile ───
@@ -161,17 +150,16 @@ export async function publicRoutes(app: FastifyInstance) {
     const cacheKey = `profile:${username}`;
 
     // Try to extract viewer from Authorization header (soft auth).
-    // Done before the cache check so viewerId is available for both paths.
-    let viewerId: string | null = null;
+    let viewerId: string | null = null
     try {
       if (request.headers.authorization) {
-        const decoded = (await request.jwtVerify()) as { id?: string };
-        viewerId = decoded?.id ?? null;
+        const decoded = (await request.jwtVerify()) as { id?: string }
+        viewerId = decoded?.id ?? null
       } else {
-        viewerId = null; // Unauthenticated viewer
+        viewerId = null
       }
     } catch {
-      // Ignored if invalid token
+      // ignored
     }
 
     // ── Redis cache read ──────────────────────────────────────────────────
@@ -295,7 +283,6 @@ export async function publicRoutes(app: FastifyInstance) {
     }
 
     const response: UsernamePublicProfileResponse = {
-<<<<<<< HEAD
       ...transformOwnerProfile(user),
       links: user.platformLinks.map((link: PlatformLink) =>
         transformPublicProfileLink(
@@ -305,7 +292,6 @@ export async function publicRoutes(app: FastifyInstance) {
     }
 
     return response; 
-=======
       username: user.username,
       displayName: user.displayName,
       bio: user.bio,
@@ -319,12 +305,20 @@ export async function publicRoutes(app: FastifyInstance) {
         followed: followedLinkIds.includes(link.id),
       })),
     };
->>>>>>> upstream/main
 
     reply
       .header('X-Cache', 'MISS')
       .header('Cache-Control', CACHE_CONTROL_HEADER);
     return response;
+    try {
+      const result = await publicService.getPublicProfile(app, username, viewerId, request)
+      if (!result) return reply.status(404).send({ error: 'User not found' })
+      reply.header('X-Cache', result.cached ? 'HIT' : 'MISS').header('Cache-Control', CACHE_CONTROL_HEADER)
+      return result.data
+    } catch (err: any) {
+      app.log.error({ err }, 'Failed to fetch public profile')
+      return reply.status(500).send({ error: 'Internal server error' })
+    }
   });
 
   /**
@@ -344,48 +338,26 @@ export async function publicRoutes(app: FastifyInstance) {
   }, async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
     const { cardId } = request.params;
 
-    const card = await app.prisma.card.findUnique({
-      where: { id: cardId },
-      include: {
-        user: true,
-        cardLinks: {
-          include: { platformLink: true },
-          orderBy: { displayOrder: 'asc' },
-        },
-      },
-    });
-
-    if (!card) {
-      return reply.status(404).send({ error: 'Card not found' });
+    try {
+      const card = await publicService.getCardById(app, cardId)
+      if (!card) return reply.status(404).send({ error: 'Card not found' })
+      const response = { id: card.id, title: card.title, owner: { username: card.user.username, displayName: card.user.displayName, bio: card.user.bio, avatarUrl: card.user.avatarUrl, accentColor: card.user.accentColor }, links: card.cardLinks.map((cl: any) => ({ id: cl.platformLink.id, platform: cl.platformLink.platform, username: cl.platformLink.username, url: cl.platformLink.url })) }
+      return response
+    } catch (err: any) {
+      app.log.error({ err }, 'Failed to fetch shared card')
+      return reply.status(500).send({ error: 'Internal server error' })
     }
 
     const response: CardPublicProfileResponse = {
       id: card.id,
       title: card.title,
-<<<<<<< HEAD
       owner: transformOwnerProfile(card.user),
       links: card.cardLinks.map(transformCardPlatformLink),
     }
 
     return response; 
-=======
-      owner: {
-        username: card.user.username,
-        displayName: card.user.displayName,
-        bio: card.user.bio,
-        avatarUrl: card.user.avatarUrl,
-        accentColor: card.user.accentColor,
-      },
-      links: card.cardLinks.map((cl: CardLinkWithPlatform) => ({
-        id: cl.platformLink.id,
-        platform: cl.platformLink.platform,
-        username: cl.platformLink.username,
-        url: cl.platformLink.url,
-      })),
-    };
->>>>>>> upstream/main
 
-    return response;
+    
   });
 
   // ─── Public Card View ─────────────────────────────────────────────────────
@@ -405,36 +377,14 @@ export async function publicRoutes(app: FastifyInstance) {
     */
     const { username, cardId } = request.params;
 
-    const user = await app.prisma.user.findUnique({
-      where: { username },
-    });
-
-    if (!user) {
-      return reply.status(404).send({ error: 'User not found' });
-    }
-
-    const card = await app.prisma.card.findFirst({
-      where: { id: cardId, userId: user.id },
-      include: {
-        cardLinks: {
-          include: { platformLink: true },
-          orderBy: { displayOrder: 'asc' },
-        },
-      },
-    });
-
-    if (!card) {
-      return reply.status(404).send({ error: 'Card not found' });
-    }
-
-    let viewerId: string | null = null;
+    let viewerId: string | null = null
     try {
       if (request.headers.authorization) {
-        const decoded = (await request.jwtVerify()) as { id?: string };
-        viewerId = decoded?.id ?? null;
+        const decoded = (await request.jwtVerify()) as { id?: string }
+        viewerId = decoded?.id ?? null
       }
     } catch {
-      // Ignored if invalid token
+      // ignored
     }
 
     if (viewerId && viewerId !== user.id) {
@@ -451,7 +401,6 @@ export async function publicRoutes(app: FastifyInstance) {
     }
 
 
-<<<<<<< HEAD
   const response: UsernameCardPublicProfileResponse = {
     title: card.title,
     owner: transformOwnerProfile(user),
@@ -459,28 +408,6 @@ export async function publicRoutes(app: FastifyInstance) {
   }
   return response;
   // ─── QR Code Generation ───
-=======
-    const response: UsernameCardPublicProfileResponse = {
-      title: card.title,
-      owner: {
-        username: user.username,
-        displayName: user.displayName,
-        bio: user.bio,
-        pronouns: user.pronouns,
-        role: user.role,
-        company: user.company,
-        avatarUrl: user.avatarUrl,
-        accentColor: user.accentColor,
-      },
-      links: card.cardLinks.map((cl: CardLinkWithPlatform) => ({
-        id: cl.platformLink.id,
-        platform: cl.platformLink.platform,
-        username: cl.platformLink.username,
-        url: cl.platformLink.url,
-        displayOrder: cl.displayOrder,
-      })),
-    };
-    return response;
   });
 
   // ─── QR Session ──────────────────────────────────────────────────────────
@@ -498,75 +425,22 @@ export async function publicRoutes(app: FastifyInstance) {
     const { username } = request.params;
     const cacheKey = `profile:${username}`;
 
-    let snapshot: UsernamePublicProfileResponse | null = null;
-
-    // Prefer the Redis-cached profile so the DB is not hit on repeat calls.
-    if (app.redis) {
-      try {
-        const cached = await app.redis.get(cacheKey);
-        if (cached) {
-          const { _userId: _id, ...profileData }: CachedProfileEntry = JSON.parse(cached);
-          snapshot = profileData;
-        }
-      } catch (err) {
-        app.log.warn(`Redis cache read failed for qr-session:${username}: ${getErrorMessage(err)}`);
-      }
+    try {
+      const result = await publicService.getPublicProfile(app, username, null, request)
+      if (!result) return reply.status(404).send({ error: 'User not found' })
+      const snapshot = result.data
+      const expiresIn = 600
+      const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString()
+      const token = app.jwt.sign({ profile: snapshot, sub: username }, { expiresIn: '10m' })
+      reply.header('Cache-Control', CACHE_CONTROL_HEADER)
+      return { token, tokenType: 'JWT', expiresIn, expiresAt }
+    } catch (err: any) {
+      app.log.error({ err }, 'Failed to create qr-session')
+      return reply.status(500).send({ error: 'Internal server error' })
     }
-
-    // Cache miss — fetch from DB and back-fill the cache.
-    if (!snapshot) {
-      const user = await app.prisma.user.findUnique({
-        where: { username },
-        include: { platformLinks: { orderBy: { displayOrder: 'asc' } } },
-      });
-
-      if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
-      }
-
-      const baseLinks = user.platformLinks.map((link: PlatformLink) => ({
-        id: link.id,
-        platform: link.platform,
-        username: link.username,
-        url: link.url,
-        displayOrder: link.displayOrder,
-        followed: false,
-      }));
-
-      snapshot = {
-        username: user.username,
-        displayName: user.displayName,
-        bio: user.bio,
-        pronouns: user.pronouns,
-        role: user.role,
-        company: user.company,
-        avatarUrl: user.avatarUrl,
-        accentColor: user.accentColor,
-        links: baseLinks,
-      };
-
-      if (app.redis) {
-        const entry: CachedProfileEntry = { _userId: user.id, ...snapshot };
-        app.redis
-          .set(cacheKey, JSON.stringify(entry), 'EX', PROFILE_CACHE_TTL)
-          .catch((err: unknown) => app.log.warn(`Redis cache write failed for ${cacheKey}: ${getErrorMessage(err)}`));
-      }
-    }
-
-    const expiresIn = 600; // 10 minutes in seconds
-    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
-
-    const token = app.jwt.sign(
-      { profile: snapshot, sub: username },
-      { expiresIn: '10m' }
-    );
-
-    reply.header('Cache-Control', CACHE_CONTROL_HEADER);
-    return { token, tokenType: 'JWT', expiresIn, expiresAt };
   });
 
   // ─── QR Code Generation ───────────────────────────────────────────────────
->>>>>>> upstream/main
 
   app.get('/:username/qr', {
     config: {
@@ -600,6 +474,16 @@ export async function publicRoutes(app: FastifyInstance) {
         .header('Content-Type', 'image/svg+xml')
         .header('Content-Disposition', `inline; filename="devcard-${username}.svg"`)
         .send(svg);
+    try {
+      if (format === 'svg') {
+        const svg = await generateQRSvg(profileUrl, { width: size })
+        return reply.header('Content-Type', 'image/svg+xml').header('Content-Disposition', `inline; filename="devcard-${username}.svg"`).send(svg)
+      }
+      const png = await generateQRBuffer(profileUrl, { width: size })
+      return reply.header('Content-Type', 'image/png').header('Content-Disposition', `inline; filename="devcard-${username}.png"`).send(png)
+    } catch (error) {
+      app.log.error({ error, username, size, format }, 'QR generation failed')
+      return reply.status(500).send({ error: 'QR code generation failed' })
     }
 
     const png = await generateQRBuffer(profileUrl, { width: size });

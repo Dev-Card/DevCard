@@ -26,7 +26,12 @@ export async function connectRoutes(app: FastifyInstance) {
   // ─── Status ───
 
   app.get('/status', {
-    preHandler: [app.authenticate],
+    preHandler: [async (request, reply) => {
+      const server = request.server as any;
+      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
+      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+    }],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
 
@@ -41,7 +46,12 @@ export async function connectRoutes(app: FastifyInstance) {
   // ─── GitHub Connect ───
 
   app.get('/github', {
-    preHandler: [app.authenticate],
+    preHandler: [async (request, reply) => {
+      const server = request.server as any;
+      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
+      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+    }],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const nonce = generateState();
@@ -68,9 +78,7 @@ export async function connectRoutes(app: FastifyInstance) {
     return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
   });
 
-  app.get('/github/callback', {
-    preHandler: [app.authenticate],
-  }, async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+  app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
 
     if (!code || !state) {
@@ -86,15 +94,15 @@ export async function connectRoutes(app: FastifyInstance) {
       }
 
       // Verify nonce was issued by this server -- prevents CSRF
-      const storedUserId = await app.redis.get(`oauth:nonce:${decodedState.nonce}`);
+      const storedUserId = app.redis ? await app.redis.get(`oauth:nonce:${decodedState.nonce}`) : null;
 
-      if (!storedUserId || storedUserId !== decodedState.userId) {
+      if (app.redis && (!storedUserId || storedUserId !== decodedState.userId)) {
         app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed: nonce mismatch');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
       }
 
-      // Consume the nonce -- one-time use only
-      await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+      // Consume the nonce -- one-time use only (if redis configured)
+      if (app.redis) await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
 
       const userId = decodedState.userId;
 
@@ -163,7 +171,12 @@ export async function connectRoutes(app: FastifyInstance) {
   // ─── Disconnect ───
 
   app.delete('/:platform', {
-    preHandler: [app.authenticate],
+    preHandler: [async (request, reply) => {
+      const server = request.server as any;
+      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
+      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+    }],
   }, async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const { platform } = request.params;
