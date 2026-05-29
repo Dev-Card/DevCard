@@ -18,19 +18,31 @@ export async function createCard(app: FastifyInstance, userId: string, body: { t
     if (ownedLinks.length !== body.linkIds.length) throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' })
   }
 
-  const cardCount = await app.prisma.card.count({ where: { userId } })
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const card = await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const cardCount = await tx.card.count({ where: { userId } })
 
-  const card = await app.prisma.card.create({
-    data: {
-      userId,
-      title: body.title,
-      isDefault: cardCount === 0,
-      cardLinks: { create: body.linkIds.map((linkId, index) => ({ platformLinkId: linkId, displayOrder: index })) },
-    },
-    include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
-  })
+        return await tx.card.create({
+          data: {
+            userId,
+            title: body.title,
+            isDefault: cardCount === 0,
+            cardLinks: { create: body.linkIds.map((linkId, index) => ({ platformLinkId: linkId, displayOrder: index })) },
+          },
+          include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
+        })
+      }, {
+        isolationLevel: 'Serializable' as Prisma.TransactionIsolationLevel
+      })
 
-  return { id: card.id, title: card.title, isDefault: card.isDefault, links: card.cardLinks.map((cl: any) => cl.platformLink) }
+      return { id: card.id, title: card.title, isDefault: card.isDefault, links: card.cardLinks.map((cl: any) => cl.platformLink) }
+    } catch (error: any) {
+      if (error.code === 'P2034' && attempt < MAX_RETRIES) continue;
+      throw error;
+    }
+  }
 }
 
 export async function updateCard(app: FastifyInstance, userId: string, id: string, body: { title?: string; linkIds?: string[] }) {
