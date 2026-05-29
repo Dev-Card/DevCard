@@ -339,9 +339,13 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorState}>
-          <Text style={styles.errorEmoji}>😕</Text>
+          <Text style={styles.errorEmoji} accessibilityElementsHidden>😕</Text>
           <Text style={styles.errorText}>User not found</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Go back to the previous screen"
+            accessibilityRole="button"
+          >
             <Text style={styles.backLink}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -354,8 +358,14 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
 
       {/* Close Button */}
-      <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.closeBtnText}>✕</Text>
+      <TouchableOpacity
+        style={styles.closeBtn}
+        onPress={() => navigation.goBack()}
+        accessibilityLabel="Close"
+        accessibilityRole="button"
+        accessibilityHint="Returns to the previous screen"
+      >
+        <Text style={styles.closeBtnText} aria-hidden>✕</Text>
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -432,6 +442,18 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
             const state = followStates[link.id] || 'idle';
             const btnColor = getButtonColor(link, state);
             const isDone = state === 'success';
+            const actionLabel = getButtonLabel(link);
+            // Build a clear, human-readable label for screen readers
+            const a11yLabel = isDone
+              ? `${platform?.name || link.platform} — connected as ${link.username}`
+              : `${actionLabel} ${platform?.name || link.platform} — ${link.username}`;
+            const a11yHint = isDone
+              ? 'Long press to reset connection status'
+              : platform?.followStrategy === 'webview'
+                ? 'Opens an in-app browser to connect'
+                : platform?.followStrategy === 'copy'
+                  ? 'Copies the username to your clipboard'
+                  : 'Opens the profile in your browser';
             return (
               <TouchableOpacity
                 key={link.id}
@@ -454,7 +476,12 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
                   }
                 }}
                 activeOpacity={isDone ? 0.9 : 0.8}
-                disabled={state === 'loading'}>
+                disabled={state === 'loading'}
+                accessibilityLabel={a11yLabel}
+                accessibilityRole="button"
+                accessibilityHint={a11yHint}
+                accessibilityState={{ disabled: state === 'loading', selected: isDone }}
+              >
 
                 {/* Icon */}
                 <View style={[
@@ -548,7 +575,7 @@ const styles = StyleSheet.create({
   },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   miniChip: { width: 28, height: 18, borderRadius: 4, opacity: 0.7 },
-  brandText: { color: 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: '800', letterSpacing: 2.5 },
+  brandText: { color: 'rgba(255,255,255,0.45)', fontSize: FONT_SIZE.nano + 1, fontWeight: '800', letterSpacing: 2.5 },
   cardMid: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   avatarRing: {
     borderRadius: 38,
@@ -565,18 +592,18 @@ const styles = StyleSheet.create({
   profileRole: {
     fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: '500', lineHeight: 15,
   },
-  pronouns: { fontSize: 10, color: COLORS.textMuted, fontStyle: 'italic' },
+  pronouns: { fontSize: FONT_SIZE.micro, color: COLORS.textMuted, fontStyle: 'italic' },
   cardBottom: { gap: SPACING.xs },
   cardDivider: {
     height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginBottom: 2,
   },
-  bioText: { fontSize: 10.5, color: 'rgba(255,255,255,0.38)', lineHeight: 15 },
+  bioText: { fontSize: FONT_SIZE.micro + 0.5, color: 'rgba(255,255,255,0.38)', lineHeight: 15 },
   cardBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
     borderWidth: 1,
   },
-  badgeText: { fontSize: 8, fontWeight: '900', letterSpacing: 1.5 },
+  badgeText: { fontSize: FONT_SIZE.nano, fontWeight: '900', letterSpacing: 1.5 },
 
   // ─── Tiles ───
   tilesSection: { gap: SPACING.sm },

@@ -1,4 +1,142 @@
+<script>
+  import { onMount } from 'svelte';
+
+  let theme = 'light';
+
+  onMount(() => {
+    const saved = localStorage.getItem('devcard-theme');
+    if (saved) {
+      theme = saved;
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      theme = 'dark';
+    }
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  });
+
+  function toggleTheme() {
+    theme = theme === 'light' ? 'dark' : 'light';
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('devcard-theme', theme);
+  }
+</script>
+
+<svelte:head>
+  <title>DevCard — One Tap. Every Profile. Every Platform.</title>
+  <meta
+    name="description"
+    content="Open source developer profile exchange platform. Share all your developer profiles with one QR code."
+  />
+  <meta property="og:title" content="DevCard — One Tap. Every Profile. Every Platform." />
+  <meta property="og:description" content="Open source developer profile exchange platform. Share all your developer profiles with one QR code." />
+  <meta property="og:url" content="https://devcard.example.com/" />
+  <meta property="og:image" content="https://devcard.example.com/og-image.jpg" />
+  <meta name="twitter:title" content="DevCard" />
+  <meta name="twitter:description" content="Open source developer profile exchange platform." />
+  <meta name="twitter:image" content="https://devcard.example.com/og-image.jpg" />
+</svelte:head>
+
+<!-- WCAG 2.4.1: Skip navigation link — shown on keyboard focus -->
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<div class="bg-glow" aria-hidden="true"></div>
+
+<main id="main-content" class="landing">
+  <!-- aria-label distinguishes this nav from any others on the page (WCAG 1.3.6) -->
+  <nav class="glass" aria-label="Main navigation">
+    <div class="nav-content">
+      <div class="logo" aria-hidden="true">⚡ <span class="gradient-text">DevCard</span></div>
+      <!-- aria-label is dynamic so screen readers announce the action, not the current state -->
+      <button
+        id="theme-toggle"
+        class="theme-toggle"
+        onclick={toggleTheme}
+        aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        aria-pressed={theme === 'dark'}
+      >
+        <!-- Emoji is decorative; aria-hidden prevents double-announcing -->
+        <span aria-hidden="true">{theme === 'light' ? '🌙' : '☀️'}</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- aria-labelledby ties the section to its heading for screen readers -->
+  <section class="hero" aria-labelledby="hero-heading">
+    <div class="hero-badge" aria-label="GSSoC 2026 Edition badge">GSSoC'26 Edition</div>
+    <h1 id="hero-heading" class="gradient-text">One Tap. Every Profile.<br/>Every Platform.</h1>
+    <p class="description">
+      The open-source standard for developer networking. Put all your profiles—GitHub, LinkedIn, LeetCode, and more—into a single, high-impact digital card.
+    </p>
+    <div class="cta-group">
+      <a
+        href="https://github.com/Dev-Card/DevCard"
+        class="btn-primary"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Star DevCard on GitHub (opens in new tab)"
+      >
+        ⭐ Star on GitHub
+      </a>
+      <a href="/u/devcard-demo" class="btn-secondary">View Demo Profile →</a>
+    </div>
+  </section>
+
+  <section id="features" class="features" aria-labelledby="features-heading">
+    <!-- Visually hidden heading for screen reader section navigation -->
+    <h2 id="features-heading" class="sr-only">Features</h2>
+    <div class="feature-card glass">
+      <div class="feature-icon" aria-hidden="true">🔗</div>
+      <h3>Unified Identity</h3>
+      <p>Combine your fragmented online presence into a cohesive professional identity.</p>
+    </div>
+    <div class="feature-card glass">
+      <div class="feature-icon" aria-hidden="true">⚡</div>
+      <h3>Instant Follow</h3>
+      <p>Integrated APIs allow followers to connect with you instantly across platforms.</p>
+    </div>
+    <div class="feature-card glass">
+      <div class="feature-icon" aria-hidden="true">🔒</div>
+      <h3>Private by Design</h3>
+      <p>No tracking, no data selling. Your information stays where it belongs: with you.</p>
+    </div>
+  </section>
+
+  <footer class="footer" role="contentinfo">
+    <p>© 2026 DevCard • Built for the Developer Community</p>
+  </footer>
+</main>
+
 <style>
+  /* ── Skip link (WCAG 2.4.1 Bypass Blocks) ─────────────────────────── */
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 1rem;
+    z-index: 9999;
+    padding: 0.75rem 1.25rem;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 700;
+    border-radius: var(--radius);
+    text-decoration: none;
+    transition: top 0.2s ease;
+  }
+  .skip-link:focus {
+    top: 1rem;
+  }
+
+  /* ── Screen-reader only utility ────────────────────────────────────── */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .bg-glow {
     position: fixed;
     top: 0;
@@ -59,8 +197,9 @@
     border-color: rgba(99, 102, 241, 0.3);
   }
 
+  /* Solid focus ring — meets WCAG 2.4.7 Focus Visible */
   .theme-toggle:focus-visible {
-    outline: 3px solid rgba(99, 102, 241, 0.24);
+    outline: 3px solid #6366f1;
     outline-offset: 3px;
   }
 

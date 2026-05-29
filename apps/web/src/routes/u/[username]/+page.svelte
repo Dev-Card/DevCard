@@ -17,14 +17,16 @@
   let mounted = $state(false);
   let copyMessage = $state('');
   let copyStatus = $state<'success' | 'error'>('success');
-  let copyMessageTimeout: ReturnType<typeof setTimeout>;
+  let copyTimeout: ReturnType<typeof setTimeout>;
+
+  // aria-live="polite" region already exists on copyMessage element ✓
 
   onMount(() => {
     mounted = true;
 
     return () => {
-      if (copyMessageTimeout) {
-        clearTimeout(copyMessageTimeout);
+      if (copyTimeout) {
+        clearTimeout(copyTimeout);
       }
     };
   });
@@ -32,13 +34,7 @@
   function showCopyMessage(message: string, status: 'success' | 'error') {
     copyMessage = message;
     copyStatus = status;
-
-    if (copyMessageTimeout) {
-      clearTimeout(copyMessageTimeout);
-    }
-
     clearTimeout(copyTimeout);
-
     copyTimeout = setTimeout(() => {
       copyMessage = '';
     }, 3000);
@@ -68,9 +64,9 @@
   {/if}
 </svelte:head>
 
-<div class="bg-gradient" style="--accent: {profile?.accentColor || '#6366f1'}"></div>
+<div class="bg-gradient" style="--accent: {profile?.accentColor || '#6366f1'}" aria-hidden="true"></div>
 
-<main class="profile-container {mounted ? 'loaded' : ''}">
+<main id="main-content" class="profile-container {mounted ? 'loaded' : ''}" aria-label="{profile?.displayName ? profile.displayName + ' DevCard profile' : 'DevCard profile'}">
   {#if error || !profile}
     <div class="error-glass glass">
       <div class="error-emoji">😕</div>
@@ -83,9 +79,10 @@
       <header class="profile-header">
         <div class="avatar-wrapper">
           {#if profile.avatarUrl}
-            <img src={profile.avatarUrl} alt={profile.displayName} class="avatar" />
+            <img src={profile.avatarUrl} alt="{profile.displayName}'s profile picture" class="avatar" />
           {:else}
-            <div class="avatar avatar-placeholder" style="background: {profile.accentColor}">
+            <!-- Placeholder: aria-hidden because the letter is decorative; the name is announced separately -->
+            <div class="avatar avatar-placeholder" style="background: {profile.accentColor}" aria-hidden="true">
               {profile.displayName.charAt(0).toUpperCase()}
             </div>
           {/if}
@@ -104,25 +101,29 @@
         {/if}
       </header>
 
-      <div class="links-grid">
+      <!-- role="list" restores list semantics removed by CSS flex (some browsers) -->
+      <div class="links-grid" role="list" aria-label="{profile.displayName}'s platform links">
         {#each profile.links as link, i}
           {@const platform = PLATFORMS[link.platform]}
           {@const color = platformColors[link.platform] || '#6366f1'}
+          <!-- role="listitem" pairs with the parent role="list" -->
           <a
             href={link.url || getProfileUrl(link.platform, link.username)}
             target="_blank"
             rel="noopener noreferrer"
             class="link-tile glass"
             style="--delay: {i * 0.1}s"
+            role="listitem"
+            aria-label="{platform?.name || link.platform}: {link.username} (opens in new tab)"
           >
-            <div class="tile-icon" style="background: {color}">
+            <div class="tile-icon" style="background: {color}" aria-hidden="true">
               <span class="platform-initial">{platform?.name.charAt(0) || '?'}</span>
             </div>
             <div class="tile-content">
               <span class="platform-name">{platform?.name || link.platform}</span>
-              <span class="username">@{link.username}</span>
+              <span class="username" aria-hidden="true">@{link.username}</span>
             </div>
-            <span class="arrow">→</span>
+            <span class="arrow" aria-hidden="true">→</span>
           </a>
         {/each}
       </div>
@@ -133,16 +134,22 @@
       </footer>
     </div>
 
-    <div class="get-your-own">
+    <div class="get-your-own" aria-label="Create your own DevCard">
       <p>Want a card like this?</p>
       <div class="profile-actions">
         <a href="/" class="gradient-text get-devcard-link">Create your DevCard ⚡</a>
-        <button type="button" class="copy-link-button" onclick={copyProfileUrl}>
+        <button
+          type="button"
+          class="copy-link-button"
+          onclick={copyProfileUrl}
+          aria-label="Copy profile link to clipboard"
+        >
           Copy Link
         </button>
       </div>
+      <!-- aria-live="polite" ensures screen readers announce the result without interrupting -->
       {#if copyMessage}
-        <p class="copy-message {copyStatus}" aria-live="polite">
+        <p class="copy-message {copyStatus}" aria-live="polite" role="status">
           {copyMessage}
         </p>
       {/if}
@@ -282,7 +289,8 @@
   }
 
   .link-tile:focus-visible {
-    outline: 3px solid rgba(99, 102, 241, 0.2);
+    /* Solid focus ring — meets WCAG 2.4.7 Focus Visible */
+    outline: 3px solid #6366f1;
     outline-offset: 3px;
   }
 
@@ -394,7 +402,8 @@
   }
 
   .copy-link-button:focus-visible {
-    outline: 2px solid var(--accent);
+    /* Solid focus ring — meets WCAG 2.4.7 Focus Visible */
+    outline: 2px solid #6366f1;
     outline-offset: 3px;
   }
 

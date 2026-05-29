@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   },
   sourceText: {
     color: COLORS.primary,
-    fontSize: 10,
+    fontSize: FONT_SIZE.micro,
     fontWeight: 'bold',
     marginTop: 2,
   },

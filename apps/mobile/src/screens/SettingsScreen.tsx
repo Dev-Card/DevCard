@@ -16,8 +16,6 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../config';
 
-import { useNavigation } from '@react-navigation/native';
-
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { user, token, refreshUser, logout } = useAuth();
@@ -98,7 +96,11 @@ export default function SettingsScreen() {
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
-          disabled={saving}>
+          disabled={saving}
+          accessibilityLabel={saving ? 'Saving profile changes' : 'Save profile changes'}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: saving, busy: saving }}
+        >
           <Text style={styles.saveButtonText}>
             {saving ? 'Saving...' : 'Save Changes'}
           </Text>
@@ -109,7 +111,11 @@ export default function SettingsScreen() {
           <Text style={styles.sectionSubtitle}>Integrations</Text>
           <TouchableOpacity
             style={styles.settingRow}
-            onPress={() => (navigation as any).navigate('ConnectPlatforms')}>
+            onPress={() => (navigation as any).navigate('ConnectPlatforms')}
+            accessibilityLabel="Connected Platforms"
+            accessibilityRole="button"
+            accessibilityHint="Opens the screen to manage your connected developer platforms"
+          >
             <View style={styles.settingRowLeft}>
               <Text style={styles.settingRowIcon}>🔌</Text>
               <Text style={styles.settingRowText}>Connected Platforms</Text>
@@ -118,7 +124,12 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          accessibilityLabel="Log out of DevCard"
+          accessibilityRole="button"
+        >
           <Text style={styles.logoutButtonText}>Log Out</Text>
         </TouchableOpacity>
 
@@ -156,6 +167,8 @@ function FormField({
         placeholderTextColor={COLORS.textMuted}
         multiline={multiline}
         numberOfLines={multiline ? 3 : 1}
+        accessibilityLabel={label}
+        accessibilityHint={placeholder ? `Example: ${placeholder}` : undefined}
       />
     </View>
   );

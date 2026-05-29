@@ -112,13 +112,16 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigatio
 
         {isConnected ? (
           <View style={styles.connectedState}>
-            <View style={styles.statusBadge}>
+            <View style={styles.statusBadge} accessibilityLabel={`${name} is currently connected`}>
               <Icon name="check-circle" size={14} color={COLORS.success} />
               <Text style={styles.statusText}>Connected</Text>
             </View>
             <TouchableOpacity 
               style={styles.disconnectBtn}
               onPress={() => handleDisconnect(platformId)}
+              accessibilityLabel={`Disconnect from ${name}`}
+              accessibilityRole="button"
+              accessibilityHint={`Removes authorization and disconnects your ${name} account`}
             >
               <Text style={styles.disconnectBtnText}>Disconnect</Text>
             </TouchableOpacity>
@@ -127,6 +130,9 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigatio
           <TouchableOpacity 
             style={styles.connectBtn}
             onPress={() => handleConnect(platformId)}
+            accessibilityLabel={`Connect ${name}`}
+            accessibilityRole="button"
+            accessibilityHint={`Redirects to authenticate and connect your ${name} account`}
           >
             <Text style={styles.connectBtnText}>Connect {name}</Text>
           </TouchableOpacity>

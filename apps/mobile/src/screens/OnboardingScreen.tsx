@@ -26,7 +26,7 @@ export default function OnboardingScreen({ navigation }: Props) {
       <View style={styles.content}>
         {/* Hero */}
         <View style={styles.hero}>
-          <Text style={styles.logo}>⚡</Text>
+          <Text style={styles.logo} accessibilityElementsHidden importantForAccessibility="no">⚡</Text>
           <Text style={styles.title}>DevCard</Text>
           <Text style={styles.subtitle}>One Tap. Every Profile.{'\n'}Every Platform.</Text>
         </View>
@@ -43,7 +43,10 @@ export default function OnboardingScreen({ navigation }: Props) {
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={() => navigation.navigate('Login')}
-            activeOpacity={0.85}>
+            activeOpacity={0.85}
+            accessibilityLabel="Get Started"
+            accessibilityRole="button"
+            accessibilityHint="Navigates to the login screen where you can sign in with GitHub or Google">
             <Text style={styles.primaryButtonText}>Get Started</Text>
           </TouchableOpacity>
 
@@ -58,8 +61,8 @@ export default function OnboardingScreen({ navigation }: Props) {
 
 function FeatureItem({ emoji, text }: { emoji: string; text: string }) {
   return (
-    <View style={styles.featureItem}>
-      <Text style={styles.featureEmoji}>{emoji}</Text>
+    <View style={styles.featureItem} accessibilityLabel={text}>
+      <Text style={styles.featureEmoji} accessibilityElementsHidden importantForAccessibility="no">{emoji}</Text>
       <Text style={styles.featureText}>{text}</Text>
     </View>
   );

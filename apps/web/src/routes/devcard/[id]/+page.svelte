@@ -27,24 +27,26 @@
 
 <div class="page-container">
 	<div class="card-wrapper">
+		<!-- main landmark wraps all page content (WCAG 1.3.6) -->
+		<main id="main-content">
 		<!-- Premium Obsidian Card -->
-		<div class="premium-card">
-			<div class="card-glass"></div>
+		<div class="premium-card" role="region" aria-label="{card.owner.displayName}'s DevCard">
+			<div class="card-glass" aria-hidden="true"></div>
 			
 			<div class="card-top">
-				<div class="brand-row">
+				<div class="brand-row" aria-hidden="true">
 					<div class="mini-chip"></div>
 					<span class="brand-text">DevCard PRO</span>
 				</div>
-				<span class="contactless">📶</span>
+				<span class="contactless" aria-hidden="true">📶</span>
 			</div>
 
 			<div class="card-mid">
 				<div class="avatar-container">
 					{#if card.owner.avatarUrl}
-						<img src={card.owner.avatarUrl} alt={card.owner.displayName} class="avatar" />
+						<img src={card.owner.avatarUrl} alt="{card.owner.displayName}'s profile picture" class="avatar" />
 					{:else}
-						<div class="avatar-placeholder" style="background: {card.owner.accentColor || '#6366F1'}">
+						<div class="avatar-placeholder" style="background: {card.owner.accentColor || '#6366F1'}" aria-hidden="true">
 							{card.owner.displayName.charAt(0).toUpperCase()}
 						</div>
 					{/if}
@@ -66,38 +68,42 @@
 						<p class="bio-text">{card.owner.bio}</p>
 					{/if}
 				</div>
-				<div class="card-badge">
+				<div class="card-badge" aria-hidden="true">
 					<span>PLATINUM</span>
 				</div>
 			</div>
 		</div>
 
 		<!-- Action Section -->
-		<div class="action-section">
-			<h2>Connections</h2>
-			<div class="platform-grid">
+		<section class="action-section" aria-labelledby="connections-heading">
+			<h2 id="connections-heading">Connections</h2>
+			<div class="platform-grid" role="list">
 				{#each card.links as link}
 					<button 
-						class="platform-tile" 
+						class="platform-tile"
 						onclick={() => handlePlatformClick(link)}
 						style="--brand-color: {getPlatformColor(link.platform)}"
+						type="button"
+						role="listitem"
+						aria-label="Open {link.platform} profile for {link.username} (opens in new tab)"
 					>
-						<div class="tile-icon">
+						<div class="tile-icon" aria-hidden="true">
 							{link.platform.charAt(0).toUpperCase()}
 						</div>
 						<div class="tile-info">
 							<span class="platform-name">{link.platform}</span>
-							<span class="username">@{link.username}</span>
+							<span class="username" aria-hidden="true">@{link.username}</span>
 						</div>
-						<div class="tile-arrow">→</div>
+						<div class="tile-arrow" aria-hidden="true">→</div>
 					</button>
 				{/each}
 			</div>
-		</div>
+		</section>
 		
-		<footer class="footer">
+		<footer class="footer" role="contentinfo">
 			<p>Powered by <a href="/">DevCard</a> ⚡</p>
 		</footer>
+		</main>
 	</div>
 </div>
 
@@ -296,7 +302,8 @@
 	}
 
 	.platform-tile:focus-visible {
-		outline: 3px solid rgba(99, 102, 241, 0.18);
+		/* Solid focus ring — meets WCAG 2.4.7 Focus Visible */
+		outline: 3px solid #6366f1;
 		outline-offset: 3px;
 	}
 

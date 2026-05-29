@@ -66,6 +66,11 @@ export const SPACING = {
 };
 
 export const FONT_SIZE = {
+  // WCAG 1.4.4 Resize Text: Never use allowFontScaling={false} on Text components.
+  // All values here are in CSS-equivalent SP units which React Native scales with
+  // the device's system font size setting automatically.
+  nano: 8,    // Smallest decorative label (badge text, brand watermark)
+  micro: 10,  // Tiny secondary text (bio on card, pronouns chip)
   xs: 12,
   sm: 14,
   md: 16,

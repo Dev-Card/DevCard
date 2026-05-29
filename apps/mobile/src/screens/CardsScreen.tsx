@@ -167,7 +167,10 @@ export default function CardsScreen() {
         <Text style={styles.title}>Context Cards</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowCreate(true)}>
+          onPress={() => setShowCreate(true)}
+          accessibilityLabel="Create a new context card"
+          accessibilityRole="button"
+          accessibilityHint="Opens a form to create a new context card">
           <Text style={styles.addButtonText}>+ New Card</Text>
         </TouchableOpacity>
       </View>
@@ -192,7 +195,7 @@ export default function CardsScreen() {
                   <View style={styles.chip} />
                   <Text style={styles.brandText}>DevCard</Text>
                 </View>
-                <Text style={styles.contactless}>📶</Text>
+                <Text style={styles.contactless} accessibilityElementsHidden importantForAccessibility="no">📶</Text>
               </View>
 
               {/* Card Center: Title */}
@@ -207,7 +210,7 @@ export default function CardsScreen() {
                   <Text style={styles.userName}>{user?.displayName || 'Card Holder'}</Text>
                   <Text style={styles.cardId}>{Math.random().toString(36).substring(2, 6).toUpperCase()} {Math.random().toString(36).substring(2, 6).toUpperCase()}</Text>
                 </View>
-                <View style={styles.platformIcons}>
+                <View style={styles.platformIcons} accessibilityLabel={`Linked platforms: ${item.links.map(l => PLATFORMS[l.platform]?.name || l.platform).join(', ')}`}>
                   {item.links.slice(0, 3).map(link => (
                     <View key={link.id} style={[styles.platformDot, { backgroundColor: PLATFORMS[link.platform]?.color || COLORS.primary }]} />
                   ))}
@@ -224,15 +227,25 @@ export default function CardsScreen() {
             {/* Card Actions Below the Card */}
             <View style={styles.actionRow}>
               {!item.isDefault ? (
-                <TouchableOpacity onPress={() => setDefault(item.id)} style={styles.actionBtn}>
+                <TouchableOpacity 
+                  onPress={() => setDefault(item.id)} 
+                  style={styles.actionBtn}
+                  accessibilityLabel={`Set ${item.title} as primary card`}
+                  accessibilityRole="button"
+                  accessibilityHint="Makes this card the default card shared via your QR code and profile link">
                   <Text style={styles.actionBtnText}>Set as Primary</Text>
                 </TouchableOpacity>
               ) : (
-                <View style={styles.activeBadge}>
+                <View style={styles.activeBadge} accessibilityLabel="This is your active card">
                   <Text style={styles.activeBadgeText}>ACTIVE CARD</Text>
                 </View>
               )}
-              <TouchableOpacity onPress={() => deleteCard(item.id)} style={styles.deleteBtn}>
+              <TouchableOpacity 
+                onPress={() => deleteCard(item.id)} 
+                style={styles.deleteBtn}
+                accessibilityLabel={`Delete card ${item.title}`}
+                accessibilityRole="button"
+                accessibilityHint="Removes this card from your list of context cards">
                 <Text style={styles.deleteBtnText}>Delete</Text>
               </TouchableOpacity>
             </View>
@@ -258,6 +271,8 @@ export default function CardsScreen() {
               placeholderTextColor={COLORS.textMuted}
               value={newTitle}
               onChangeText={setNewTitle}
+              accessibilityLabel="Card title text input"
+              accessibilityHint="Type a title for your context card"
             />
             <Text style={styles.selectLabel}>Select platforms to include:</Text>
             {allLinks.length === 0 ? (
@@ -270,7 +285,11 @@ export default function CardsScreen() {
                 <TouchableOpacity
                   key={link.id}
                   style={[styles.linkOption, selectedLinkIds.includes(link.id) && styles.linkSelected]}
-                  onPress={() => toggleLink(link.id)}>
+                  onPress={() => toggleLink(link.id)}
+                  accessibilityLabel={`Include ${PLATFORMS[link.platform]?.name || link.platform} connection for ${link.username}`}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selectedLinkIds.includes(link.id) }}
+                  accessibilityHint="Toggles inclusion of this connection in the context card">
                   <View style={[styles.dot, { backgroundColor: PLATFORMS[link.platform]?.color || COLORS.primary }]} />
                   <Text style={styles.linkOptionText}>
                     {PLATFORMS[link.platform]?.name || link.platform} — {link.username}
@@ -279,12 +298,20 @@ export default function CardsScreen() {
                 </TouchableOpacity>
               ))
             )}
-            <TouchableOpacity style={styles.submitBtn} onPress={createCard}>
+            <TouchableOpacity 
+              style={styles.submitBtn} 
+              onPress={createCard}
+              accessibilityLabel="Create card"
+              accessibilityRole="button"
+              accessibilityHint="Saves the context card with the selected connections">
               <Text style={styles.submitBtnText}>Create Card</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.cancelBtn}
-              onPress={() => { setShowCreate(false); setNewTitle(''); setSelectedLinkIds([]); }}>
+              onPress={() => { setShowCreate(false); setNewTitle(''); setSelectedLinkIds([]); }}
+              accessibilityLabel="Cancel card creation"
+              accessibilityRole="button"
+              accessibilityHint="Closes the create card modal without saving">
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -421,7 +448,7 @@ const styles = StyleSheet.create({
   },
   brandText: {
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
+    fontSize: FONT_SIZE.xs,
     fontWeight: '700',
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -434,13 +461,13 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   premiumCardTitle: {
-    fontSize: 28,
+    fontSize: FONT_SIZE.xxl,
     fontWeight: '800',
     color: COLORS.white,
     letterSpacing: 0.5,
   },
   cardType: {
-    fontSize: 8,
+    fontSize: FONT_SIZE.nano,
     color: 'rgba(255,255,255,0.4)',
     fontWeight: '700',
     letterSpacing: 2,
@@ -455,14 +482,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   userName: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.sm,
     color: 'rgba(255,255,255,0.8)',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   cardId: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.micro,
     color: 'rgba(255,255,255,0.3)',
     fontFamily: 'monospace',
     marginTop: 2,
@@ -478,7 +505,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   morePlatforms: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.micro,
     color: 'rgba(255,255,255,0.5)',
     fontWeight: '700',
   },
@@ -501,7 +528,7 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     color: COLORS.primary,
-    fontSize: 12,
+    fontSize: FONT_SIZE.xs,
     fontWeight: '600',
   },
   activeBadge: {
@@ -511,7 +538,7 @@ const styles = StyleSheet.create({
   },
   activeBadgeText: {
     color: COLORS.success,
-    fontSize: 10,
+    fontSize: FONT_SIZE.micro,
     fontWeight: '800',
     letterSpacing: 1,
   },
@@ -521,7 +548,7 @@ const styles = StyleSheet.create({
   },
   deleteBtnText: {
     color: 'rgba(239, 68, 68, 0.6)',
-    fontSize: 12,
+    fontSize: FONT_SIZE.xs,
     fontWeight: '600',
   },
 });

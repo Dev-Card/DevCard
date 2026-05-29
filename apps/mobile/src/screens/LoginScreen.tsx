@@ -26,7 +26,7 @@ export default function LoginScreen() {
 
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.logo}>⚡</Text>
+          <Text style={styles.logo} accessibilityElementsHidden importantForAccessibility="no">⚡</Text>
           <Text style={styles.title}>Welcome to DevCard</Text>
           <Text style={styles.subtitle}>
             Sign in to create your developer card
@@ -37,16 +37,24 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={[styles.oauthButton, styles.githubButton]}
             onPress={handleGitHubLogin}
-            activeOpacity={0.85}>
-            <Text style={styles.oauthIcon}>🐙</Text>
+            activeOpacity={0.85}
+            accessibilityLabel="Continue with GitHub"
+            accessibilityRole="button"
+            accessibilityHint="Opens GitHub to sign in to DevCard"
+          >
+            <Text style={styles.oauthIcon} accessibilityElementsHidden>🐙</Text>
             <Text style={styles.oauthText}>Continue with GitHub</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.oauthButton, styles.googleButton]}
             onPress={handleGoogleLogin}
-            activeOpacity={0.85}>
-            <Text style={styles.oauthIcon}>🔍</Text>
+            activeOpacity={0.85}
+            accessibilityLabel="Continue with Google"
+            accessibilityRole="button"
+            accessibilityHint="Opens Google to sign in to DevCard"
+          >
+            <Text style={styles.oauthIcon} accessibilityElementsHidden>🔍</Text>
             <Text style={styles.oauthText}>Continue with Google</Text>
           </TouchableOpacity>
 

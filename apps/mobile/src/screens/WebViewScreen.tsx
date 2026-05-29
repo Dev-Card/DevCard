@@ -378,7 +378,13 @@ export default function WebViewScreen({ navigation, route }: Props) {
       {/* Header Container */}
       <View>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()} 
+            activeOpacity={0.7}
+            accessibilityLabel="Close"
+            accessibilityRole="button"
+            accessibilityHint="Closes the profile web view and returns to the previous screen"
+          >
             <Text style={styles.closeText}>✕ Close</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{platformDisplayName}</Text>
@@ -401,7 +407,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
       </View>
 
       {successToast && (
-        <View style={styles.toast}>
+        <View style={styles.toast} role="status" accessibilityLiveRegion="polite">
           <Text style={styles.toastText}>{successToast}</Text>
         </View>
       )}
@@ -465,7 +471,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
           {showFallbackOverlay && (
             <View style={styles.overlayContainer}>
               <View style={styles.overlayCard}>
-                <Text style={styles.overlayIcon}>⏳</Text>
+                <Text style={styles.overlayIcon} accessibilityElementsHidden importantForAccessibility="no">⏳</Text>
                 <Text style={styles.overlayTitle}>Profile loading is slow</Text>
                 <Text style={styles.overlayDescription}>
                   {platformDisplayName} is taking longer than usual to load inside the app. Would you like to open it directly in the native app?
@@ -474,14 +480,20 @@ export default function WebViewScreen({ navigation, route }: Props) {
                 <TouchableOpacity
                   style={styles.overlayPrimaryButton}
                   onPress={handleOpenDeepLink}
-                  activeOpacity={0.8}>
+                  activeOpacity={0.8}
+                  accessibilityLabel={`Open in ${platformDisplayName} App`}
+                  accessibilityRole="button"
+                  accessibilityHint={`Launches the official ${platformDisplayName} application`}>
                   <Text style={styles.overlayPrimaryButtonText}>Open in {platformDisplayName} App</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.overlaySecondaryButton}
                   onPress={handleOpenBrowser}
-                  activeOpacity={0.8}>
+                  activeOpacity={0.8}
+                  accessibilityLabel="Open in Default Browser"
+                  accessibilityRole="button"
+                  accessibilityHint="Launches the profile in your default web browser">
                   <Text style={styles.overlaySecondaryButtonText}>Open in Default Browser</Text>
                 </TouchableOpacity>
 
@@ -489,13 +501,19 @@ export default function WebViewScreen({ navigation, route }: Props) {
                   <TouchableOpacity
                     style={styles.overlayTextButton}
                     onPress={handleRetryWebView}
-                    activeOpacity={0.7}>
+                    activeOpacity={0.7}
+                    accessibilityLabel="Retry Loading"
+                    accessibilityRole="button"
+                    accessibilityHint="Tries to load the profile page in the app web view again">
                     <Text style={styles.overlayTextButtonText}>Retry Loading</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.overlayTextButton}
                     onPress={() => navigation.goBack()}
-                    activeOpacity={0.7}>
+                    activeOpacity={0.7}
+                    accessibilityLabel="Cancel"
+                    accessibilityRole="button"
+                    accessibilityHint="Closes the slow loading overlay and returns to the card view">
                     <Text style={styles.overlayTextButtonText}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
@@ -514,7 +532,10 @@ export default function WebViewScreen({ navigation, route }: Props) {
         <TouchableOpacity
           style={styles.doneButton}
           onPress={handleDonePress}
-          activeOpacity={0.8}>
+          activeOpacity={0.8}
+          accessibilityLabel="Done"
+          accessibilityRole="button"
+          accessibilityHint="Verifies if connection request is complete and returns to the card view">
           <Text style={styles.doneButtonText}>Done</Text>
         </TouchableOpacity>
       </View>

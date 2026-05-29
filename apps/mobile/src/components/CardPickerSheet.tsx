@@ -96,6 +96,10 @@ const CardPickerSheet = React.forwardRef<BottomSheetModal, Props>(
                     ]}
                     onPress={() => onSelect(card.id)}
                     disabled={isSelected}
+                    accessibilityLabel={isSelected ? `${card.title} is currently selected` : `Select card ${card.title}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: isSelected, selected: isSelected }}
+                    accessibilityHint={isSelected ? undefined : "Switches the active context card shown on your profile and QR code"}
                   >
                     <Text
                       style={[
@@ -187,7 +191,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   morePlatforms: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.micro,
     color: COLORS.textMuted,
     fontWeight: '700',
   },

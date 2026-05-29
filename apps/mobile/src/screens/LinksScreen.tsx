@@ -119,7 +119,10 @@ export default function LinksScreen() {
         <Text style={styles.title}>Platform Links</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowAddModal(true)}>
+          onPress={() => setShowAddModal(true)}
+          accessibilityLabel="Add new platform link"
+          accessibilityRole="button"
+          accessibilityHint="Opens a modal to select a platform and connect it to your profile">
           <Text style={styles.addButtonText}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -131,7 +134,7 @@ export default function LinksScreen() {
         renderItem={({ item }) => {
           const platform = PLATFORMS[item.platform];
           return (
-            <View style={styles.linkItem}>
+            <View style={styles.linkItem} accessibilityLabel={`${platform?.name || item.platform} connection for ${item.username}`}>
               <View style={[styles.platformDot, { backgroundColor: platform?.color || COLORS.primary }]} />
               <View style={styles.linkInfo}>
                 <Text style={styles.platformName}>{platform?.name || item.platform}</Text>
@@ -139,7 +142,10 @@ export default function LinksScreen() {
               </View>
               <TouchableOpacity
                 onPress={() => deleteLink(item.id)}
-                style={styles.deleteBtn}>
+                style={styles.deleteBtn}
+                accessibilityLabel={`Remove ${platform?.name || item.platform} connection for ${item.username}`}
+                accessibilityRole="button"
+                accessibilityHint="Removes this platform link from your developer profile">
                 <Text style={styles.deleteBtnText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -169,7 +175,10 @@ export default function LinksScreen() {
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.platformOption}
-                    onPress={() => setSelectedPlatform(item)}>
+                    onPress={() => setSelectedPlatform(item)}
+                    accessibilityLabel={`Select platform ${item.name}`}
+                    accessibilityRole="button"
+                    accessibilityHint={`Sets ${item.name} as the platform you want to connect`}>
                     <View style={[styles.platformColorDot, { backgroundColor: item.color }]} />
                     <Text style={styles.platformOptionText}>{item.name}</Text>
                   </TouchableOpacity>
@@ -186,8 +195,15 @@ export default function LinksScreen() {
                   onChangeText={setUsernameInput}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  accessibilityLabel={`${selectedPlatform.name} username text input`}
+                  accessibilityHint={`Type your username for ${selectedPlatform.name}`}
                 />
-                <TouchableOpacity style={styles.submitButton} onPress={addLink}>
+                <TouchableOpacity 
+                  style={styles.submitButton} 
+                  onPress={addLink}
+                  accessibilityLabel="Add connection link"
+                  accessibilityRole="button"
+                  accessibilityHint="Saves and links this platform connection to your profile">
                   <Text style={styles.submitButtonText}>Add Link</Text>
                 </TouchableOpacity>
               </View>
@@ -199,7 +215,10 @@ export default function LinksScreen() {
                 setShowAddModal(false);
                 setSelectedPlatform(null);
                 setUsernameInput('');
-              }}>
+              }}
+              accessibilityLabel="Cancel adding link"
+              accessibilityRole="button"
+              accessibilityHint="Closes the platform link modal without saving">
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>

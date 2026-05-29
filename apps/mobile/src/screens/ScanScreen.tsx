@@ -176,6 +176,10 @@ export default function ScanScreen({ navigation }: Props) {
               ]}
               onPress={handleOpenPicker}
               disabled={!cards.length}
+              accessibilityLabel="Switch displayed card"
+              accessibilityRole="button"
+              accessibilityHint="Opens a list of your DevCards to choose which one to display as a QR code"
+              accessibilityState={{ disabled: !cards.length }}
             >
               <Text style={styles.switchButtonText}>Switch Card</Text>
             </TouchableOpacity>
@@ -188,12 +192,18 @@ export default function ScanScreen({ navigation }: Props) {
                 <Skeleton width={140} height={14} borderRadius={8} style={styles.qrSkeletonText} />
               </View>
             ) : qrUrl ? (
-              <QRCode
-                value={qrUrl}
-                size={200}
-                color={COLORS.textPrimary}
-                backgroundColor={COLORS.bgCard}
-              />
+              <View
+                accessible
+                accessibilityRole="image"
+                accessibilityLabel={`QR code linking to ${selectedCard ? selectedCard.title : 'your DevCard profile'} at ${qrUrl}`}
+              >
+                <QRCode
+                  value={qrUrl}
+                  size={200}
+                  color={COLORS.textPrimary}
+                  backgroundColor={COLORS.bgCard}
+                />
+              </View>
             ) : (
               <EmptyState
                 title="No card to share"
@@ -236,9 +246,17 @@ export default function ScanScreen({ navigation }: Props) {
               autoCorrect={false}
               returnKeyType="go"
               onSubmitEditing={handleManualEntry}
+              accessibilityLabel="Enter a DevCard username or URL"
+              accessibilityHint="Type a username like 'johndoe' or a full DevCard URL"
             />
-            <TouchableOpacity style={styles.goButton} onPress={handleManualEntry}>
-              <Text style={styles.goButtonText}>→</Text>
+            <TouchableOpacity
+              style={styles.goButton}
+              onPress={handleManualEntry}
+              accessibilityLabel="Navigate to DevCard"
+              accessibilityRole="button"
+              accessibilityHint="Opens the DevCard profile for the entered username or URL"
+            >
+              <Text style={styles.goButtonText} accessibilityElementsHidden>→</Text>
             </TouchableOpacity>
           </View>
         </View>
