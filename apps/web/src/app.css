@@ -204,3 +204,42 @@ html {
   border-color: var(--border);
   background: rgba(0, 0, 0, 0.04);
 }
+
+/* ---------- Premium Animation & Interaction Pass ---------- */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.glass {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -15px rgba(99, 102, 241, 0.15), var(--shadow-nav);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+/* Specific section scale-ups on hover */
+.kpi-grid > *, .reputation-widgets > *, .velocity-widgets > *, .networking-widgets > *, .match-widgets > *, .event-widgets > *, .ranking-widgets > *, .monetization-widgets > *, .mentor-widgets > *, .team-widgets > *, .web3-widgets > *, .export-widgets > * {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kpi-grid > *:hover, .reputation-widgets > *:hover, .velocity-widgets > *:hover, .networking-widgets > *:hover, .match-widgets > *:hover, .event-widgets > *:hover, .ranking-widgets > *:hover, .monetization-widgets > *:hover, .mentor-widgets > *:hover, .team-widgets > *:hover, .web3-widgets > *:hover, .export-widgets > *:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 15px 30px -10px rgba(99, 102, 241, 0.12), var(--shadow-nav);
+  border-color: rgba(99, 102, 241, 0.3);
+}

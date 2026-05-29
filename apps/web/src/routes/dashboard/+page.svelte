@@ -74,7 +74,7 @@
   </header>
 
   <main class="dashboard-content">
-    <section class="kpi-grid">
+    <section class="kpi-grid animate-fade-in" style="animation-delay: 0.05s;">
       {#each stats as stat}
         <AnalyticsWidget 
           title={stat.title} 
@@ -86,7 +86,7 @@
       {/each}
     </section>
 
-    <section class="main-widgets">
+    <section class="main-widgets animate-fade-in" style="animation-delay: 0.1s;">
       <div class="heatmap-section">
         <ActivityHeatmap />
       </div>
@@ -113,11 +113,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 0.15s;">
       <h2>AI Reputation & Impact</h2>
     </div>
 
-    <section class="reputation-widgets">
+    <section class="reputation-widgets animate-fade-in" style="animation-delay: 0.2s;">
       <div class="rep-card">
         <ReputationScoreCard />
       </div>
@@ -129,11 +129,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 0.25s;">
       <h2>Contribution Velocity Predictor</h2>
     </div>
 
-    <section class="velocity-widgets">
+    <section class="velocity-widgets animate-fade-in" style="animation-delay: 0.3s;">
       <div class="velocity-card-wrapper">
         <VelocityScoreCard />
         <MomentumInsights />
@@ -146,11 +146,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 0.35s;">
       <h2>Networking & Event Intelligence</h2>
     </div>
 
-    <section class="networking-widgets">
+    <section class="networking-widgets animate-fade-in" style="animation-delay: 0.4s;">
       <div class="network-sidebar">
         <NetworkingPulseCard />
         <RealtimeConnectionStream />
@@ -164,11 +164,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 0.45s;">
       <h2>AI Smart Developer Match Engine</h2>
     </div>
 
-    <section class="match-widgets">
+    <section class="match-widgets animate-fade-in" style="animation-delay: 0.5s;">
       <div class="match-card-wrapper">
         <DeveloperMatchCard />
       </div>
@@ -181,11 +181,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 0.55s;">
       <h2>Event Intelligence Command Center</h2>
     </div>
 
-    <section class="event-widgets">
+    <section class="event-widgets animate-fade-in" style="animation-delay: 0.6s;">
       <div class="event-timeline-wrapper">
         <EventTimeline />
       </div>
@@ -198,11 +198,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 0.65s;">
       <h2>Global Rankings & Achievements</h2>
     </div>
 
-    <section class="ranking-widgets">
+    <section class="ranking-widgets animate-fade-in" style="animation-delay: 0.7s;">
       <div class="ranking-leaderboard-wrapper">
         <GlobalLeaderboard />
       </div>
@@ -215,11 +215,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 0.75s;">
       <h2>Monetization & Bounties</h2>
     </div>
 
-    <section class="monetization-widgets">
+    <section class="monetization-widgets animate-fade-in" style="animation-delay: 0.8s;">
       <div class="bounty-board-wrapper">
         <BountyBoard />
       </div>
@@ -232,11 +232,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 0.85s;">
       <h2>AI Mentor & Career Growth</h2>
     </div>
 
-    <section class="mentor-widgets">
+    <section class="mentor-widgets animate-fade-in" style="animation-delay: 0.9s;">
       <div class="skill-gap-wrapper">
         <SkillGapAnalyzer />
       </div>
@@ -250,11 +250,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 0.95s;">
       <h2>Team & Organization Dynamics</h2>
     </div>
 
-    <section class="team-widgets">
+    <section class="team-widgets animate-fade-in" style="animation-delay: 1s;">
       <div class="team-matrix-wrapper">
         <TeamCompatibilityMatrix />
       </div>
@@ -269,11 +269,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 1.05s;">
       <h2>Web3 & Decentralized Identity</h2>
     </div>
 
-    <section class="web3-widgets">
+    <section class="web3-widgets animate-fade-in" style="animation-delay: 1.1s;">
       <div class="wallet-connect-wrapper">
         <Web3WalletConnect />
       </div>
@@ -288,11 +288,11 @@
       </div>
     </section>
 
-    <div class="section-title">
+    <div class="section-title animate-fade-in" style="animation-delay: 1.15s;">
       <h2>Export & Portfolio</h2>
     </div>
 
-    <section class="export-widgets">
+    <section class="export-widgets animate-fade-in" style="animation-delay: 1.2s;">
       <div class="export-config-wrapper">
         <PortfolioThemeSelector 
           activeTheme={portfolioTheme} 
