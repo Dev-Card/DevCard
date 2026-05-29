@@ -57,7 +57,12 @@ type EventWithAttendees = {
 }
 
 export async function eventRoutes(app:FastifyInstance) {
-    app.post('/' , async(request: FastifyRequest<{
+        app.post('/', { preHandler: [async (request, reply) => {
+                const server = request.server as any;
+                if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+                if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
+                try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+            }] }, async (request: FastifyRequest<{
         Body: {
             name: string,
             description?: string,
@@ -66,13 +71,7 @@ export async function eventRoutes(app:FastifyInstance) {
             endDate: string,
             isPublic?: boolean
     }}>, reply: FastifyReply) => {
-        let decoded; 
-        try {
-            decoded = await request.jwtVerify() as any;
-        } catch (error) {
-            return reply.status(401).send({error : 'Unauthorized'})
-        }
-        const userId = decoded.id
+        const userId = (request.user as any).id;
         const parsed = createEventSchema.safeParse(request.body); 
         if(!parsed.success){
             return reply.status(400).send({error: 'Bad request'})
@@ -146,14 +145,8 @@ export async function eventRoutes(app:FastifyInstance) {
         return response; 
     })
 
-    app.post('/:slug/join' , async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
-        let decoded; 
-        try {
-            decoded = await request.jwtVerify() as any; 
-        } catch (error) {
-            return reply.status(401).send({error: 'Unauthorized'})
-        }
-        const userId = decoded.id
+        app.post('/:slug/join', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+        const userId = (request.user as any).id;
         const paramsSlug = request.params.slug; 
 
         const event = await app.prisma.event.findUnique({
@@ -186,14 +179,8 @@ export async function eventRoutes(app:FastifyInstance) {
 
     })
 
-    app.delete('/:slug/leave',async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
-        let decoded; 
-        try {
-            decoded = await request.jwtVerify() as any
-        } catch (error) {
-            return reply.status(401).send({error: 'Unauthorized'}); 
-        }
-        const userId = decoded.id
+        app.delete('/:slug/leave', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+        const userId = (request.user as any).id;
         const paramsSlug = request.params.slug; 
 
         const event = await app.prisma.event.findUnique({
