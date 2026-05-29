@@ -216,6 +216,14 @@ export default function HomeScreen({ navigation }: Props) {
 
           <TouchableOpacity
             style={styles.actionButton}
+            onPress={() => (navigation as any).navigate('NFCWrite')}
+            activeOpacity={0.85}>
+            <Text style={styles.actionEmoji}>📶</Text>
+            <Text style={styles.actionText}>Write NFC</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => (navigation as any).navigate('Views')}
             activeOpacity={0.85}>
             <Text style={styles.actionEmoji}>📈</Text>

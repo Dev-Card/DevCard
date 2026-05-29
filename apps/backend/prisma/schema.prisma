@@ -106,7 +106,7 @@ model CardView {
   viewerId    String?  @map("viewer_id")     // null = anonymous web viewer
   viewerIp    String?  @map("viewer_ip")
   viewerAgent String?  @map("viewer_agent")
-  source      String   @default("qr")        // "qr" | "link" | "web" | "app"
+  source      String   @default("qr")        // "qr" | "link" | "web" | "app" | "nfc"
   createdAt   DateTime @default(now()) @map("created_at")
 
   card    Card? @relation(fields: [cardId], references: [id], onDelete: SetNull)

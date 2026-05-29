@@ -55,6 +55,7 @@ describe('validateEnv', () => {
     // works with the default value without requiring a full secrets setup.
     vi.stubEnv('JWT_SECRET', 'dev-secret-change-me');
     vi.stubEnv('ENCRYPTION_KEY', 'a-valid-encryption-key');
+    vi.stubEnv('PUBLIC_APP_URL', 'http://localhost:5173');
     vi.stubEnv('NODE_ENV', 'development');
 
     // Must not throw / call process.exit
@@ -64,6 +65,7 @@ describe('validateEnv', () => {
   it('allows the known insecure default when NODE_ENV is not set', () => {
     vi.stubEnv('JWT_SECRET', 'dev-secret-change-me');
     vi.stubEnv('ENCRYPTION_KEY', 'a-valid-encryption-key');
+    vi.stubEnv('PUBLIC_APP_URL', 'http://localhost:5173');
     vi.stubEnv('NODE_ENV', undefined as unknown as string);
 
     expect(() => validateEnv()).not.toThrow();
@@ -105,6 +107,7 @@ describe('validateEnv', () => {
   it('passes when both secrets are valid in development', () => {
     vi.stubEnv('JWT_SECRET', 'a-valid-jwt-secret-that-is-sufficiently-long');
     vi.stubEnv('ENCRYPTION_KEY', 'a-valid-32-char-encryption-key!!');
+    vi.stubEnv('PUBLIC_APP_URL', 'http://localhost:5173');
     vi.stubEnv('NODE_ENV', 'development');
 
     expect(() => validateEnv()).not.toThrow();
@@ -113,6 +116,7 @@ describe('validateEnv', () => {
   it('passes when both secrets are valid in production', () => {
     vi.stubEnv('JWT_SECRET', 'a-long-random-production-jwt-secret-with-enough-entropy');
     vi.stubEnv('ENCRYPTION_KEY', 'a-64-char-hex-encryption-key-for-aes-256-gcm-0000000000000000');
+    vi.stubEnv('PUBLIC_APP_URL', 'http://localhost:5173');
     vi.stubEnv('NODE_ENV', 'production');
 
     expect(() => validateEnv()).not.toThrow();

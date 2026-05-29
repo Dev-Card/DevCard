@@ -1,4 +1,7 @@
 process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = 'test-jwt-secret-that-is-long-enough-for-testing';
+process.env.ENCRYPTION_KEY = 'test-encryption-key-that-is-exactly-32-chars!!';
+process.env.PUBLIC_APP_URL = 'http://localhost:5173';
 
 import { describe, it, expect } from 'vitest';
 import { buildApp } from '../app';

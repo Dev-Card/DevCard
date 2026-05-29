@@ -157,22 +157,39 @@ describe(
               ]
             );
 
-            prismaMock.cardView.groupBy.mockResolvedValue(
-              [
-                {
-                  viewerId:
-                    'u1',
-                  viewerIp:
-                    null,
-                },
-                {
-                  viewerId:
-                    'u2',
-                  viewerIp:
-                    null,
-                },
-              ]
-            );
+            prismaMock.cardView.groupBy
+              .mockResolvedValueOnce(
+                [
+                  {
+                    viewerId:
+                      'u1',
+                    viewerIp:
+                      null,
+                  },
+                  {
+                    viewerId:
+                      'u2',
+                    viewerIp:
+                      null,
+                  },
+                ]
+              )
+              .mockResolvedValueOnce(
+                [
+                  {
+                    source: 'qr',
+                    _count: { id: 80 },
+                  },
+                  {
+                    source: 'link',
+                    _count: { id: 15 },
+                  },
+                  {
+                    source: 'nfc',
+                    _count: { id: 5 },
+                  },
+                ]
+              );
 
             const res =
               await app.inject(
@@ -213,6 +230,16 @@ describe(
               body.recentViews
             ).toHaveLength(
               1
+            );
+
+            expect(
+              body.viewsBySource
+            ).toMatchObject(
+              {
+                qr: 80,
+                link: 15,
+                nfc: 5,
+              }
             );
           }
         );
