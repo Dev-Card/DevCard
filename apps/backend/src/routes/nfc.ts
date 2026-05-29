@@ -11,7 +11,22 @@ const nfcQuerySchema = z.object({
 });
 
 export async function nfcRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', app.authenticate);
+  app.addHook('preHandler', async (request, reply) => {
+        const server = request.server as any;
+        if (typeof server?.authenticate === 'function') {
+          await server.authenticate(request, reply);
+          return;
+        }
+        if (typeof (app as any).authenticate === 'function') {
+          await (app as any).authenticate(request, reply);
+          return;
+        }
+        try {
+          await request.jwtVerify();
+        } catch (e) {
+          reply.status(401).send({ error: 'Unauthorized' });
+        }
+  });
 
   // GET /api/nfc/payload — returns NDEF URI payload for user's default DevCard URL
   // GET /api/nfc/payload?card=<cardId> — returns payload for a specific card
