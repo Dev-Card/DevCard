@@ -9,24 +9,9 @@
     title?: string;
   }>();
 
-  let maxVal = $derived(Math.max(...historicalData) * 1.2);
-  
-  function getPathData(data: number[], width: number, height: number): string {
-    if (!data.length) return '';
-    const stepX = width / (data.length - 1);
-    
-    return data.map((val, i) => {
-      const x = i * stepX;
-      const y = height - (val / maxVal) * height;
-      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }).join(' ');
-  }
+  import { getPathData, getAreaPathData, generatePointCoordinates } from '$lib/utils/visualizationEngine';
 
-  function getAreaPathData(data: number[], width: number, height: number): string {
-    if (!data.length) return '';
-    const linePath = getPathData(data, width, height);
-    return `${linePath} L ${width} ${height} L 0 ${height} Z`;
-  }
+  let maxVal = $derived(Math.max(...historicalData) * 1.2);
 </script>
 
 <div class="forecast-chart glass">
@@ -43,13 +28,13 @@
       <line x1="0" y1="200" x2="400" y2="200" class="grid-line" />
 
       <!-- Data Area and Line -->
-      <path d={getAreaPathData(historicalData, 400, 200)} class="area-historical" />
-      <path d={getPathData(historicalData, 400, 200)} class="line-historical" />
+      <path d={getAreaPathData(historicalData, maxVal, 400, 200)} class="area-historical" />
+      <path d={getPathData(historicalData, maxVal, 400, 200)} class="line-historical" />
       
       <!-- Interactive Points -->
-      {#each historicalData as val, i}
-        <circle cx={(i / (historicalData.length - 1)) * 400} cy={200 - (val / maxVal) * 200} r="4" class="point-historical" role="button" tabindex="0">
-          <title>{labels[i]}: {val} connections</title>
+      {#each generatePointCoordinates(historicalData, maxVal, 400, 200) as { cx, cy }, i}
+        <circle {cx} {cy} r="4" class="point-historical" role="button" tabindex="0">
+          <title>{labels[i]}: {historicalData[i]} connections</title>
         </circle>
       {/each}
     </svg>

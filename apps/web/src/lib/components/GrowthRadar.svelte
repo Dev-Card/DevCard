@@ -13,33 +13,22 @@
     size?: number;
   }>();
 
-  // Radar chart math identical to ContributionRadar but heavily optimized
+  import { 
+    getRadarCoordinates, 
+    generateRadarPoints, 
+    getGridPolygon, 
+    generateLabelCoordinates 
+  } from '$lib/utils/chartMath';
+
   let center = $derived(size / 2);
   let radius = $derived(center * 0.65); // Give labels a bit more breathing room
   let sides = $derived(data.length);
-  let angle = $derived((Math.PI * 2) / sides);
 
-  function getCoordinates(value: number, index: number) {
-    const r = (value / 100) * radius;
-    const theta = index * angle - Math.PI / 2;
-    return {
-      x: center + r * Math.cos(theta),
-      y: center + r * Math.sin(theta)
-    };
-  }
-
-  let dataPoints = $derived(
-    data.map((d, i) => `${getCoordinates(d.value, i).x},${getCoordinates(d.value, i).y}`).join(' ')
-  );
+  let dataValues = $derived(data.map(d => d.value));
+  let dataPoints = $derived(generateRadarPoints(dataValues, center, radius));
 
   let gridLevels = [25, 50, 75, 100];
-  
-  function getGridPolygon(level: number) {
-    return Array.from({ length: sides }).map((_, i) => {
-      const { x, y } = getCoordinates(level, i);
-      return `${x},${y}`;
-    }).join(' ');
-  }
+  let labels = $derived(generateLabelCoordinates(data, center, radius, 125));
 </script>
 
 <div class="radar-container glass">
@@ -49,12 +38,12 @@
     <svg width={size} height={size} viewBox="0 0 {size} {size}" role="img" aria-label="Radar chart showing multi-dimensional growth metrics">
       <!-- Grid polygons -->
       {#each gridLevels as level}
-        <polygon points={getGridPolygon(level)} class="grid-polygon" />
+        <polygon points={getGridPolygon(level, sides, center, radius)} class="grid-polygon" />
       {/each}
 
       <!-- Axes lines -->
       {#each data as _, i}
-        {@const { x, y } = getCoordinates(100, i)}
+        {@const { x, y } = getRadarCoordinates(100, i, sides, center, radius)}
         <line x1={center} y1={center} x2={x} y2={y} class="axis-line" />
       {/each}
 
@@ -63,22 +52,21 @@
 
       <!-- Data Points -->
       {#each data as d, i}
-        {@const { x, y } = getCoordinates(d.value, i)}
+        {@const { x, y } = getRadarCoordinates(d.value, i, sides, center, radius)}
         <circle cx={x} cy={y} r="5" class="data-point" role="button" tabindex="0">
           <title>{d.label}: {d.value}%</title>
         </circle>
       {/each}
 
       <!-- Labels -->
-      {#each data as d, i}
-        {@const { x, y } = getCoordinates(125, i)}
+      {#each labels as label}
         <text 
-          x={x} y={y} 
+          x={label.x} y={label.y} 
           class="radar-label"
           text-anchor="middle"
           dominant-baseline="middle"
         >
-          {d.label}
+          {label.text}
         </text>
       {/each}
     </svg>

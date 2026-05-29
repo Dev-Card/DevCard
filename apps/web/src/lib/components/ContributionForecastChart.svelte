@@ -11,25 +11,10 @@
     title?: string;
   }>();
 
-  let maxVal = $derived(Math.max(...historicalData, ...predictedData) * 1.1);
-  
-  // Calculate coordinates for SVG paths
-  function getPathData(data: number[], width: number, height: number): string {
-    if (!data.length) return '';
-    const stepX = width / (data.length - 1);
-    
-    return data.map((val, i) => {
-      const x = i * stepX;
-      const y = height - (val / maxVal) * height;
-      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }).join(' ');
-  }
+  import { getPathData, getAreaPathData, generatePointCoordinates } from '$lib/utils/visualizationEngine';
 
-  function getAreaPathData(data: number[], width: number, height: number): string {
-    if (!data.length) return '';
-    const linePath = getPathData(data, width, height);
-    return `${linePath} L ${width} ${height} L 0 ${height} Z`;
-  }
+  let maxVal = $derived(Math.max(...historicalData, ...predictedData) * 1.1);
+  let predictedCombined = $derived([historicalData[historicalData.length-1], ...predictedData.slice(1)]);
 </script>
 
 <div class="forecast-chart glass">
@@ -51,24 +36,24 @@
       <line x1="0" y1="200" x2="400" y2="200" class="grid-line" />
 
       <!-- Historical Data Area and Line -->
-      <path d={getAreaPathData(historicalData, 400, 200)} class="area-historical" />
-      <path d={getPathData(historicalData, 400, 200)} class="line-historical" />
+      <path d={getAreaPathData(historicalData, maxVal, 400, 200)} class="area-historical" />
+      <path d={getPathData(historicalData, maxVal, 400, 200)} class="line-historical" />
 
       <!-- Predicted Data Area and Line -->
       <!-- We offset the start to connect with the end of historical data for visual flow -->
-      <path d={getAreaPathData([historicalData[historicalData.length-1], ...predictedData.slice(1)], 400, 200)} class="area-predicted" />
-      <path d={getPathData([historicalData[historicalData.length-1], ...predictedData.slice(1)], 400, 200)} class="line-predicted" />
+      <path d={getAreaPathData(predictedCombined, maxVal, 400, 200)} class="area-predicted" />
+      <path d={getPathData(predictedCombined, maxVal, 400, 200)} class="line-predicted" />
       
       <!-- Interactive Points -->
-      {#each historicalData as val, i}
-        <circle cx={(i / (historicalData.length - 1)) * 400} cy={200 - (val / maxVal) * 200} r="4" class="point-historical">
-          <title>{labels[i]}: {val} contributions</title>
+      {#each generatePointCoordinates(historicalData, maxVal, 400, 200) as { cx, cy }, i}
+        <circle {cx} {cy} r="4" class="point-historical">
+          <title>{labels[i]}: {historicalData[i]} contributions</title>
         </circle>
       {/each}
 
-      {#each predictedData.slice(1) as val, i}
-        <circle cx={((i + 1) / (predictedData.length - 1)) * 400} cy={200 - (val / maxVal) * 200} r="4" class="point-predicted">
-          <title>{labels[i+1]} (Predicted): {val} contributions</title>
+      {#each generatePointCoordinates(predictedCombined, maxVal, 400, 200).slice(1) as { cx, cy }, i}
+        <circle {cx} {cy} r="4" class="point-predicted">
+          <title>{labels[i+1]} (Predicted): {predictedData[i+1]} contributions</title>
         </circle>
       {/each}
     </svg>

@@ -13,51 +13,22 @@
     size?: number;
   }>();
 
-  // Radar chart logic
+  import { 
+    getRadarCoordinates, 
+    generateRadarPoints, 
+    getGridPolygon, 
+    generateLabelCoordinates 
+  } from '$lib/utils/chartMath';
+
   let center = $derived(size / 2);
   let radius = $derived(center * 0.7); // Leave room for labels
   let sides = $derived(data.length);
-  let angle = $derived((Math.PI * 2) / sides);
 
-  // Calculate coordinates for a given value (0-100) at a specific index
-  function getCoordinates(value: number, index: number) {
-    const r = (value / 100) * radius;
-    // -Math.PI/2 to start at the top
-    const theta = index * angle - Math.PI / 2;
-    return {
-      x: center + r * Math.cos(theta),
-      y: center + r * Math.sin(theta)
-    };
-  }
-
-  // Generate the polygon points string for the data
-  let dataPoints = $derived(
-    data.map((d, i) => {
-      const { x, y } = getCoordinates(d.value, i);
-      return `${x},${y}`;
-    }).join(' ')
-  );
-
-  // Generate grid levels (20, 40, 60, 80, 100)
-  let gridLevels = [20, 40, 60, 80, 100];
+  let dataValues = $derived(data.map(d => d.value));
+  let dataPoints = $derived(generateRadarPoints(dataValues, center, radius));
   
-  function getGridPolygon(level: number) {
-    let points = [];
-    for (let i = 0; i < sides; i++) {
-      const { x, y } = getCoordinates(level, i);
-      points.push(`${x},${y}`);
-    }
-    return points.join(' ');
-  }
-
-  // Generate label coordinates
-  let labels = $derived(
-    data.map((d, i) => {
-      // Push labels out slightly further than 100%
-      const { x, y } = getCoordinates(120, i);
-      return { x, y, text: d.label };
-    })
-  );
+  let gridLevels = [20, 40, 60, 80, 100];
+  let labels = $derived(generateLabelCoordinates(data, center, radius, 120));
 </script>
 
 <div class="radar-container glass">
@@ -68,14 +39,14 @@
       <!-- Grid polygons -->
       {#each gridLevels as level}
         <polygon 
-          points={getGridPolygon(level)} 
+          points={getGridPolygon(level, sides, center, radius)} 
           class="grid-polygon" 
         />
       {/each}
 
       <!-- Axes lines -->
       {#each data as _, i}
-        {@const { x, y } = getCoordinates(100, i)}
+        {@const { x, y } = getRadarCoordinates(100, i, sides, center, radius)}
         <line 
           x1={center} y1={center} 
           x2={x} y2={y} 
@@ -91,7 +62,7 @@
 
       <!-- Data Points -->
       {#each data as d, i}
-        {@const { x, y } = getCoordinates(d.value, i)}
+        {@const { x, y } = getRadarCoordinates(d.value, i, sides, center, radius)}
         <circle 
           cx={x} cy={y} r="4" 
           class="data-point" 
