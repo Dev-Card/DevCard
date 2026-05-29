@@ -70,11 +70,11 @@
   
   <div class="heatmap-legend">
     <span class="legend-text">Less</span>
-    <div class="day" style="background-color: var(--color-level-0);"></div>
-    <div class="day" style="background-color: var(--color-level-1);"></div>
-    <div class="day" style="background-color: var(--color-level-2);"></div>
-    <div class="day" style="background-color: var(--color-level-3);"></div>
-    <div class="day" style="background-color: var(--color-level-4);"></div>
+    <div class="day" role="button" aria-label="Contribution activity" style="background-color: var(--color-level-0);"></div>
+    <div class="day" role="button" aria-label="Contribution activity" style="background-color: var(--color-level-1);"></div>
+    <div class="day" role="button" aria-label="Contribution activity" style="background-color: var(--color-level-2);"></div>
+    <div class="day" role="button" aria-label="Contribution activity" style="background-color: var(--color-level-3);"></div>
+    <div class="day" role="button" aria-label="Contribution activity" style="background-color: var(--color-level-4);"></div>
     <span class="legend-text">More</span>
   </div>
 </div>
