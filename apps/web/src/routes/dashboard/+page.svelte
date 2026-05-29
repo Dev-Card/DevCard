@@ -41,6 +41,10 @@
   import VerifiableCredentials from '$lib/components/VerifiableCredentials.svelte';
   import NFTBadgeShowcase from '$lib/components/NFTBadgeShowcase.svelte';
   import DecentralizedReputation from '$lib/components/DecentralizedReputation.svelte';
+  import TeamCompatibilityMatrix from '$lib/components/TeamCompatibilityMatrix.svelte';
+  import ActiveWorkloadDistribution from '$lib/components/ActiveWorkloadDistribution.svelte';
+  import OrgHierarchyTree from '$lib/components/OrgHierarchyTree.svelte';
+  import PeerReviewFeedback from '$lib/components/PeerReviewFeedback.svelte';
 
   let portfolioTheme = $state('glassmorphism');
 
@@ -243,6 +247,25 @@
         <MentorshipMatch />
         <div style="height: 1.5rem;"></div>
         <CodeReviewInsights />
+      </div>
+    </section>
+
+    <div class="section-title">
+      <h2>Team & Organization Dynamics</h2>
+    </div>
+
+    <section class="team-widgets">
+      <div class="team-matrix-wrapper">
+        <TeamCompatibilityMatrix />
+      </div>
+      <div class="team-workload-wrapper">
+        <ActiveWorkloadDistribution />
+      </div>
+      <div class="team-hierarchy-wrapper">
+        <OrgHierarchyTree />
+      </div>
+      <div class="peer-feedback-wrapper">
+        <PeerReviewFeedback />
       </div>
     </section>
 
@@ -692,6 +715,32 @@
 
   @media (max-width: 768px) {
     .web3-widgets {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .team-widgets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+
+  .team-matrix-wrapper,
+  .team-workload-wrapper,
+  .team-hierarchy-wrapper,
+  .peer-feedback-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 1200px) {
+    .team-widgets {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .team-widgets {
       grid-template-columns: 1fr;
     }
   }
