@@ -21,7 +21,7 @@
 
   // Helper to generate polygon string
   function getPolygon(dataKey: 'current' | 'target') {
-    return skills.map((s, i) => {
+    return skills.map((s: { name: string, current: number, target: number }, i: number) => {
       const { x, y } = getRadarCoordinates(s[dataKey], i, sides, center, radius);
       return `${x},${y}`;
     }).join(' ');
@@ -33,7 +33,7 @@
   let gridLevels = [25, 50, 75, 100];
   
   // Custom label generation
-  let labels = $derived(skills.map((s, i) => {
+  let labels = $derived(skills.map((s: { name: string, current: number, target: number }, i: number) => {
     return getRadarCoordinates(125, i, sides, center, radius);
   }));
 </script>
@@ -45,7 +45,13 @@
   </div>
 
   <div class="radar-container">
-    <svg width={size} height={size} viewBox="0 0 {size} {size}">
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 {size} {size}"
+      aria-label="Radar chart showing skill gap analysis comparing current level against industry targets"
+      role="img"
+    >
       <!-- Grid Circles -->
       {#each gridLevels as level}
         <circle cx={center} cy={center} r={(level / 100) * radius} class="grid-circle" />

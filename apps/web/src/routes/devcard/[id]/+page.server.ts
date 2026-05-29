@@ -19,9 +19,9 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 
 		const card = await res.json();
 		return { card };
-	} catch (error) {
-		if (error && typeof error === 'object' && 'status' in error) {
-			throw error;
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) {
+			throw err;
 		}
 		throw error(500, 'Failed to connect to backend');
 	}

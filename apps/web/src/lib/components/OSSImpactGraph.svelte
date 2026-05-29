@@ -16,7 +16,7 @@
     maxExpected?: number;
   }>();
 
-  let maxVal = $derived(Math.max(...data.map(d => d.value), maxExpected));
+  let maxVal = $derived(Math.max(...data.map((d: { value: number }) => d.value), maxExpected));
 </script>
 
 <div class="impact-graph glass">

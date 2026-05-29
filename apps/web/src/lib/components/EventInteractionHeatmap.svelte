@@ -22,6 +22,13 @@
     if (intensity === 3) return 'high';
     return 'peak';
   }
+
+  function handleKeydown(event: KeyboardEvent, intensity: number, idx: number) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      alert(`Hour ${idx % hoursPerDay + 1}, Day ${Math.floor(idx / hoursPerDay) + 1}: Interaction level ${intensity}`);
+    }
+  }
 </script>
 
 <div class="event-heatmap glass">
@@ -37,6 +44,7 @@
         tabindex="0"
         title="Hour {i % hoursPerDay + 1}, Day {Math.floor(i / hoursPerDay) + 1}: Intensity {intensity}"
         aria-label="Event interaction intensity {intensity}"
+        onkeydown={(e) => handleKeydown(e, intensity, i)}
       ></div>
     {/each}
   </div>

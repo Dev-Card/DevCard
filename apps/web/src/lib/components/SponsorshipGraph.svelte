@@ -13,7 +13,7 @@
     distribution?: { tier: string, amount: number, count: number, color: string }[];
   }>();
 
-  let maxAmount = $derived(Math.max(...distribution.map(d => d.amount)));
+  let maxAmount = $derived(Math.max(...distribution.map((d: { amount: number }) => d.amount)));
 </script>
 
 <div class="sponsorship-graph glass">
@@ -28,7 +28,7 @@
       <span class="label">Active Sponsors</span>
     </div>
     <div class="trend positive">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3">
         <polyline points="18 15 12 9 6 15"></polyline>
       </svg>
       <span>+3 this month</span>

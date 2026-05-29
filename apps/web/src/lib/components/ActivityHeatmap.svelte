@@ -39,6 +39,13 @@
       default: return 'var(--color-level-0)';
     }
   }
+
+  function handleKeydown(event: KeyboardEvent, day: { intensity: number, date: Date }) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      alert(`${day.date.toDateString()}: ${day.intensity * 3} contributions`);
+    }
+  }
 </script>
 
 <div class="heatmap-container glass">
@@ -61,6 +68,7 @@
               tabindex="0"
               style="background-color: {getIntensityColor(day.intensity)};"
               title="{day.date.toDateString()}: {day.intensity * 3} contributions"
+              onkeydown={(e) => handleKeydown(e, day)}
             ></div>
           {/each}
         </div>

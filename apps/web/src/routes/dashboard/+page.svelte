@@ -6,20 +6,18 @@
   import ContributionRadar from '$lib/components/ContributionRadar.svelte';
   import VelocityScoreCard from '$lib/components/VelocityScoreCard.svelte';
   import ContributionForecastChart from '$lib/components/ContributionForecastChart.svelte';
-  import MomentumInsights from '$lib/components/MomentumInsights.svelte';
+  import InsightFeed from '$lib/components/InsightFeed.svelte';
   import GrowthRadar from '$lib/components/GrowthRadar.svelte';
   import NetworkingPulseCard from '$lib/components/NetworkingPulseCard.svelte';
   import RealtimeConnectionStream from '$lib/components/RealtimeConnectionStream.svelte';
   import NetworkingGrowthForecast from '$lib/components/NetworkingGrowthForecast.svelte';
   import EventInteractionHeatmap from '$lib/components/EventInteractionHeatmap.svelte';
-  import AIEngagementInsights from '$lib/components/AIEngagementInsights.svelte';
   import DeveloperMatchCard from '$lib/components/DeveloperMatchCard.svelte';
   import CompatibilityRadar from '$lib/components/CompatibilityRadar.svelte';
   import AISkillMatcher from '$lib/components/AISkillMatcher.svelte';
   import NetworkingRecommendationPanel from '$lib/components/NetworkingRecommendationPanel.svelte';
   import EventTimeline from '$lib/components/EventTimeline.svelte';
   import EventRadar from '$lib/components/EventRadar.svelte';
-  import LiveActivityFeed from '$lib/components/LiveActivityFeed.svelte';
   import RSVPTracker from '$lib/components/RSVPTracker.svelte';
   import GlobalLeaderboard from '$lib/components/GlobalLeaderboard.svelte';
   import RankingTierCard from '$lib/components/RankingTierCard.svelte';
@@ -136,7 +134,11 @@
     <section class="velocity-widgets animate-fade-in" style="animation-delay: 0.3s;">
       <div class="velocity-card-wrapper">
         <VelocityScoreCard />
-        <MomentumInsights />
+        <InsightFeed title="⚡ Momentum Insights" items={[
+          { type: 'positive', text: 'You are on a 14-day contribution streak! Predicted to hit 21 days based on velocity.' },
+          { type: 'warning', text: 'Your networking reach has decreased by 5% this week. Engage with 3 new issues to recover momentum.' },
+          { type: 'neutral', text: 'OSS Engagement is stable. Your next major tier milestone is 150 points away.' }
+        ]} />
       </div>
       <div class="velocity-graph">
         <ContributionForecastChart />
@@ -160,7 +162,11 @@
         <NetworkingGrowthForecast />
       </div>
       <div class="network-insights">
-        <AIEngagementInsights />
+        <InsightFeed title="Engagement Intelligence" items={[
+          { type: 'positive', text: 'Peak engagement detected! You just connected with 5 senior engineers in the last hour.' },
+          { type: 'warning', text: 'Your event visibility is dropping. Scan 2 more QR codes to stay on the leaderboard.' },
+          { type: 'neutral', text: 'You have a 60% skill overlap with the current hackathon attendees.' }
+        ]} variant="ai" />
       </div>
     </section>
 
@@ -194,7 +200,15 @@
       </div>
       <div class="event-activity-wrapper">
         <RSVPTracker />
-        <LiveActivityFeed />
+        <InsightFeed 
+          title="Live Activity Feed" 
+          items={[
+            { type: 'positive', text: 'Alex Chen just checked in at the Open Source Hackathon!' },
+            { type: 'neutral', text: 'Registration for Svelte Summit 2026 opens in 2 hours.' },
+            { type: 'warning', text: 'Your RSVP for the Local Dev Meetup is pending confirmation.' }
+          ]} 
+          accentColor="#ec4899"
+        />
       </div>
     </section>
 
