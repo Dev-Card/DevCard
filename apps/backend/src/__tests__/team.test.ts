@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
-import { PrismaClient, TeamRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { teamRoutes } from '../routes/team';
 
 // ─── Shared mock data ─────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ const MOCK_TEAM_WITH_MEMBERS = {
       id: 'tm-uuid-001',
       teamId: MOCK_TEAM.id,
       userId: MOCK_OWNER_ID,
-      role: TeamRole.OWNER,
+      role: 'OWNER',
       joinedAt: new Date('2024-01-01T00:00:00Z'),
       user: { ...MOCK_OWNER, platformLinks: MOCK_PLATFORM_LINKS },
     },
@@ -64,7 +64,7 @@ const MOCK_TEAM_WITH_MEMBERS = {
       id: 'tm-uuid-002',
       teamId: MOCK_TEAM.id,
       userId: MOCK_MEMBER_ID,
-      role: TeamRole.MEMBER,
+      role: 'MEMBER',
       joinedAt: new Date('2024-02-01T00:00:00Z'),
       user: { ...MOCK_MEMBER_USER, platformLinks: [] },
     },
@@ -99,8 +99,10 @@ async function buildApp(): Promise<FastifyInstance> {
 
   app.decorate('prisma', prismaMock as unknown as PrismaClient);
 
-  app.decorateRequest('jwtVerify', function () {
-    return mockJwtVerify();
+  app.decorateRequest('jwtVerify', async function () {
+    const user = await mockJwtVerify();
+    (this as any).user = user;
+    return user;
   });
 
   await app.register(teamRoutes);
@@ -161,7 +163,6 @@ describe('Teams API', () => {
       });
 
       const res = await createTeam(app, validBody);
-
       expect(res.statusCode).toBe(201);
       const body = res.json();
       expect(body.name).toBe('DevCard Core');
@@ -318,7 +319,7 @@ describe('Teams API', () => {
           id: 'tm-uuid-001',
           teamId: MOCK_TEAM.id,
           userId: MOCK_OWNER_ID,
-          role: TeamRole.OWNER,
+          role: 'OWNER',
           joinedAt: new Date(),
           user: MOCK_OWNER,
         },
@@ -342,7 +343,7 @@ describe('Teams API', () => {
 
       const callData = prismaMock.teamMember.create.mock.calls[0][0].data;
       expect(callData.userId).toBe(MOCK_MEMBER_ID);
-      expect(callData.role).toBe(TeamRole.MEMBER);
+      expect(callData.role).toBe('MEMBER');
     });
 
     it('401 — rejects unauthenticated request', async () => {
@@ -381,7 +382,7 @@ describe('Teams API', () => {
             id: 'tm-uuid-002',
             teamId: MOCK_TEAM.id,
             userId: MOCK_MEMBER_ID,
-            role: TeamRole.MEMBER,
+            role: 'MEMBER',
             joinedAt: new Date(),
             user: MOCK_MEMBER_USER,
           },
@@ -461,7 +462,7 @@ describe('Teams API', () => {
           id: 'tm-uuid-001',
           teamId: MOCK_TEAM.id,
           userId: MOCK_OWNER_ID,
-          role: TeamRole.OWNER,
+          role: 'OWNER',
           joinedAt: new Date(),
           user: MOCK_OWNER,
         },
@@ -469,7 +470,7 @@ describe('Teams API', () => {
           id: 'tm-uuid-002',
           teamId: MOCK_TEAM.id,
           userId: MOCK_MEMBER_ID,
-          role: TeamRole.MEMBER,
+          role: 'MEMBER',
           joinedAt: new Date(),
           user: MOCK_MEMBER_USER,
         },

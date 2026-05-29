@@ -1,4 +1,4 @@
-import {Prisma, TeamRole } from '@prisma/client';
+import {Prisma } from '@prisma/client';
 import QRCode from 'qrcode'
 
 import {generateUniqueSlug} from '../utils/slug'
@@ -8,7 +8,7 @@ import type {PlatformLink, PublicProfile} from '@devcard/shared'
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 type TeamMember = PublicProfile & {
-    teamRole: TeamRole
+    teamRole: 'OWNER' | 'ADMIN' | 'MEMBER'
     joinedAt: Date; 
 }
 
@@ -62,7 +62,7 @@ export async function teamRoutes(app:FastifyInstance){
                     data: {
                         teamId : team.id, 
                         userId, 
-                        role: TeamRole.OWNER, 
+                        role: 'OWNER', 
                         joinedAt: new Date(), 
                     }
                 })
@@ -70,19 +70,15 @@ export async function teamRoutes(app:FastifyInstance){
             })   
             return reply.status(201).send(team)
 
-        }catch (error) {
-            if (error instanceof Prisma.PrismaClientKnownRequestError) {
-                switch (error.code) {
-                case 'P2002':
-                    return reply.status(409).send({
-                    error: 'Team slug already exists'
-                    });
-
-                case 'P2003':
-                    return reply.status(400).send({
-                    error: 'Invalid organizer'
-                    });
-                }
+        }catch (error:any) {
+            if (error?.code === 'P2002') {
+                return reply.status(409).send({
+                error: 'Team slug already exists'
+                });
+            } else if (error?.code === 'P2003') {
+                return reply.status(400).send({
+                error: 'Invalid organizer'
+                });
             }
             app.log.error('Failed to create a team');
             return reply.status(500).send({
@@ -211,7 +207,7 @@ export async function teamRoutes(app:FastifyInstance){
                 data: {
                     teamId: teamDetails.id, 
                     userId: invitedUserDetails.id, 
-                    role: TeamRole.MEMBER, 
+                    role: 'MEMBER', 
                     joinedAt: new Date()
                 }
             })

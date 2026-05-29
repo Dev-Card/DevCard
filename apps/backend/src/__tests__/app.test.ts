@@ -1,4 +1,6 @@
 process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = 'test-jwt-secret-mock-which-is-at-least-thirty-two-chars-long';
+process.env.ENCRYPTION_KEY = 'test-encryption-key-mock-32-char-min';
 
 import { describe, it, expect } from 'vitest';
 import { buildApp } from '../app';
