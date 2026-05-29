@@ -12,8 +12,41 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 import { moderateRateLimit } from '../plugins/rate-limit.js';
 
+interface PlatformLink {
+  id: string;
+  userId: string;
+  platform: string;
+  username: string;
+  url: string;
+  displayOrder: number;
+  createdAt: Date;
+}
+
+interface CardLinkWithPlatform {
+  id: string;
+  cardId: string;
+  platformLinkId: string;
+  displayOrder: number;
+  platformLink: PlatformLink;
+}
+
+interface CardWithLinks {
+  id: string;
+  userId: string;
+  title: string;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  cardLinks: CardLinkWithPlatform[];
+}
+
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
-  app.addHook('preHandler', app.authenticate);
+  app.addHook('preHandler', async (request, reply) => {
+    const server = request.server as any;
+    if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+    if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
+    try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+  });
 
   // ─── List Cards ───
   app.get('/', moderateRateLimit, async (request: FastifyRequest): Promise<object> => {

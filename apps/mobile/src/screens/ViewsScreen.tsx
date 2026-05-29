@@ -30,8 +30,8 @@ export const ViewsScreen: React.FC<Props> = () => {
         const data = await response.json();
         setViews(data.data || []);
       }
-    } catch (err) {
-      console.error('Failed to fetch views analytics', err);
+    } catch (error) {
+      console.error('Failed to fetch views analytics', error);
     } finally {
       setLoading(false);
     }

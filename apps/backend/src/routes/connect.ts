@@ -18,6 +18,13 @@ import { strictRateLimit, moderateRateLimit } from '../plugins/rate-limit.js';
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 
+// Follow-capable tokens are stored under a dedicated platform key so that
+// the authentication flow (read:user user:email scope, key = 'github') and
+// the connect flow (user:follow scope, key = 'github_follow') never share
+// the same OAuthToken record.  Whichever flow runs last can no longer
+// silently overwrite the other's access token.
+const GITHUB_FOLLOW_PLATFORM = 'github_follow';
+
 interface OAuthCallbackQuery {
   code: string;
   state?: string;
@@ -111,7 +118,7 @@ export async function connectRoutes(app: FastifyInstance) {
         update: { accessToken: encryptedToken, scopes: tokenData.scope || 'user:follow' },
         create: {
           userId,
-          platform: 'github',
+          platform: GITHUB_FOLLOW_PLATFORM,
           accessToken: encryptedToken,
           scopes: tokenData.scope || 'user:follow',
         },
@@ -142,7 +149,7 @@ export async function connectRoutes(app: FastifyInstance) {
         where: { userId_platform: { userId, platform } },
       });
       return { success: true };
-    } catch (err) {
+    } catch (error) {
       return reply.status(404).send({ error: 'Connection not found' });
     }
   });

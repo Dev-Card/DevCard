@@ -1,5 +1,4 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { randomBytes } from 'crypto';
 import { encrypt } from '../utils/encryption.js';
 import {
   STRICT_RATE_LIMIT,
@@ -87,10 +86,7 @@ export async function authRoutes(app: FastifyInstance) {
     try {
       const tokenRes = await fetch(GITHUB_TOKEN_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
           client_secret: (process.env.GITHUB_CLIENT_SECRET || '').trim(),
@@ -98,10 +94,10 @@ export async function authRoutes(app: FastifyInstance) {
           redirect_uri: `${process.env.BACKEND_URL}/auth/github/callback`,
         }),
       });
-      const tokenData = (await tokenRes.json()) as any;
 
+      const tokenData = (await tokenRes.json()) as any;
       if (tokenData.error) {
-        app.log.error('GitHub token error:', tokenData);
+        app.log.error({ tokenData }, 'GitHub token error');
         return reply.status(400).send({ error: 'Failed to authenticate with GitHub' });
       }
 
@@ -121,12 +117,7 @@ export async function authRoutes(app: FastifyInstance) {
       }
 
       const user = await app.prisma.user.upsert({
-        where: {
-          provider_providerId: {
-            provider: 'github',
-            providerId: String(githubUser.id),
-          },
-        },
+        where: { provider_providerId: { provider: 'github', providerId: String(githubUser.id) } },
         update: {
           email: email || `${githubUser.login}@github.local`,
           displayName: githubUser.name || githubUser.login,
@@ -174,9 +165,8 @@ export async function authRoutes(app: FastifyInstance) {
       });
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      app.log.error({ err, message }, 'GitHub auth error');
+    } catch (error) {
+      app.log.error({ error }, 'GitHub auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -240,32 +230,21 @@ export async function authRoutes(app: FastifyInstance) {
           grant_type: 'authorization_code',
         }),
       });
-      const tokenData = (await tokenRes.json()) as any;
 
+      const tokenData = (await tokenRes.json()) as any;
       if (tokenData.error) {
-        app.log.error('Google token error:', tokenData);
+        app.log.error({ tokenData }, 'Google token error');
         return reply.status(400).send({ error: 'Failed to authenticate with Google' });
       }
 
-      const userRes = await fetch(GOOGLE_USER_URL, {
-        headers: { Authorization: `Bearer ${tokenData.access_token}` },
-      });
+      const userRes = await fetch(GOOGLE_USER_URL, { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
       const googleUser = (await userRes.json()) as any;
 
       const baseUsername = googleUser.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
 
       const user = await app.prisma.user.upsert({
-        where: {
-          provider_providerId: {
-            provider: 'google',
-            providerId: googleUser.id,
-          },
-        },
-        update: {
-          email: googleUser.email,
-          displayName: googleUser.name || baseUsername,
-          avatarUrl: googleUser.picture,
-        },
+        where: { provider_providerId: { provider: 'google', providerId: googleUser.id } },
+        update: { email: googleUser.email, displayName: googleUser.name || baseUsername, avatarUrl: googleUser.picture },
         create: {
           email: googleUser.email,
           username: `${baseUsername}_${Date.now().toString(36)}`,
@@ -276,10 +255,7 @@ export async function authRoutes(app: FastifyInstance) {
         },
       });
 
-      const token = app.jwt.sign(
-        { id: user.id, username: user.username },
-        { expiresIn: '30d' }
-      );
+      const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
 
       if (request.query.state?.startsWith('mobile_')) {
         const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
@@ -295,9 +271,8 @@ export async function authRoutes(app: FastifyInstance) {
       });
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      app.log.error({ err, message }, 'Google auth error');
+    } catch (error) {
+      app.log.error({ error }, 'Google auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
@@ -323,9 +298,7 @@ export async function authRoutes(app: FastifyInstance) {
         avatarUrl: true,
         accentColor: true,
         createdAt: true,
-        oauthTokens: {
-          select: { platform: true, scopes: true, createdAt: true },
-        },
+        oauthTokens: { select: { platform: true, scopes: true, createdAt: true } },
       },
     });
 
@@ -334,11 +307,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const { oauthTokens, ...userData } = user;
-
-    return {
-      ...userData,
-      connectedPlatforms: oauthTokens,
-    };
+    return { ...userData, connectedPlatforms: oauthTokens };
   });
 
   // ─── Logout ───
@@ -349,38 +318,4 @@ export async function authRoutes(app: FastifyInstance) {
     reply.clearCookie('token', { path: '/' });
     return { message: 'Logged out' };
   });
-}
-
-function generateState(): string {
-  return randomBytes(32).toString('hex');
-}
-
-function buildOAuthState(clientState: string, mobileRedirectUri: string): string {
-  if (!clientState) {
-    return generateState();
-  }
-
-  if (clientState.startsWith('mobile_') && mobileRedirectUri) {
-    const encodedRedirect = Buffer.from(mobileRedirectUri, 'utf8').toString('base64url');
-    return `${clientState}.${encodedRedirect}.${generateState()}`;
-  }
-
-  return `${clientState}.${generateState()}`;
-}
-
-function getMobileRedirectUri(state?: string): string | null {
-  if (!state?.startsWith('mobile_')) {
-    return null;
-  }
-
-  const encodedRedirect = state.split('.')[1];
-  if (!encodedRedirect) {
-    return null;
-  }
-
-  try {
-    return Buffer.from(encodedRedirect, 'base64url').toString('utf8');
-  } catch {
-    return null;
-  }
 }

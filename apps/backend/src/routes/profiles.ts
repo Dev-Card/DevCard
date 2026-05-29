@@ -156,21 +156,14 @@ export async function profileRoutes(app: FastifyInstance) {
   // ─── Reorder Links ───
   app.put('/me/links/reorder', moderateRateLimit, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
-    const parsed = reorderLinksSchema.safeParse(request.body);
-
-    if (!parsed.success) {
-      return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
+    const parsedReq = reorderLinksSchema.safeParse(request.body)
+    if (!parsedReq.success) return reply.status(400).send({ error: 'Validation failed', details: parsedReq.error.flatten() })
+    try {
+      const resp = await profileService.reorderLinks(app, userId, parsedReq.data.links)
+      return resp
+    } catch (err: any) {
+      app.log.error({ err }, 'Failed to reorder links')
+      return reply.status(500).send({ error: 'Internal server error' })
     }
-
-    await app.prisma.$transaction(
-      parsed.data.links.map((link) =>
-        app.prisma.platformLink.updateMany({
-          where: { id: link.id, userId },
-          data: { displayOrder: link.displayOrder },
-        })
-      )
-    );
-
-    return { message: 'Links reordered' };
   });
 }

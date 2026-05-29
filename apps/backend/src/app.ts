@@ -64,12 +64,8 @@ export async function buildApp() {
   await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
 
-  // Static file serving for uploads
-  await app.register(fastifyStatic, {
-    root: path.join(__dirname, '..', 'uploads'),
-    prefix: '/uploads/',
-    decorateReply: false,
-  });
+// Files must be served through authenticated route handlers
+// with ownership validation.
 
   // ─── Database & Cache Plugins ───
   // Redis must be registered before rateLimitPlugin because the rate limiter
@@ -98,6 +94,7 @@ export async function buildApp() {
   await app.register(authRoutes, { prefix: '/auth' });
   await app.register(profileRoutes, { prefix: '/api/profiles' });
   await app.register(cardRoutes, { prefix: '/api/cards' });
+  // Public routes: standardise on `/api/u` (remove duplicate `/api/public`).
   await app.register(publicRoutes, { prefix: '/api/u' });
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });

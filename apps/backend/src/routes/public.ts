@@ -97,6 +97,7 @@ type UsernameCardPublicProfileResponse = {
 };
 
 export async function publicRoutes(app: FastifyInstance) {
+  // ─── Public Profile ───────────────────────────────────────────────────────
   // ─── Public Profile ───
   app.get('/:username', relaxedRateLimit, async (
     request: FastifyRequest<{ Params: { username: string } }>,
@@ -118,7 +119,7 @@ export async function publicRoutes(app: FastifyInstance) {
         viewerId = decoded?.id || null;
       }
     } catch {
-      // Ignored if invalid token
+      // ignored
     }
 
     if (viewerId && viewerId !== user.id) {
@@ -265,6 +266,7 @@ export async function publicRoutes(app: FastifyInstance) {
         },
       }).catch((err) => app.log.error('Failed to log card view:', err));
     }
+  });
 
     const response: UsernameCardPublicProfileResponse = {
       title: card.title,

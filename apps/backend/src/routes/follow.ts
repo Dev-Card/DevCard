@@ -15,7 +15,12 @@ import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 import { moderateRateLimit } from '../plugins/rate-limit.js';
 
 export async function followRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', app.authenticate);
+    app.addHook('preHandler', async (request, reply) => {
+      const server = request.server as any;
+      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
+      try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+    });
 
   // ─── Follow via API ───
   app.post('/:platform/:targetUsername', moderateRateLimit, async (
@@ -98,8 +103,8 @@ export async function followRoutes(app: FastifyInstance) {
         data: { followerId: userId, targetUsername, platform, status, layer },
       });
       return reply.send({ status: 'success', logId: log.id });
-    } catch (err: any) {
-      app.log.error('Failed to log follow:', err);
+    } catch (error: any) {
+      app.log.error('Failed to log follow:', error);
       return reply.status(500).send({ error: 'Failed to log follow event' });
     }
   });
