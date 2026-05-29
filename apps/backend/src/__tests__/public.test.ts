@@ -1,8 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
+import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { publicRoutes } from '../routes/public.js';
+import { generateOgImage } from '../utils/og-image.js';
+import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+
 import type { PrismaClient } from '@prisma/client';
+
 
 // ── Mock QR utilities ─────────────────────────────────────────────────────────
 // Prevents real QR rasterisation (and any native canvas/image deps) from running
@@ -13,7 +18,12 @@ vi.mock('../utils/qr.js', () => ({
   generateQRSvg: vi.fn().mockResolvedValue('<svg>fake</svg>'),
 }));
 
-import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+// ── Mock OG image utility ─────────────────────────────────────────────────────
+// Prevents actual Resvg/resvg-js and external avatar-fetch calls in tests.
+vi.mock('../utils/og-image.js', () => ({
+  generateOgImage: vi.fn().mockResolvedValue(Buffer.from('fake-og-png')),
+}));
+
 
 const mockUser = {
   id: 'user-123',
@@ -50,7 +60,7 @@ const mockRedis = {
   del: vi.fn().mockResolvedValue(1),
 };
 
-async function buildApp() {
+async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify();
   // Register JWT so app.jwt.sign() is available for the qr-session route.
   // @fastify/jwt also adds request.jwtVerify(), which throws when no valid
@@ -462,5 +472,134 @@ describe('GET /api/public/:username/qr-session', () => {
       'EX',
       300,
     );
+  });
+});
+
+// ─── OG image endpoint ────────────────────────────────────────────────────────
+
+// The minimal user shape returned by the OG image DB query (select projection).
+const mockOgUser = {
+  displayName: 'Test User',
+  bio: 'Building cool things.',
+  avatarUrl: null,
+  accentColor: '#6366f1',
+  _count: { platformLinks: 3 },
+  platformLinks: [
+    { platform: 'github' },
+    { platform: 'linkedin' },
+    { platform: 'twitter' },
+  ],
+};
+
+describe('GET /api/public/:username/og-image', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Restore default mock behaviours after clearAllMocks.
+    (generateOgImage as ReturnType<typeof vi.fn>).mockResolvedValue(
+      Buffer.from('fake-og-png'),
+    );
+    (generateQRBuffer as ReturnType<typeof vi.fn>).mockResolvedValue(
+      Buffer.from('fake-png'),
+    );
+    (generateQRSvg as ReturnType<typeof vi.fn>).mockResolvedValue(
+      '<svg>fake</svg>',
+    );
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
+    mockPrisma.cardView.create.mockReturnValue({ catch: vi.fn() });
+  });
+
+  it('returns 200 with image/png content-type for an existing user', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockOgUser);
+    const app = await buildApp();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/testuser/og-image',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
+    expect(res.headers['cache-control']).toBe(
+      'public, max-age=86400, stale-while-revalidate=3600',
+    );
+  });
+
+  it('returns 404 for an unknown username', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    const app = await buildApp();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/nobody/og-image',
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe('User not found');
+  });
+
+  it('returns X-Cache: MISS and calls generateOgImage on a fresh request', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockOgUser);
+    const app = await buildApp();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/testuser/og-image',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-cache']).toBe('MISS');
+    expect(generateOgImage).toHaveBeenCalledOnce();
+  });
+
+  it('writes the generated PNG to Redis with a 24 h TTL', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockOgUser);
+    const app = await buildApp();
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/public/testuser/og-image',
+    });
+
+    expect(mockRedis.set).toHaveBeenCalledWith(
+      'og-image:testuser',
+      expect.any(String), // base64-encoded PNG
+      'EX',
+      86400,
+    );
+  });
+
+  it('returns X-Cache: HIT and skips DB + generateOgImage when cached', async () => {
+    // Simulate a warm Redis cache entry (base64-encoded PNG).
+    const cachedPng = Buffer.from('fake-og-png').toString('base64');
+    mockRedis.get.mockResolvedValue(cachedPng);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/testuser/og-image',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-cache']).toBe('HIT');
+    // DB must not be queried and the generator must not run.
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    expect(generateOgImage).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when generateOgImage throws', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(mockOgUser);
+    (generateOgImage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('resvg render error'),
+    );
+    const app = await buildApp();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/testuser/og-image',
+    });
+
+    expect(res.statusCode).toBe(500);
+    expect(res.json().error).toBe('Failed to generate OG image');
   });
 });
