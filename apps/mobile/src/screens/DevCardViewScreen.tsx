@@ -117,8 +117,8 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         }
         setFollowStates(initialFollowStates);
       }
-    } catch (err) {
-      console.error('Failed to fetch profile:', err);
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
     } finally {
       setLoading(false);
     }
