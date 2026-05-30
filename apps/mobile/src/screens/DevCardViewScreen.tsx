@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Linking,
   Clipboard,
   StatusBar,
@@ -16,8 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
 import { Skeleton } from '../components/Skeleton';
 import { EmptyState } from '../components/EmptyState';
-import { PLATFORMS, getProfileUrl, getWebViewUrl } from '@devcard/shared';
-import { API_BASE_URL } from '../config';
+import Avatar from '../components/Avatar';
+import { PLATFORMS, getProfileUrl, getWebViewUrl, resolveDeepLink } from '@devcard/shared';
+import type { ResolvedLink } from '@devcard/shared';
+import { get, post, del } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -99,20 +100,13 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      const res = await fetch(`${API_BASE_URL}/api/u/${username}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await get<ProfileData>(`/api/u/${username}`, token);
+      if (data) {
         setProfile(data);
         const initialFollowStates: FollowState = {};
         if (data.links) {
           data.links.forEach((link: any) => {
-            if (link.followed) {
-              initialFollowStates[link.id] = 'success';
-            }
+            if (link.followed) initialFollowStates[link.id] = 'success';
           });
         }
         setFollowStates(initialFollowStates);
@@ -152,27 +146,17 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
       case 'webview':
         setFollowStates(prev => ({ ...prev, [link.id]: 'loading' }));
         try {
-          const res = await fetch(
-            `${API_BASE_URL}/api/follow/${link.platform}/${link.username}`,
-            {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
+          const data = await post<any>(`/api/follow/${link.platform}/${link.username}`, undefined, token);
           setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
-          if (res.ok) {
-            const data = await res.json();
-            if (data.strategy === 'webview') {
-              handleWebViewConnect(link, data.url);
-            } else {
-              setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
-            }
+          if (data?.strategy === 'webview') {
+            handleWebViewConnect(link, data.url);
           } else {
-            handleWebViewConnect(link);
+            setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
           }
         } catch {
           setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
-          handleWebViewConnect(link);
+          const resolved = resolveDeepLink(link.platform, link.username, { isMobile: true });
+          await executeResolvedLinkChain(resolved, link);
         }
         break;
 
@@ -183,14 +167,47 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         break;
 
       case 'link':
-      default:
-        const url = link.url || getProfileUrl(link.platform, link.username);
-        if (url) {
-          Linking.openURL(url).catch(() =>
-            Alert.alert('Error', 'Could not open link')
-          );
-        }
+      default: {
+        const resolved = resolveDeepLink(link.platform, link.username, { isMobile: true });
+        await executeResolvedLinkChain(resolved, link);
         break;
+      }
+    }
+  };
+
+  const executeResolvedLinkChain = async (resolved: ResolvedLink, link: PlatformLink) => {
+    const tryOpenLink = async (node: ResolvedLink): Promise<boolean> => {
+      switch (node.strategy) {
+        case 'native-deeplink':
+        case 'universal-link':
+        case 'web-url':
+          if (node.url) {
+            try {
+              const supported = await Linking.canOpenURL(node.url);
+              if (supported) {
+                await Linking.openURL(node.url);
+                return true;
+              }
+            } catch (err) {
+              console.warn(`Failed to open URL ${node.url}:`, err);
+            }
+          }
+          break;
+
+        case 'webview':
+          handleWebViewConnect(link, node.url);
+          return true;
+      }
+
+      if (node.fallback) {
+        return await tryOpenLink(node.fallback);
+      }
+      return false;
+    };
+
+    const success = await tryOpenLink(resolved);
+    if (!success) {
+      Alert.alert('Error', 'Could not open connection link');
     }
   };
 
@@ -198,54 +215,26 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
   const handleApiFollow = async (link: PlatformLink) => {
     setFollowStates(prev => ({ ...prev, [link.id]: 'loading' }));
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/follow/${link.platform}/${link.username}`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (res.ok) {
-        setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
+      await post<any>(`/api/follow/${link.platform}/${link.username}`, undefined, token);
+      setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
+    } catch (err: any) {
+      const msg = (err && err.message) || '';
+      if (msg.includes('requiresAuth')) {
+        setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
+        const resolved = resolveDeepLink(link.platform, link.username, { isMobile: true });
+        await executeResolvedLinkChain(resolved, link);
       } else {
-        const data = await res.json();
-        if (data.requiresAuth) {
-          // Reset loading BEFORE opening fallback so button doesn't get stuck
-          setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
-          // For platforms without a webview URL (e.g. GitHub), open in system browser
-          const webViewUrl = getWebViewUrl(link.platform, link.username);
-          if (webViewUrl) {
-            handleWebViewConnect(link);
-          } else {
-            // Open GitHub / other API-only platforms in the default browser
-            const profileUrl = link.url || getProfileUrl(link.platform, link.username);
-            if (profileUrl) {
-              Linking.openURL(profileUrl).catch(() =>
-                Alert.alert('Error', `Could not open ${link.platform} profile`)
-              );
-            }
-          }
-        } else {
-          setFollowStates(prev => ({ ...prev, [link.id]: 'error' }));
-        }
+        setFollowStates(prev => ({ ...prev, [link.id]: 'error' }));
       }
-    } catch {
-      setFollowStates(prev => ({ ...prev, [link.id]: 'error' }));
     }
   };
 
   // Reset a "Done" tile — clears follow log from backend and resets local state
   const handleResetFollowState = async (link: PlatformLink) => {
     try {
-      await fetch(
-        `${API_BASE_URL}/api/follow/${link.platform}/${link.username}/log`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      await del(`/api/follow/${link.platform}/${link.username}/log`, undefined, token);
     } catch {
-      // Ignore network errors — still reset local state
+      // ignore
     }
     setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
   };
@@ -299,14 +288,14 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         <View style={styles.scrollContent}>
           {/* Header Skeleton */}
           <View style={[styles.premiumHeaderCard, { borderColor: COLORS.border }]}>
-            <View style={styles.cardTop}>
+              <View style={styles.cardTop}>
               <Skeleton width={100} height={12} />
               <Skeleton width={20} height={20} borderRadius={10} />
             </View>
             <View style={styles.cardMid}>
               <Skeleton width={70} height={70} borderRadius={35} />
               <View style={styles.mainInfo}>
-                <Skeleton width="80%" height={24} style={{ marginBottom: 8 }} />
+                <Skeleton width="80%" height={24} style={styles.skelMb8} />
                 <Skeleton width="60%" height={16} />
               </View>
             </View>
@@ -318,12 +307,12 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
 
           {/* Tiles Skeleton */}
           <View style={styles.tilesSection}>
-            <Skeleton width={120} height={14} style={{ marginBottom: 12 }} />
+            <Skeleton width={120} height={14} style={styles.skelMb12} />
             {[1, 2, 3].map(i => (
               <View key={i} style={styles.platformTile}>
                 <Skeleton width={44} height={44} borderRadius={12} />
-                <View style={[styles.tileInfo, { marginLeft: 16 }]}>
-                  <Skeleton width="50%" height={16} style={{ marginBottom: 6 }} />
+                <View style={[styles.tileInfo, styles.tileInfoMl16]}>
+                  <Skeleton width="50%" height={16} style={styles.skelMb6} />
                   <Skeleton width="30%" height={12} />
                 </View>
                 <Skeleton width={72} height={32} borderRadius={8} />
@@ -339,9 +328,13 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorState}>
-          <Text style={styles.errorEmoji}>😕</Text>
+          <Text style={styles.errorEmoji} accessibilityElementsHidden>😕</Text>
           <Text style={styles.errorText}>User not found</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Go back to the previous screen"
+            accessibilityRole="button"
+          >
             <Text style={styles.backLink}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -354,8 +347,14 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
 
       {/* Close Button */}
-      <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.closeBtnText}>✕</Text>
+      <TouchableOpacity
+        style={styles.closeBtn}
+        onPress={() => navigation.goBack()}
+        accessibilityLabel="Close"
+        accessibilityRole="button"
+        accessibilityHint="Returns to the previous screen"
+      >
+        <Text style={styles.closeBtnText} aria-hidden>✕</Text>
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -379,15 +378,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
           {/* Middle: avatar + name/role */}
           <View style={styles.cardMid}>
             <View style={[styles.avatarRing, { borderColor: (profile.accentColor || COLORS.primary) + '88' }]}>
-              {profile.avatarUrl ? (
-                <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: profile.accentColor || COLORS.primary }]}>
-                  <Text style={styles.avatarText}>
-                    {profile.displayName.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
+              <Avatar uri={profile.avatarUrl} name={profile.displayName} size={64} style={styles.avatar} />
             </View>
             <View style={styles.mainInfo}>
               <Text style={styles.profileName} numberOfLines={1}>{profile.displayName}</Text>
@@ -432,6 +423,26 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
             const state = followStates[link.id] || 'idle';
             const btnColor = getButtonColor(link, state);
             const isDone = state === 'success';
+            const tileIconDynamic = {
+              backgroundColor: isDone
+                ? 'rgba(34,197,94,0.12)'
+                : (platform?.color || COLORS.primary) + '22',
+              borderColor: isDone
+                ? COLORS.success
+                : (platform?.color || COLORS.primary) + '66',
+            };
+            const actionLabel = getButtonLabel(link);
+            // Build a clear, human-readable label for screen readers
+            const a11yLabel = isDone
+              ? `${platform?.name || link.platform} — connected as ${link.username}`
+              : `${actionLabel} ${platform?.name || link.platform} — ${link.username}`;
+            const a11yHint = isDone
+              ? 'Long press to reset connection status'
+              : platform?.followStrategy === 'webview'
+                ? 'Opens an in-app browser to connect'
+                : platform?.followStrategy === 'copy'
+                  ? 'Copies the username to your clipboard'
+                  : 'Opens the profile in your browser';
             return (
               <TouchableOpacity
                 key={link.id}
@@ -454,21 +465,15 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
                   }
                 }}
                 activeOpacity={isDone ? 0.9 : 0.8}
-                disabled={state === 'loading'}>
+                disabled={state === 'loading'}
+                accessibilityLabel={a11yLabel}
+                accessibilityRole="button"
+                accessibilityHint={a11yHint}
+                accessibilityState={{ disabled: state === 'loading', selected: isDone }}
+              >
 
                 {/* Icon */}
-                <View style={[
-                  styles.tileIcon,
-                  styles.tileIconBorder,
-                  {
-                    backgroundColor: isDone
-                      ? 'rgba(34,197,94,0.12)'
-                      : (platform?.color || COLORS.primary) + '22',
-                    borderColor: isDone
-                      ? COLORS.success
-                      : (platform?.color || COLORS.primary) + '66',
-                  },
-                ]}>
+                <View style={[styles.tileIcon, styles.tileIconBorder, tileIconDynamic]}>
                   {isDone ? (
                     <Text style={styles.tileIconDoneText}>✓</Text>
                   ) : (
@@ -548,7 +553,7 @@ const styles = StyleSheet.create({
   },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   miniChip: { width: 28, height: 18, borderRadius: 4, opacity: 0.7 },
-  brandText: { color: 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: '800', letterSpacing: 2.5 },
+  brandText: { color: 'rgba(255,255,255,0.45)', fontSize: FONT_SIZE.nano + 1, fontWeight: '800', letterSpacing: 2.5 },
   cardMid: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   avatarRing: {
     borderRadius: 38,
@@ -565,18 +570,18 @@ const styles = StyleSheet.create({
   profileRole: {
     fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: '500', lineHeight: 15,
   },
-  pronouns: { fontSize: 10, color: COLORS.textMuted, fontStyle: 'italic' },
+  pronouns: { fontSize: FONT_SIZE.micro, color: COLORS.textMuted, fontStyle: 'italic' },
   cardBottom: { gap: SPACING.xs },
   cardDivider: {
     height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginBottom: 2,
   },
-  bioText: { fontSize: 10.5, color: 'rgba(255,255,255,0.38)', lineHeight: 15 },
+  bioText: { fontSize: FONT_SIZE.micro + 0.5, color: 'rgba(255,255,255,0.38)', lineHeight: 15 },
   cardBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
     borderWidth: 1,
   },
-  badgeText: { fontSize: 8, fontWeight: '900', letterSpacing: 1.5 },
+  badgeText: { fontSize: FONT_SIZE.nano, fontWeight: '900', letterSpacing: 1.5 },
 
   // ─── Tiles ───
   tilesSection: { gap: SPACING.sm },
@@ -626,6 +631,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  skelMb8: { marginBottom: 8 },
+  skelMb12: { marginBottom: 12 },
+  skelMb6: { marginBottom: 6 },
+  tileInfoMl16: { marginLeft: 16 },
 
   // ─── Error / Footer ───
   errorState: { flex: 1, alignItems: 'center', justifyContent: 'center' },

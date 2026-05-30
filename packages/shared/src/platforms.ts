@@ -29,6 +29,12 @@ export interface PlatformDef {
   usesFullUrl: boolean;
   /** Regex pattern to validate usernames */
   validationRegex?: RegExp;
+  /** Native protocol scheme (e.g. 'linkedin://') */
+  nativeScheme: string | null;
+  /** Universal Link URL pattern */
+  universalLink: string | null;
+  /** True if platform requires webview fallback for follow actions */
+  webViewFallback: boolean;
 }
 
 // ─── Platform Registry ───
@@ -47,6 +53,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     usernamePlaceholder: 'e.g. octocat',
     usesFullUrl: false,
     validationRegex: /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/,
+    nativeScheme: null,
+    universalLink: null,
+    webViewFallback: false,
   },
   linkedin: {
     id: 'linkedin',
@@ -61,6 +70,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     usernamePlaceholder: 'e.g. johndoe',
     usesFullUrl: false,
     validationRegex: /^[a-zA-Z0-9-]{3,100}$/,
+    nativeScheme: 'linkedin://',
+    universalLink: 'https://www.linkedin.com/in/{username}',
+    webViewFallback: true,
   },
   twitter: {
     id: 'twitter',
@@ -75,6 +87,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     usernamePlaceholder: 'e.g. elonmusk',
     usesFullUrl: false,
     validationRegex: /^[A-Za-z0-9_]{1,15}$/,
+    nativeScheme: 'twitter://',
+    universalLink: 'https://x.com/{username}',
+    webViewFallback: true,
   },
   gitlab: {
     id: 'gitlab',
@@ -88,6 +103,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. gitlab-user',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: 'https://gitlab.com/{username}',
+    webViewFallback: false,
   },
   devfolio: {
     id: 'devfolio',
@@ -101,6 +119,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. hacker123',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: 'https://devfolio.co/@{username}',
+    webViewFallback: false,
   },
   npm: {
     id: 'npm',
@@ -114,6 +135,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. sindresorhus',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: 'https://www.npmjs.com/~{username}',
+    webViewFallback: false,
   },
   devto: {
     id: 'devto',
@@ -127,6 +151,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. ben',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: 'https://dev.to/{username}',
+    webViewFallback: false,
   },
   hashnode: {
     id: 'hashnode',
@@ -140,6 +167,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. writer',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: 'https://hashnode.com/@{username}',
+    webViewFallback: false,
   },
   medium: {
     id: 'medium',
@@ -153,6 +183,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. writer',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: 'https://medium.com/@{username}',
+    webViewFallback: false,
   },
   leetcode: {
     id: 'leetcode',
@@ -166,6 +199,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. coder',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: 'https://leetcode.com/u/{username}',
+    webViewFallback: false,
   },
   hackerrank: {
     id: 'hackerrank',
@@ -179,6 +215,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. hacker',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: 'https://www.hackerrank.com/profile/{username}',
+    webViewFallback: false,
   },
   stackoverflow: {
     id: 'stackoverflow',
@@ -192,6 +231,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. 1234/username',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: 'https://stackoverflow.com/users/{username}',
+    webViewFallback: false,
   },
   discord: {
     id: 'discord',
@@ -205,6 +247,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. user#1234',
     usesFullUrl: false,
+    nativeScheme: null,
+    universalLink: null,
+    webViewFallback: false,
   },
   telegram: {
     id: 'telegram',
@@ -218,6 +263,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. durov',
     usesFullUrl: false,
+    nativeScheme: 'tg://',
+    universalLink: 'https://t.me/{username}',
+    webViewFallback: false,
   },
   email: {
     id: 'email',
@@ -231,6 +279,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. hello@example.com',
     usesFullUrl: true,
+    nativeScheme: 'mailto:',
+    universalLink: null,
+    webViewFallback: false,
   },
   portfolio: {
     id: 'portfolio',
@@ -244,6 +295,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. https://mysite.dev',
     usesFullUrl: true,
+    nativeScheme: null,
+    universalLink: null,
+    webViewFallback: false,
   },
   custom: {
     id: 'custom',
@@ -257,6 +311,9 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     oauthScopes: [],
     usernamePlaceholder: 'e.g. https://example.com/profile',
     usesFullUrl: true,
+    nativeScheme: null,
+    universalLink: null,
+    webViewFallback: false,
   },
 };
 

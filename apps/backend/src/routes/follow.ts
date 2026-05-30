@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { decrypt } from '../utils/encryption.js';
 import { getErrorMessage } from '../utils/error.util.js';
-import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
+import { getPlatform, getProfileUrl, getWebViewUrl, resolveDeepLink } from '@devcard/shared';
 import { followLogSchema } from '../validations/follow.validation.js';
 
 export async function followRoutes(app: FastifyInstance) {
@@ -35,14 +35,16 @@ export async function followRoutes(app: FastifyInstance) {
       },
     });
 
-    // Use WebView follow strategy if configured for the platform (e.g. LinkedIn, Twitter/X)
+    // Use WebView follow strategy if resolved for the platform (e.g. LinkedIn, Twitter/X)
     const platformDef = getPlatform(platform);
-    if (platformDef?.followStrategy === 'webview') {
-      const url = getWebViewUrl(platform, targetUsername) || getProfileUrl(platform, targetUsername);
-      return reply.send({
-        strategy: 'webview',
-        url,
-      });
+    if (platformDef) {
+      const resolved = resolveDeepLink(platform, targetUsername, { isMobile: false });
+      if (resolved.strategy === 'webview') {
+        return reply.send({
+          strategy: 'webview',
+          url: resolved.url,
+        });
+      }
     }
 
     if (!oauthToken) {
