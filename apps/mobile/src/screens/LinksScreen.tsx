@@ -18,6 +18,7 @@ import { get, post, del } from '../services/api';
 import { EmptyState } from '../components/EmptyState';
 import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
 import type { PlatformDef } from '@devcard/shared';
+import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 
 interface PlatformLink {
   id: string;
@@ -82,6 +83,51 @@ export default function LinksScreen() {
     ]);
   };
 
+  const handleReorder = async (data: PlatformLink[]) => {
+    setLinks(data);
+    try {
+      const payload = {
+        links: data.map((link, index) => ({ id: link.id, displayOrder: index })),
+      };
+      await put('/api/profiles/me/links/reorder', payload, token);
+    } catch {
+      Alert.alert('Error', 'Failed to save new order');
+      fetchLinks(); // Revert on failure
+    }
+  };
+
+  const renderItem = ({ item, drag, isActive }: RenderItemParams<PlatformLink>) => {
+    const platform = PLATFORMS[item.platform];
+    return (
+      <ScaleDecorator>
+        <TouchableOpacity
+          onLongPress={drag}
+          disabled={isActive}
+          delayLongPress={150}
+          activeOpacity={0.9}
+          style={[
+            styles.linkItem,
+            isActive && styles.linkItemActive,
+          ]}
+        >
+          <View style={styles.dragHandle}>
+            <Text style={styles.dragHandleText}>⋮⋮</Text>
+          </View>
+          <View style={[styles.platformDot, { backgroundColor: platform?.color || COLORS.primary }]} />
+          <View style={styles.linkInfo}>
+            <Text style={styles.platformName}>{platform?.name || item.platform}</Text>
+            <Text style={styles.username}>{item.username}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => deleteLink(item.id)}
+            style={styles.deleteBtn}>
+            <Text style={styles.deleteBtnText}>✕</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </ScaleDecorator>
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -104,27 +150,12 @@ export default function LinksScreen() {
         </TouchableOpacity>
       </View>
 
-      <FlatList
+      <DraggableFlatList
         data={links}
+        onDragEnd={({ data }) => handleReorder(data)}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => {
-          const platform = PLATFORMS[item.platform];
-          return (
-            <View style={styles.linkItem}>
-              <View style={[styles.platformDot, { backgroundColor: platform?.color || COLORS.primary }]} />
-              <View style={styles.linkInfo}>
-                <Text style={styles.platformName}>{platform?.name || item.platform}</Text>
-                <Text style={styles.username}>{item.username}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => deleteLink(item.id)}
-                style={styles.deleteBtn}>
-                <Text style={styles.deleteBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          );
-        }}
+        renderItem={renderItem}
         ListEmptyComponent={
           <EmptyState
             emoji="🔗"
@@ -206,6 +237,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: COLORS.bgCard, borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
+  },
+  linkItemActive: {
+    backgroundColor: COLORS.bgElevated,
+    borderColor: COLORS.primary,
+    elevation: 8,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  dragHandle: {
+    paddingRight: SPACING.sm,
+    justifyContent: 'center',
+  },
+  dragHandleText: {
+    color: COLORS.textMuted,
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   platformDot: { width: 12, height: 12, borderRadius: 6, marginRight: SPACING.md },
   linkInfo: { flex: 1 },

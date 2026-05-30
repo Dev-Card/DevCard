@@ -1,1 +1,0 @@
-export { apiRequest, get, post, put, del } from '../services/api';

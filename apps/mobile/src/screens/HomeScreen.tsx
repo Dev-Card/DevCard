@@ -193,13 +193,13 @@ export default function HomeScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         {/* Action Buttons */}
-        <View style={styles.actions}>
+        <View style={styles.actionsGrid}>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={handleShare}
             activeOpacity={0.85}>
             <Text style={styles.actionEmoji}>📤</Text>
-            <Text style={styles.actionText}>Share Card</Text>
+            <Text style={styles.actionText}>Share</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -207,7 +207,7 @@ export default function HomeScreen({ navigation }: Props) {
             onPress={() => (navigation as any).navigate('Views')}
             activeOpacity={0.85}>
             <Text style={styles.actionEmoji}>📈</Text>
-            <Text style={styles.actionText}>Analytics</Text>
+            <Text style={styles.actionText}>Stats</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -217,6 +217,41 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.actionEmoji}>👁️</Text>
             <Text style={styles.actionText}>Preview</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => (navigation as any).navigate('Links')}
+            activeOpacity={0.85}>
+            <Text style={styles.actionEmoji}>🔗</Text>
+            <Text style={styles.actionText}>Links</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => (navigation as any).navigate('Events')}
+            activeOpacity={0.85}>
+            <Text style={styles.actionEmoji}>🎪</Text>
+            <Text style={styles.actionText}>Events</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => (navigation as any).navigate('Teams')}
+            activeOpacity={0.85}>
+            <Text style={styles.actionEmoji}>👥</Text>
+            <Text style={styles.actionText}>Teams</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => (navigation as any).navigate('Nfc')}
+            activeOpacity={0.85}>
+            <Text style={styles.actionEmoji}>📳</Text>
+            <Text style={styles.actionText}>NFC</Text>
+          </TouchableOpacity>
+          <View style={[styles.actionButton, { opacity: 0 }]} />
         </View>
 
         {/* Search / Lookup */}
@@ -321,12 +356,13 @@ const styles = StyleSheet.create({
   qrToggle: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   qrToggleEmoji: { fontSize: 24 },
   qrToggleText: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary, fontWeight: '500' },
-  actions: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.lg },
+  actionsGrid: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
   actionButton: {
     flex: 1,
     backgroundColor: COLORS.bgCard,
     borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
+    padding: SPACING.sm,
+    paddingVertical: SPACING.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
