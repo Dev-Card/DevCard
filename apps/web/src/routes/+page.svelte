@@ -72,17 +72,17 @@
   </section>
 
   <section id="features" class="features">
-    <div class="feature-card glass">
+    <div class="feature-card">
       <div class="feature-icon">🔗</div>
       <h3>Unified Identity</h3>
       <p>Combine your fragmented online presence into a cohesive professional identity.</p>
     </div>
-    <div class="feature-card glass">
+    <div class="feature-card">
       <div class="feature-icon">⚡</div>
       <h3>Instant Follow</h3>
       <p>Integrated APIs allow followers to connect with you instantly across platforms.</p>
     </div>
-    <div class="feature-card glass">
+    <div class="feature-card">
       <div class="feature-icon">🔒</div>
       <h3>Private by Design</h3>
       <p>No tracking, no data selling. Your information stays where it belongs: with you.</p>
@@ -101,9 +101,10 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.22), transparent 50%),
-                radial-gradient(circle at 0% 100%, rgba(168, 85, 247, 0.15), transparent 40%),
-                radial-gradient(circle at 100% 50%, rgba(99, 102, 241, 0.10), transparent 35%);
+    background:
+      radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.22), transparent 50%),
+      radial-gradient(circle at 0% 100%, rgba(168, 85, 247, 0.15), transparent 40%),
+      radial-gradient(circle at 100% 50%, rgba(99, 102, 241, 0.10), transparent 35%);
     pointer-events: none;
     z-index: -1;
     will-change: transform, opacity;
@@ -222,6 +223,8 @@
     border-color: rgba(99, 102, 241, 0.45);
   }
 
+  /* ===== FEATURE CARDS — improved contrast & accessibility (#319) ===== */
+
   .features {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -231,72 +234,33 @@
 
   .feature-card {
     padding: 2.4rem;
-    min-height: 140px;
+    min-height: 160px;
     border-radius: var(--radius-xl);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow-lg);
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.5));
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    /* FIX: added background to transition for smooth theme switching */
+    transition: transform 0.3s ease, border-color 0.35s ease, box-shadow 0.3s ease, background 0.35s ease;
   }
 
-  @media (max-width: 640px) {
-  .features {
-    display: grid;
-    grid-template-columns: 1fr; /* single column */
-    gap: 16px;
-    padding: 0 12px;
-  }
-}
-
-  .feature-card {
-  min-height: 140px;
-  padding: 16px;
-}
-@media (max-width: 640px) {
-  .feature-card {
-    margin-bottom: 12px;
-  }
-}
-
-  .feature-card {
-  min-height: 140px;
-  padding: 16px;
-}
-
-.feature-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 2rem;
-  min-height: 140px;
-
-  /* normal shadow (very light) */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-
-  /* smooth transition */
-  transition: all 0.25s ease;
-}
-
-
-
-.feature-card:hover {
-  /* halka lift */
-  transform: translateY(-3px);
-
-  /* stronger but soft shadow */
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-}
-
-@media (max-width: 640px) {
-  .feature-card {
-    margin-bottom: 12px;
-  }
-}
-
+  /* FIX: single clean hover rule for light mode — indigo border glow */
   .feature-card:hover {
-    transform: translateY(-8px);
-    border-color: rgba(99, 102, 241, 0.4);
-    box-shadow: 0 26px 50px -18px rgba(0, 0, 0, 0.35);
+    transform: translateY(-6px);
+    border-color: rgba(99, 102, 241, 0.45);
+    box-shadow: 0 20px 40px -12px rgba(99, 102, 241, 0.15);
+  }
+
+  /* FIX: dark mode card — visible background + stronger border */
+  :global(html.dark) .feature-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  :global(html.dark) .feature-card:hover {
+    border-color: rgba(99, 102, 241, 0.6);
+    box-shadow: 0 20px 40px -12px rgba(99, 102, 241, 0.3);
+    background: rgba(255, 255, 255, 0.09);
   }
 
   .feature-icon {
@@ -304,15 +268,26 @@
     margin-bottom: 1.4rem;
   }
 
-  h3 {
+  /* FIX: explicit heading color — WCAG AA compliant in both themes */
+  .feature-card h3 {
     font-size: 1.4rem;
-    margin-bottom: 0.9rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
   }
 
+  /* FIX: body text with improved line-height for readability */
   .feature-card p {
     color: var(--text-secondary);
-    line-height: 1.7;
+    line-height: 1.75;
+    font-size: 1rem;
   }
+
+  /* FIX: dark mode body text — #e2e8f0 = ~11:1 contrast ratio ✅ WCAG AAA */
+  :global(html.dark) .feature-card p {
+    color: #e2e8f0;
+  }
+
+  /* ===================================================================== */
 
   .footer {
     text-align: center;
@@ -332,6 +307,7 @@
     }
   }
 
+  /* FIX: single merged @media (max-width: 640px) block — removed duplicate */
   @media (max-width: 640px) {
     h1 {
       font-size: 2.6rem;
@@ -356,7 +332,7 @@
     .footer {
       padding: 2rem 0 1.25rem;
     }
-    
+
     .bg-glow {
       opacity: 0.6;
     }
