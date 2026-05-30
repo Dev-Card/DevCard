@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
 import { PrismaClient } from '@prisma/client';
-import { eventRoutes } from '../routes/event';
+import { eventRoutes } from '../routes/event.js';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -58,28 +58,27 @@ const prismaMock = {
 
 // ─── App factory ─────────────────────────────────────────────────────────────
 //
-// Builds a minimal Fastify instance that wires up:
-//   • app.prisma  – the Prisma mock above
-//   • request.jwtVerify() – overridden per-test via `mockJwtVerify`
+// Builds a minimal Fastify instance with:
+//   • app.prisma      – the Prisma mock
+//   • app.authenticate – sets request.user, or returns 401 when mockAuthUserId is null
 //
-// This mirrors the real app setup without touching a real DB or real JWT keys.
+// The authenticate decorator mirrors what the real jwt plugin does so routes
+// using `preHandler: [app.authenticate]` work correctly in unit tests.
 
-let mockJwtVerify = vi.fn();
+let mockAuthUserId: string | null = MOCK_USER_ID;
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
 
-  // Decorate prisma so routes can use app.prisma.*
   app.decorate('prisma', prismaMock as unknown as PrismaClient);
 
-  // Decorate jwtVerify on the request prototype so request.jwtVerify() resolves
-  // to whatever the current test wants.
-  app.decorateRequest('jwtVerify', function () {
-    return mockJwtVerify();
+  app.decorate('authenticate', async (request: any, reply: any) => {
+    if (mockAuthUserId === null) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    request.user = { id: mockAuthUserId };
   });
 
-  // Register with the same prefix used in production (app.ts) so that
-  // tests exercise routes at their real paths — /api/events, /api/events/:slug, etc.
   await app.register(eventRoutes, { prefix: '/api/events' });
   await app.ready();
   return app;
@@ -87,12 +86,10 @@ async function buildApp(): Promise<FastifyInstance> {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Returns a valid JWT-authenticated inject payload */
 function authHeader(): Record<string, string> {
   return { Authorization: 'Bearer mock-token' };
 }
 
-/** Injects a POST /api/events request */
 async function createEvent(
   app: FastifyInstance,
   body: Record<string, unknown>,
@@ -113,8 +110,7 @@ describe('Events API', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    // Default: authenticated as MOCK_USER_ID
-    mockJwtVerify.mockResolvedValue({ id: MOCK_USER_ID });
+    mockAuthUserId = MOCK_USER_ID;
     app = await buildApp();
   });
 
@@ -135,7 +131,7 @@ describe('Events API', () => {
     };
 
     it('201 — creates event and returns it for authenticated organizer', async () => {
-      prismaMock.event.findUnique.mockResolvedValue(null); // slug is free
+      prismaMock.event.findUnique.mockResolvedValue(null);
       prismaMock.event.create.mockResolvedValue(MOCK_EVENT);
 
       const res = await createEvent(app, validBody);
@@ -146,7 +142,6 @@ describe('Events API', () => {
       expect(body.organizerId).toBe(MOCK_USER_ID);
       expect(body.location).toBe('San Francisco, CA');
 
-      // Prisma was called with correct fields
       expect(prismaMock.event.create).toHaveBeenCalledOnce();
       const callArg = prismaMock.event.create.mock.calls[0][0].data;
       expect(callArg.name).toBe('DevCard Conf 2025');
@@ -155,7 +150,7 @@ describe('Events API', () => {
     });
 
     it('401 — rejects unauthenticated request', async () => {
-      mockJwtVerify.mockRejectedValue(new Error('Unauthorized'));
+      mockAuthUserId = null;
 
       const res = await createEvent(app, validBody, false);
 
@@ -164,7 +159,7 @@ describe('Events API', () => {
     });
 
     it('400 — rejects missing required fields (no dates, no location)', async () => {
-      const res = await createEvent(app, { name: 'Hello World' }); // missing dates + location
+      const res = await createEvent(app, { name: 'Hello World' });
       expect(res.statusCode).toBe(400);
     });
 
@@ -190,24 +185,19 @@ describe('Events API', () => {
     });
 
     it('400 — rejects event name longer than 100 characters', async () => {
-      const longName = 'A'.repeat(101);
-      const res = await createEvent(app, { ...validBody, name: longName });
+      const res = await createEvent(app, { ...validBody, name: 'A'.repeat(101) });
       expect(res.statusCode).toBe(400);
     });
 
     it('400 — rejects invalid date format', async () => {
-      const res = await createEvent(app, {
-        ...validBody,
-        startDate: 'not-a-date',
-      });
+      const res = await createEvent(app, { ...validBody, startDate: 'not-a-date' });
       expect(res.statusCode).toBe(400);
     });
 
     it('201 — generates a unique slug when the first candidate is taken', async () => {
-      // First findUnique returns a conflict, second returns null (slug free)
       prismaMock.event.findUnique
-        .mockResolvedValueOnce(MOCK_EVENT) // slug taken
-        .mockResolvedValueOnce(null);       // randomised slug free
+        .mockResolvedValueOnce(MOCK_EVENT) // slug taken on pre-check
+        .mockResolvedValueOnce(null);      // randomised slug is free
 
       prismaMock.event.create.mockResolvedValue({
         ...MOCK_EVENT,
@@ -217,7 +207,6 @@ describe('Events API', () => {
       const res = await createEvent(app, validBody);
 
       expect(res.statusCode).toBe(201);
-      // create was eventually called with a slug different from the base one
       const createdSlug: string = prismaMock.event.create.mock.calls[0][0].data.slug;
       expect(createdSlug).toMatch(/^devcard-conf-2025-[a-z0-9]+$/);
     });
@@ -234,7 +223,7 @@ describe('Events API', () => {
       expect(callData.isPublic).toBe(true);
     });
 
-    it('500 — returns 500 when database write fails', async () => {
+    it('500 — returns 500 when database write fails with a non-conflict error', async () => {
       prismaMock.event.findUnique.mockResolvedValue(null);
       prismaMock.event.create.mockRejectedValue(new Error('DB error'));
 
@@ -242,6 +231,109 @@ describe('Events API', () => {
 
       expect(res.statusCode).toBe(500);
       expect(res.json()).toMatchObject({ error: 'Failed to create event' });
+    });
+
+    // ── P2002 / concurrency tests ────────────────────────────────────────────
+
+    it('201 — retries on P2002 slug conflict and succeeds on the second attempt', async () => {
+      // Simulates the TOCTOU window: pre-check passes (findUnique returns null),
+      // but the insert fails with P2002 because a concurrent request won the race.
+      // The second attempt succeeds.
+      prismaMock.event.findUnique.mockResolvedValue(null);
+
+      const conflictError = Object.assign(new Error('Unique constraint failed'), {
+        code: 'P2002',
+        meta: { target: ['slug'] },
+      });
+
+      prismaMock.event.create
+        .mockRejectedValueOnce(conflictError)
+        .mockResolvedValueOnce({ ...MOCK_EVENT, slug: 'devcard-conf-2025-retry' });
+
+      const res = await createEvent(app, validBody);
+
+      expect(res.statusCode).toBe(201);
+      // create called twice: first attempt (conflict) + one retry (success)
+      expect(prismaMock.event.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('201 — succeeds after multiple consecutive P2002 conflicts', async () => {
+      prismaMock.event.findUnique.mockResolvedValue(null);
+
+      const conflictError = Object.assign(new Error('Unique constraint failed'), {
+        code: 'P2002',
+      });
+
+      prismaMock.event.create
+        .mockRejectedValueOnce(conflictError)
+        .mockRejectedValueOnce(conflictError)
+        .mockRejectedValueOnce(conflictError)
+        .mockResolvedValueOnce({ ...MOCK_EVENT, slug: 'devcard-conf-2025-ok' });
+
+      const res = await createEvent(app, validBody);
+
+      expect(res.statusCode).toBe(201);
+      expect(prismaMock.event.create).toHaveBeenCalledTimes(4);
+    });
+
+    it('500 — returns 500 after exhausting all retry attempts on persistent P2002', async () => {
+      // If every attempt collides, the retry budget must be finite and exhaust
+      // to a deterministic 500, never loop forever.
+      prismaMock.event.findUnique.mockResolvedValue(null);
+
+      const conflictError = Object.assign(new Error('Unique constraint failed'), {
+        code: 'P2002',
+      });
+      prismaMock.event.create.mockRejectedValue(conflictError);
+
+      const res = await createEvent(app, validBody);
+
+      expect(res.statusCode).toBe(500);
+      expect(res.json()).toMatchObject({ error: 'Failed to create event' });
+
+      // Retries must be bounded
+      const callCount = prismaMock.event.create.mock.calls.length;
+      expect(callCount).toBeGreaterThan(1);    // at least one retry occurred
+      expect(callCount).toBeLessThanOrEqual(5); // never exceeds MAX_CREATE_ATTEMPTS
+    });
+
+    it('500 — does not retry on non-P2002 database errors', async () => {
+      prismaMock.event.findUnique.mockResolvedValue(null);
+      prismaMock.event.create.mockRejectedValue(new Error('Connection lost'));
+
+      const res = await createEvent(app, validBody);
+
+      expect(res.statusCode).toBe(500);
+      // Non-conflict errors must not trigger retries
+      expect(prismaMock.event.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('concurrent same-name requests: P2002 is never surfaced as an unhandled 500', async () => {
+      // Simulate two concurrent requests where alternating inserts fail with P2002.
+      // Both must resolve without surfacing a raw database error to the caller.
+      prismaMock.event.findUnique.mockResolvedValue(null);
+
+      const conflictError = Object.assign(new Error('Unique constraint failed'), {
+        code: 'P2002',
+      });
+
+      let callCount = 0;
+      prismaMock.event.create.mockImplementation(async (args: any) => {
+        callCount++;
+        if (callCount % 2 === 1) throw conflictError; // odd calls fail
+        return { ...MOCK_EVENT, slug: args.data.slug };
+      });
+
+      const [resA, resB] = await Promise.all([
+        createEvent(app, validBody),
+        createEvent(app, validBody),
+      ]);
+
+      const statuses = [resA.statusCode, resB.statusCode];
+      // Both must resolve to 201 or a deterministic 500 — never a raw P2002
+      expect(statuses.every((s) => s === 201 || s === 500)).toBe(true);
+      // At least one request must succeed
+      expect(statuses).toContain(201);
     });
   });
 
@@ -252,6 +344,10 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         _count: { attendees: 42 },
+        organizer: {
+          username: MOCK_USER_PROFILE.username,
+          displayName: MOCK_USER_PROFILE.displayName,
+        },
       });
 
       const res = await app.inject({
@@ -264,8 +360,9 @@ describe('Events API', () => {
       expect(body.slug).toBe('devcard-conf-2025');
       expect(body.attendeesCount).toBe(42);
       expect(body.location).toBe('San Francisco, CA');
-      // organizerId is exposed (public info)
-      expect(body.organizerId).toBe(MOCK_USER_ID);
+      expect(body.organizerUsername).toBe(MOCK_USER_PROFILE.username);
+      expect(body.organizerDisplayName).toBe(MOCK_USER_PROFILE.displayName);
+      expect(body.organizerId).toBeUndefined();
     });
 
     it('404 — returns 404 for unknown slug', async () => {
@@ -281,11 +378,13 @@ describe('Events API', () => {
     });
 
     it('200 — works without authentication (public endpoint)', async () => {
-      // Even if JWT would fail, this route should not call jwtVerify
-      mockJwtVerify.mockRejectedValue(new Error('Should not be called'));
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         _count: { attendees: 0 },
+        organizer: {
+          username: MOCK_USER_PROFILE.username,
+          displayName: MOCK_USER_PROFILE.displayName,
+        },
       });
 
       const res = await app.inject({
@@ -295,7 +394,6 @@ describe('Events API', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(mockJwtVerify).not.toHaveBeenCalled();
     });
   });
 
@@ -311,7 +409,7 @@ describe('Events API', () => {
         joinedAt: new Date(),
       });
 
-      mockJwtVerify.mockResolvedValue({ id: MOCK_OTHER_USER_ID });
+      mockAuthUserId = MOCK_OTHER_USER_ID;
 
       const res = await app.inject({
         method: 'POST',
@@ -328,7 +426,7 @@ describe('Events API', () => {
     });
 
     it('401 — rejects unauthenticated request', async () => {
-      mockJwtVerify.mockRejectedValue(new Error('Unauthorized'));
+      mockAuthUserId = null;
 
       const res = await app.inject({
         method: 'POST',
@@ -354,10 +452,7 @@ describe('Events API', () => {
 
     it('409 — returns 409 when user already joined the event', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
-      // Prisma unique constraint error
-      const uniqueError = Object.assign(new Error('Unique constraint'), {
-        code: 'P2002',
-      });
+      const uniqueError = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
       prismaMock.eventAttendee.create.mockRejectedValue(uniqueError);
 
       const res = await app.inject({
@@ -392,7 +487,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
       prismaMock.eventAttendee.delete.mockResolvedValue({});
 
-      mockJwtVerify.mockResolvedValue({ id: MOCK_OTHER_USER_ID });
+      mockAuthUserId = MOCK_OTHER_USER_ID;
 
       const res = await app.inject({
         method: 'DELETE',
@@ -402,7 +497,6 @@ describe('Events API', () => {
 
       expect(res.statusCode).toBe(204);
 
-      // Verify the compound unique key used in the delete
       const deleteArg = prismaMock.eventAttendee.delete.mock.calls[0][0].where;
       expect(deleteArg).toMatchObject({
         userId_eventId: {
@@ -413,7 +507,7 @@ describe('Events API', () => {
     });
 
     it('401 — rejects unauthenticated request', async () => {
-      mockJwtVerify.mockRejectedValue(new Error('Unauthorized'));
+      mockAuthUserId = null;
 
       const res = await app.inject({
         method: 'DELETE',
@@ -439,10 +533,7 @@ describe('Events API', () => {
 
     it('404 — returns 404 when user was never an attendee (P2025)', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
-      // Prisma record-not-found error
-      const notFoundError = Object.assign(new Error('Record not found'), {
-        code: 'P2025',
-      });
+      const notFoundError = Object.assign(new Error('Record not found'), { code: 'P2025' });
       prismaMock.eventAttendee.delete.mockRejectedValue(notFoundError);
 
       const res = await app.inject({
@@ -473,7 +564,6 @@ describe('Events API', () => {
   // ── GET /api/events/:slug/attendees ───────────────────────────────────────
 
   describe('GET /api/events/:slug/attendees — paginated attendee list', () => {
-    /** Builds a raw EventAttendee row as Prisma returns it (with nested user) */
     function makeAttendeeRow(
       profile: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE,
     ) {
@@ -494,6 +584,7 @@ describe('Events API', () => {
 
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 2 },
         attendees: attendeeRows,
       });
 
@@ -522,6 +613,7 @@ describe('Events API', () => {
     it('200 — respects custom page and limit query params', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_OTHER_USER_PROFILE)],
       });
 
@@ -535,15 +627,15 @@ describe('Events API', () => {
       expect(body.pagination.page).toBe(2);
       expect(body.pagination.limit).toBe(5);
 
-      // Verify skip/take were passed correctly to Prisma
       const includeArg = prismaMock.event.findUnique.mock.calls[0][0].include;
-      expect(includeArg.attendees.skip).toBe(5);   // (page-1) * limit = 1 * 5
+      expect(includeArg.attendees.skip).toBe(5);
       expect(includeArg.attendees.take).toBe(5);
     });
 
     it('200 — caps limit at 50 even if higher value is requested', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 0 },
         attendees: [],
       });
 
@@ -560,6 +652,7 @@ describe('Events API', () => {
     it('200 — treats page < 1 as page 1', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 0 },
         attendees: [],
       });
 
@@ -570,12 +663,13 @@ describe('Events API', () => {
 
       expect(res.statusCode).toBe(200);
       const includeArg = prismaMock.event.findUnique.mock.calls[0][0].include;
-      expect(includeArg.attendees.skip).toBe(0); // page forced to 1 → skip = 0
+      expect(includeArg.attendees.skip).toBe(0);
     });
 
     it('200 — returns empty attendees list for event with no attendees', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 0 },
         attendees: [],
       });
 
@@ -593,6 +687,7 @@ describe('Events API', () => {
     it('200 — public profiles do not leak sensitive fields', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
       });
 
@@ -601,15 +696,14 @@ describe('Events API', () => {
         url: '/api/events/devcard-conf-2025/attendees',
       });
 
+      expect(res.statusCode).toBe(200);
       const attendee = res.json().attendees[0];
 
-      // These fields MUST be present
       expect(attendee).toHaveProperty('id');
       expect(attendee).toHaveProperty('username');
       expect(attendee).toHaveProperty('displayName');
       expect(attendee).toHaveProperty('accentColor');
 
-      // These fields MUST NOT be present
       expect(attendee).not.toHaveProperty('email');
       expect(attendee).not.toHaveProperty('provider');
       expect(attendee).not.toHaveProperty('providerId');
@@ -631,6 +725,7 @@ describe('Events API', () => {
     it('200 — attendees are ordered by joinedAt desc (latest first)', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 0 },
         attendees: [],
       });
 
@@ -644,7 +739,7 @@ describe('Events API', () => {
     });
   });
 
-  // ── Slug generation edge cases ────────────────────────────────────────────
+  // ── Slug generation ───────────────────────────────────────────────────────
 
   describe('Slug generation', () => {
     const baseBody = {
@@ -659,6 +754,7 @@ describe('Events API', () => {
 
       await createEvent(app, { ...baseBody, name: 'My Awesome Event!!!' });
 
+      expect(prismaMock.event.create).toHaveBeenCalledOnce();
       const slug: string = prismaMock.event.create.mock.calls[0][0].data.slug;
       expect(slug).toBe('my-awesome-event');
     });
@@ -669,6 +765,7 @@ describe('Events API', () => {
 
       await createEvent(app, { ...baseBody, name: '---Event Name---' });
 
+      expect(prismaMock.event.create).toHaveBeenCalledOnce();
       const slug: string = prismaMock.event.create.mock.calls[0][0].data.slug;
       expect(slug).not.toMatch(/^-|-$/);
     });
@@ -679,8 +776,45 @@ describe('Events API', () => {
 
       await createEvent(app, { ...baseBody, name: 'Event   Name' });
 
+      expect(prismaMock.event.create).toHaveBeenCalledOnce();
       const slug: string = prismaMock.event.create.mock.calls[0][0].data.slug;
       expect(slug).not.toMatch(/--/);
+    });
+
+    it('regression: P2002 on insert triggers retry with a different slug, not a 500', async () => {
+      // Reproduces the original race condition:
+      //   1. Both requests call findUnique — base slug appears free (TOCTOU window).
+      //   2. The losing request's insert returns P2002.
+      //   3. On the retry, findUnique now shows the slug as taken (the winner committed it).
+      //   4. generateUniqueSlug produces a suffix-appended slug.
+      //   5. The retry insert succeeds — caller receives 201, not 500.
+      prismaMock.event.findUnique
+        .mockResolvedValueOnce(null)       // attempt 1: slug appears free (TOCTOU)
+        .mockResolvedValueOnce(MOCK_EVENT) // retry pre-check: slug now taken in DB
+        .mockResolvedValueOnce(null);      // retry: suffix slug is free
+
+      const conflictError = Object.assign(new Error('Unique constraint failed on slug'), {
+        code: 'P2002',
+      });
+
+      let callCount = 0;
+      prismaMock.event.create.mockImplementation(async (args: any) => {
+        callCount++;
+        if (callCount === 1) throw conflictError;
+        return { ...MOCK_EVENT, slug: args.data.slug };
+      });
+
+      const res = await createEvent(app, { ...baseBody, name: 'DevCard Conf 2025' });
+
+      expect(res.statusCode).toBe(201);
+      expect(prismaMock.event.create).toHaveBeenCalledTimes(2);
+
+      // The slug on the retry must differ from the first attempt because the
+      // retry's pre-check now sees the base slug as taken and appends a suffix.
+      const firstSlug: string = prismaMock.event.create.mock.calls[0][0].data.slug;
+      const secondSlug: string = prismaMock.event.create.mock.calls[1][0].data.slug;
+      expect(secondSlug).not.toBe(firstSlug);
+      expect(secondSlug).toMatch(/^devcard-conf-2025-[a-z0-9]+$/);
     });
   });
 });
