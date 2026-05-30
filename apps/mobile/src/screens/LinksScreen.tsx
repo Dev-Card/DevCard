@@ -45,8 +45,8 @@ export default function LinksScreen() {
         const data = await res.json();
         setLinks(data.platformLinks || []);
       }
-    } catch (err) {
-      console.error('Failed to fetch links:', err);
+    } catch (error) {
+      console.error('Failed to fetch links:', error);
     } finally {
       setLoading(false);
     }

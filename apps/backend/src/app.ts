@@ -22,6 +22,7 @@ import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
 import { validateEnv } from './utils/validateEnv.js';
+import { teamRoutes } from './routes/team.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -89,8 +90,10 @@ export async function buildApp():Promise<FastifyInstance> {
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
-      await request.jwtVerify();
-    } catch (_err) {
+      // Ensure the verified payload is assigned to `request.user` like the original plugin.
+      const payload = await request.jwtVerify();
+      if (payload) request.user = payload;
+    } catch (error) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
@@ -99,12 +102,16 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(authRoutes, { prefix: '/auth' });
   await app.register(profileRoutes, { prefix: '/api/profiles' });
   await app.register(cardRoutes, { prefix: '/api/cards' });
+  // Public routes: standardise on `/api/u` (remove duplicate `/api/public`).
   await app.register(publicRoutes, { prefix: '/api/u' });
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-await app.register(nfcRoutes, { prefix: '/api/nfc' });
-    await app.register(eventRoutes, { prefix: '/api/events' });
+  await app.register(nfcRoutes, { prefix: '/api/nfc' });
+  await app.register(eventRoutes, {prefix: '/api/events'})
+  await app.register(teamRoutes, {prefix: '/api/teams'})
+
+
   // ─── Health Check ───
 type HealthResponse = {
   status: 'ok';
@@ -113,5 +120,20 @@ type HealthResponse = {
 app.get('/health', async (): Promise<HealthResponse> => {
   return { status: 'ok' };
 });
+
+  // Centralized error handler: log and return a consistent 500 shape for unhandled errors.
+  app.setErrorHandler((error, request, reply) => {
+    app.log.error({ err: error }, 'Unhandled error');
+    // Also print to console to aid test diagnostics when logger is disabled.
+    // This helps surface stack traces in CI/test runs.
+    // eslint-disable-next-line no-console
+    console.error(error);
+    // If headers were already sent, fall back to default behaviour.
+    if (reply.sent) {
+      return;
+    }
+    // Keep response shape consistent across the API.
+    reply.status(500).send({ error: 'Internal server error' });
+  });
   return app;
 }

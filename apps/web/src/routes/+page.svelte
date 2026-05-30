@@ -1,99 +1,3 @@
-<script>
-  import { onMount } from 'svelte';
-
-  let theme = 'light';
-
-  onMount(() => {
-    const saved = localStorage.getItem('devcard-theme');
-    if (saved) {
-      theme = saved;
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      theme = 'dark';
-    }
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  });
-
-  function toggleTheme() {
-    theme = theme === 'light' ? 'dark' : 'light';
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('devcard-theme', theme);
-  }
-</script>
-
-<svelte:head>
-  <title>DevCard — One Tap. Every Profile. Every Platform.</title>
-  <meta
-    name="description"
-    content="Open source developer profile exchange platform. Share all your developer profiles with one QR code."
-  />
-  <meta property="og:title" content="DevCard — One Tap. Every Profile. Every Platform." />
-  <meta property="og:description" content="Open source developer profile exchange platform. Share all your developer profiles with one QR code." />
-  <meta property="og:url" content="https://devcard.example.com/" />
-  <meta property="og:image" content="https://devcard.example.com/og-image.jpg" />
-  <meta name="twitter:title" content="DevCard" />
-  <meta name="twitter:description" content="Open source developer profile exchange platform." />
-  <meta name="twitter:image" content="https://devcard.example.com/og-image.jpg" />
-</svelte:head>
-
-<div class="bg-glow"></div>
-
-<main class="landing">
-  <nav class="glass">
-    <div class="nav-content">
-      <div class="logo">⚡ <span class="gradient-text">DevCard</span></div>
-      <button
-        id="theme-toggle"
-        class="theme-toggle"
-        on:click={toggleTheme}
-        aria-label="Toggle theme"
-      >
-        {theme === 'light' ? '🌙' : '☀️'}
-      </button>
-    </div>
-  </nav>
-
-  <section class="hero">
-    <div class="hero-badge">GSSoC'26 Edition</div>
-    <h1 class="gradient-text">One Tap. Every Profile.<br/>Every Platform.</h1>
-    <p class="description">
-      The open-source standard for developer networking. Put all your profiles—GitHub, LinkedIn, LeetCode, and more—into a single, high-impact digital card.
-    </p>
-    <div class="cta-group">
-      <a
-        href="https://github.com/Dev-Card/DevCard"
-        class="btn-primary"
-        target="_blank"
-        rel="noopener"
-      >
-        ⭐ Star on GitHub
-      </a>
-      <a href="/u/devcard-demo" class="btn-secondary">View Demo Profile →</a>
-    </div>
-  </section>
-
-  <section id="features" class="features">
-    <div class="feature-card glass">
-      <div class="feature-icon">🔗</div>
-      <h3>Unified Identity</h3>
-      <p>Combine your fragmented online presence into a cohesive professional identity.</p>
-    </div>
-    <div class="feature-card glass">
-      <div class="feature-icon">⚡</div>
-      <h3>Instant Follow</h3>
-      <p>Integrated APIs allow followers to connect with you instantly across platforms.</p>
-    </div>
-    <div class="feature-card glass">
-      <div class="feature-icon">🔒</div>
-      <h3>Private by Design</h3>
-      <p>No tracking, no data selling. Your information stays where it belongs: with you.</p>
-    </div>
-  </section>
-
-  <footer class="footer">
-    <p>© 2026 DevCard • Built for the Developer Community</p>
-  </footer>
-</main>
-
 <style>
   .bg-glow {
     position: fixed;
@@ -234,64 +138,10 @@
     min-height: 140px;
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-lg);
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.5));
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
   }
-
-  @media (max-width: 640px) {
-  .features {
-    display: grid;
-    grid-template-columns: 1fr; /* single column */
-    gap: 16px;
-    padding: 0 12px;
-  }
-}
-
-  .feature-card {
-  min-height: 140px;
-  padding: 16px;
-}
-@media (max-width: 640px) {
-  .feature-card {
-    margin-bottom: 12px;
-  }
-}
-
-  .feature-card {
-  min-height: 140px;
-  padding: 16px;
-}
-
-.feature-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 2rem;
-  min-height: 140px;
-
-  /* normal shadow (very light) */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-
-  /* smooth transition */
-  transition: all 0.25s ease;
-}
-
-
-
-.feature-card:hover {
-  /* halka lift */
-  transform: translateY(-3px);
-
-  /* stronger but soft shadow */
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-}
-
-@media (max-width: 640px) {
-  .feature-card {
-    margin-bottom: 12px;
-  }
-}
 
   .feature-card:hover {
     transform: translateY(-8px);
@@ -317,7 +167,7 @@
   .footer {
     text-align: center;
     padding: 3rem 0 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--border);
     color: var(--text-muted);
   }
 
@@ -356,7 +206,7 @@
     .footer {
       padding: 2rem 0 1.25rem;
     }
-    
+
     .bg-glow {
       opacity: 0.6;
     }
