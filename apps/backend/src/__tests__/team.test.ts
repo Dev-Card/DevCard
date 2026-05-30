@@ -510,8 +510,15 @@ describe('Teams API', () => {
       expect(res.statusCode).toBe(200);
     });
 
-    it('403 — owner cannot leave their own team', async () => {
+    it('200 — owner can leave team and auto-promotes oldest member', async () => {
+      mockJwtVerify.mockResolvedValue({ id: MOCK_OWNER_ID });
       prismaMock.team.findUnique.mockResolvedValue(teamWithBothMembers);
+      prismaMock.$transaction.mockImplementation(async (cb: any) => {
+        return cb({
+          team: { update: vi.fn().mockResolvedValue({}) },
+          teamMember: { update: vi.fn().mockResolvedValue({}), delete: vi.fn().mockResolvedValue({}) },
+        });
+      });
 
       const res = await app.inject({
         method: 'DELETE',
@@ -519,8 +526,26 @@ describe('Teams API', () => {
         headers: authHeader(),
       });
 
-      expect(res.statusCode).toBe(403);
-      expect(prismaMock.teamMember.delete).not.toHaveBeenCalled();
+      expect(res.statusCode).toBe(200);
+      expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+    });
+
+    it('400 — owner cannot leave team if they are the only member', async () => {
+      mockJwtVerify.mockResolvedValue({ id: MOCK_OWNER_ID });
+      const teamWithOwnerOnly = {
+        ...MOCK_TEAM,
+        members: [ teamWithBothMembers.members[0] ]
+      };
+      prismaMock.team.findUnique.mockResolvedValue(teamWithOwnerOnly);
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/devcard-core/members/${MOCK_OWNER_ID}`,
+        headers: authHeader(),
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toMatchObject({ error: 'Cannot leave as the only member. Please delete the team instead.' });
     });
 
     it('403 — outsider cannot remove another member', async () => {
