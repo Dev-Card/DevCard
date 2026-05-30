@@ -1,5 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { get } from '../services/api';
+
+// ── Storage Keys ──────────────────────────────────────────────────────────────
+
+const TOKEN_KEY = 'devcard.auth.token';
+const FIRST_LAUNCH_KEY = 'devcard.firstLaunch';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface User {
   id: string;
@@ -20,10 +28,13 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isFirstLaunch: boolean;
   login: (token: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
+
+// ── Context ───────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -31,38 +42,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFirstLaunch, setIsFirstLaunch] = useState(false);
+
+  // ── Hydrate token from AsyncStorage on mount ──
 
   useEffect(() => {
-    // TODO: Load token from secure storage on app start
-    setIsLoading(false);
+    const hydrate = async () => {
+      try {
+        const [storedToken, launchFlag] = await Promise.all([
+          AsyncStorage.getItem(TOKEN_KEY),
+          AsyncStorage.getItem(FIRST_LAUNCH_KEY),
+        ]);
+
+        if (launchFlag === null) {
+          setIsFirstLaunch(true);
+          await AsyncStorage.setItem(FIRST_LAUNCH_KEY, 'false');
+        }
+
+        if (storedToken) {
+          setToken(storedToken);
+          // Validate token by fetching profile
+          const userData = await get<User>('/api/profiles/me', storedToken).catch(() => null);
+          if (userData) {
+            setUser(userData);
+          } else {
+            // Token expired or invalid — clear it
+            await AsyncStorage.removeItem(TOKEN_KEY);
+            setToken(null);
+          }
+        }
+      } catch (error) {
+        console.error('Auth hydration failed:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    hydrate();
   }, []);
 
-  const login = async (newToken: string) => {
-    setToken(newToken);
-    // TODO: Save token to secure storage
-    try {
-      const userData = await get<any>('/api/profiles/me', newToken).catch(() => null);
-      if (userData) setUser(userData);
-    } catch (error) {
-      console.error('Failed to fetch user:', error);
-    }
-  };
+  // ── Login ──
 
-  const logout = () => {
+  const login = useCallback(async (newToken: string) => {
+    setToken(newToken);
+    try {
+      await AsyncStorage.setItem(TOKEN_KEY, newToken);
+      const userData = await get<User>('/api/profiles/me', newToken).catch(() => null);
+      if (userData) {
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error('Failed to persist token or fetch user:', error);
+    }
+  }, []);
+
+  // ── Logout ──
+
+  const logout = useCallback(async () => {
     setToken(null);
     setUser(null);
-    // TODO: Clear token from secure storage
-  };
+    try {
+      await AsyncStorage.removeItem(TOKEN_KEY);
+    } catch (error) {
+      console.error('Failed to clear stored token:', error);
+    }
+  }, []);
 
-  const refreshUser = async () => {
+  // ── Refresh User ──
+
+  const refreshUser = useCallback(async () => {
     if (!token) return;
     try {
-      const userData = await get<any>('/api/profiles/me', token).catch(() => null);
-      if (userData) setUser(userData);
+      const userData = await get<User>('/api/profiles/me', token).catch(() => null);
+      if (userData) {
+        setUser(userData);
+      }
     } catch (error) {
       console.error('Failed to refresh user:', error);
     }
-  };
+  }, [token]);
 
   return (
     <AuthContext.Provider
@@ -71,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isAuthenticated: !!token && !!user,
         isLoading,
+        isFirstLaunch,
         login,
         logout,
         refreshUser,
@@ -80,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');

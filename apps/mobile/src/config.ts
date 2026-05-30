@@ -1,20 +1,22 @@
-import Constants from 'expo-constants';
-import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
-// DevCard API Configuration
+// ── DevCard API Configuration ─────────────────────────────────────────────────
+// Environment-aware URLs with no Expo dependency. On Android emulators the
+// loopback address is 10.0.2.2; on iOS simulators localhost works directly.
 
-// Prefer explicit configuration via Expo/EAS extras. Fallback to sensible defaults
-const extras = (Constants as any).manifest?.extra || (Constants as any).expoConfig?.extra;
+const ANDROID_LOCALHOST = '10.0.2.2';
+const IOS_LOCALHOST = 'localhost';
+const DEV_HOST = Platform.OS === 'android' ? ANDROID_LOCALHOST : IOS_LOCALHOST;
 
-const DEV_API = extras?.API_BASE_URL || extras?.DEV_API_BASE_URL;
-const DEV_APP = extras?.APP_URL;
+export const API_BASE_URL: string = __DEV__
+  ? `http://${DEV_HOST}:3000`
+  : 'https://api.devcard.dev';
 
-export const API_BASE_URL = __DEV__
-  ? DEV_API ?? `http://10.0.2.2:3000` // 10.0.2.2 is a common emulator host for Android
-  : extras?.API_BASE_URL ?? 'https://api.devcard.dev';
+export const APP_URL: string = __DEV__
+  ? 'http://localhost:5173'
+  : 'https://devcard.dev';
 
-export const APP_URL = __DEV__
-  ? DEV_APP ?? `http://localhost:5173`
-  : extras?.APP_URL ?? 'https://devcard.dev';
+// Deep link scheme — must match android/app/build.gradle and ios/Info.plist
+export const DEEP_LINK_SCHEME = 'devcard';
 
-export const OAUTH_REDIRECT_URI = Linking.createURL('oauth/callback');
+export const OAUTH_REDIRECT_URI = `${DEEP_LINK_SCHEME}://oauth/callback`;
