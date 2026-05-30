@@ -7,17 +7,18 @@ import {
   TouchableOpacity,
   Share,
   StatusBar,
-  Image,
   RefreshControl,
   TextInput,
 } from 'react-native';
 import { Skeleton } from '../components/Skeleton';
+import Avatar from '../components/Avatar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORMS } from '@devcard/shared';
-import { APP_URL, API_BASE_URL } from '../config';
+import { APP_URL } from '../config';
+import { get } from '../services/api';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
 
@@ -49,21 +50,16 @@ export default function HomeScreen({ navigation }: Props) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [profileRes, analyticsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/profiles/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE_URL}/api/analytics/overview`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+      const [profileData, analyticsData] = await Promise.all([
+        get<any>('/api/profiles/me', token).catch(() => null),
+        get<any>('/api/analytics/overview', token).catch(() => null),
       ]);
 
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        setLinks(data.platformLinks || []);
+      if (profileData) {
+        setLinks(profileData.platformLinks || []);
       }
-      if (analyticsRes.ok) {
-        setAnalytics(await analyticsRes.json());
+      if (analyticsData) {
+        setAnalytics(analyticsData);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -130,15 +126,7 @@ export default function HomeScreen({ navigation }: Props) {
         {/* Profile Card Preview */}
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
-            {user?.avatarUrl ? (
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarText}>
-                  {(user?.displayName || 'D').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
+            <Avatar uri={user?.avatarUrl} name={user?.displayName} size={56} style={styles.avatar} />
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{user?.displayName}</Text>
               {user?.pronouns && (

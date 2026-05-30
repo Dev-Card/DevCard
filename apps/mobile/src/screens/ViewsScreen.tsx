@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
-import { API_BASE_URL } from '../config';
+import { get } from '../services/api';
 import { EmptyState } from '../components/EmptyState';
+import Avatar from '../components/Avatar';
 import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
@@ -23,13 +24,8 @@ export const ViewsScreen: React.FC<Props> = () => {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/views`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setViews(data.data || []);
-      }
+      const data = await get<any>('/api/analytics/views', token).catch(() => null);
+      setViews(data?.data || []);
     } catch (error) {
       console.error('Failed to fetch views analytics', error);
     } finally {
@@ -66,11 +62,9 @@ export const ViewsScreen: React.FC<Props> = () => {
               <Icon name="incognito" size={24} color={COLORS.textSecondary} />
             </View>
           ) : item.viewer.avatarUrl ? (
-            <Image source={{ uri: item.viewer.avatarUrl }} style={styles.avatar} />
+            <Avatar uri={item.viewer.avatarUrl} name={item.viewer.displayName} size={48} style={styles.avatar} />
           ) : (
-             <View style={[styles.avatar, styles.placeholderAvatar]}>
-              <Text style={styles.placeholderText}>{item.viewer.displayName.charAt(0)}</Text>
-            </View>
+            <Avatar name={item.viewer.displayName} size={48} style={styles.avatar} />
           )}
         </View>
 

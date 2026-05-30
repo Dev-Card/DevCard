@@ -16,7 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORMS } from '@devcard/shared';
-import { API_BASE_URL } from '../config';
+import { get, post, del, put } from '../services/api';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 
@@ -46,19 +46,12 @@ export default function CardsScreen() {
   const fetchData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const [cardsRes, profileRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/cards`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE_URL}/api/profiles/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+      const [cardsData, profileData] = await Promise.all([
+        get<Card[]>('/api/cards', token).catch(() => []),
+        get<any>('/api/profiles/me', token).catch(() => null),
       ]);
-      if (cardsRes.ok) setCards(await cardsRes.json());
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        setAllLinks(data.platformLinks || []);
-      }
+      setCards(cardsData || []);
+      setAllLinks(profileData?.platformLinks || []);
     } catch (error) {
       console.error('Failed to fetch:', error);
     } finally {
@@ -84,20 +77,11 @@ export default function CardsScreen() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/api/cards`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title: newTitle.trim(), linkIds: selectedLinkIds }),
-      });
-      if (res.ok) {
-        setShowCreate(false);
-        setNewTitle('');
-        setSelectedLinkIds([]);
-        fetchData();
-      }
+      await post('/api/cards', { title: newTitle.trim(), linkIds: selectedLinkIds }, token);
+      setShowCreate(false);
+      setNewTitle('');
+      setSelectedLinkIds([]);
+      fetchData();
     } catch {
       Alert.alert('Error', 'Failed to create card');
     }
@@ -110,10 +94,11 @@ export default function CardsScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await fetch(`${API_BASE_URL}/api/cards/${id}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          try {
+            await del(`/api/cards/${id}`, undefined, token);
+          } catch {
+            // ignore
+          }
           fetchData();
         },
       },
@@ -121,10 +106,11 @@ export default function CardsScreen() {
   };
 
   const setDefault = async (id: string) => {
-    await fetch(`${API_BASE_URL}/api/cards/${id}/default`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      await put(`/api/cards/${id}/default`, undefined, token);
+    } catch {
+      // ignore
+    }
     fetchData();
   };
 

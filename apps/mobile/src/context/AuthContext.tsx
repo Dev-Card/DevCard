@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { API_BASE_URL } from '../config';
+import { get } from '../services/api';
 
 interface User {
   id: string;
@@ -41,13 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(newToken);
     // TODO: Save token to secure storage
     try {
-      const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
-        headers: { Authorization: `Bearer ${newToken}` },
-      });
-      if (res.ok) {
-        const userData = await res.json();
-        setUser(userData);
-      }
+      const userData = await get<any>('/api/profiles/me', newToken).catch(() => null);
+      if (userData) setUser(userData);
     } catch (error) {
       console.error('Failed to fetch user:', error);
     }
@@ -62,13 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const userData = await res.json();
-        setUser(userData);
-      }
+      const userData = await get<any>('/api/profiles/me', token).catch(() => null);
+      if (userData) setUser(userData);
     } catch (error) {
       console.error('Failed to refresh user:', error);
     }

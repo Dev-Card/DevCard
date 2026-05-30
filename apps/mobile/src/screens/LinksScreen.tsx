@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORMS, getAllPlatforms } from '@devcard/shared';
-import { API_BASE_URL } from '../config';
+import { get, post, del } from '../services/api';
 import { EmptyState } from '../components/EmptyState';
 import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
 import type { PlatformDef } from '@devcard/shared';
@@ -38,13 +38,8 @@ export default function LinksScreen() {
   const fetchLinks = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLinks(data.platformLinks || []);
-      }
+      const data = await get<any>('/api/profiles/me', token).catch(() => null);
+      setLinks(data?.platformLinks || []);
     } catch (error) {
       console.error('Failed to fetch links:', error);
     } finally {
@@ -59,23 +54,11 @@ export default function LinksScreen() {
   const addLink = async () => {
     if (!selectedPlatform || !usernameInput.trim()) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/profiles/me/links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          platform: selectedPlatform.id,
-          username: usernameInput.trim(),
-        }),
-      });
-      if (res.ok) {
-        setShowAddModal(false);
-        setSelectedPlatform(null);
-        setUsernameInput('');
-        fetchLinks();
-      }
+      await post('/api/profiles/me/links', { platform: selectedPlatform.id, username: usernameInput.trim() }, token);
+      setShowAddModal(false);
+      setSelectedPlatform(null);
+      setUsernameInput('');
+      fetchLinks();
     } catch {
       Alert.alert('Error', 'Failed to add link');
     }
@@ -88,15 +71,12 @@ export default function LinksScreen() {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-          try {
-            await fetch(`${API_BASE_URL}/api/profiles/me/links/${id}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            fetchLinks();
-          } catch {
-            Alert.alert('Error', 'Failed to remove link');
-          }
+            try {
+              await del(`/api/profiles/me/links/${id}`, undefined, token);
+              fetchLinks();
+            } catch {
+              Alert.alert('Error', 'Failed to remove link');
+            }
         },
       },
     ]);
