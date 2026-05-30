@@ -1,20 +1,25 @@
-import Constants from 'expo-constants';
-import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
 // DevCard API Configuration
 
-// Prefer explicit configuration via Expo/EAS extras. Fallback to sensible defaults
-const extras = (Constants as any).manifest?.extra || (Constants as any).expoConfig?.extra;
-
-const DEV_API = extras?.API_BASE_URL || extras?.DEV_API_BASE_URL;
-const DEV_APP = extras?.APP_URL;
+const getDevServerHost = () => {
+  // Standard React Native localhost aliases:
+  // - Android Emulator: 10.0.2.2 (maps to host localhost)
+  // - iOS Simulator: localhost
+  // - Physical device / Fallback: '10.155.14.65' (your development machine IP)
+  return Platform.select({
+    android: '10.0.2.2',
+    ios: 'localhost',
+    default: '10.155.14.65',
+  });
+};
 
 export const API_BASE_URL = __DEV__
-  ? DEV_API ?? `http://10.0.2.2:3000` // 10.0.2.2 is a common emulator host for Android
-  : extras?.API_BASE_URL ?? 'https://api.devcard.dev';
+  ? `http://${getDevServerHost()}:3000`
+  : 'https://api.devcard.dev';
 
 export const APP_URL = __DEV__
-  ? DEV_APP ?? `http://localhost:5173`
-  : extras?.APP_URL ?? 'https://devcard.dev';
+  ? `http://${getDevServerHost()}:5173`
+  : 'https://devcard.dev';
 
-export const OAUTH_REDIRECT_URI = Linking.createURL('oauth/callback');
+export const OAUTH_REDIRECT_URI = 'devcard://oauth/callback';
