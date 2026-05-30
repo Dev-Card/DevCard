@@ -63,6 +63,14 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   );
 }
 
+function ScanButton() {
+  return (
+    <View style={styles.scanButton}>
+      <Text style={styles.scanEmoji}>📷</Text>
+    </View>
+  );
+}
+
 // ─── Tab Navigator ───
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
@@ -87,11 +95,7 @@ function TabNavigator() {
         component={ScanScreen}
         options={{
           tabBarLabel: '',
-          tabBarIcon: () => (
-            <View style={styles.scanButton}>
-              <Text style={styles.scanEmoji}>📷</Text>
-            </View>
-          ),
+          tabBarIcon: () => <ScanButton />,
         }}
       />
       <Tab.Screen name="Cards" component={CardsScreen} />

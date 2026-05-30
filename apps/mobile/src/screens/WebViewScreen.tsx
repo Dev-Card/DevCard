@@ -12,7 +12,7 @@ import { WebView } from 'react-native-webview';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
 import { Skeleton } from '../components/Skeleton';
 import { getDeepLinkUrl } from '@devcard/shared';
-import { API_BASE_URL } from '../config';
+import { post } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -121,14 +121,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
     // Asynchronously log follow to the backend
     if (token && username) {
       try {
-        await fetch(`${API_BASE_URL}/api/follow/${platform}/${username}/log`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status: 'success', layer: 'webview' }),
-        });
+        await post(`/api/follow/${platform}/${username}/log`, { status: 'success', layer: 'webview' }, token);
       } catch (error) {
         console.warn('Failed to log WebView follow success:', error);
       }
@@ -312,7 +305,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
         var allEls = document.querySelectorAll('button, a, span, [role="button"], li');
         for (var i = 0; i < allEls.length; i++) {
           var el = allEls[i];
-          var text = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+          var text = (el.textContent || '').replace(new RegExp('\\s+', 'g'), ' ').trim().toLowerCase();
           var aria = (el.getAttribute('aria-label') || '').toLowerCase();
           var combined = text + ' ' + aria;
           for (var j = 0; j < SUCCESS_KEYWORDS.length; j++) {
