@@ -20,7 +20,8 @@ import type { RootStackParamList } from '../navigation/MainTabs';
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import type { Card } from '@devcard/shared';
 import { useAuth } from '../context/AuthContext';
-import { API_BASE_URL, APP_URL } from '../config';
+import { APP_URL } from '../config';
+import { get } from '../services/api';
 import CardPickerSheet from '../components/CardPickerSheet';
 
 type Props = {
@@ -64,12 +65,8 @@ export default function ScanScreen({ navigation }: Props) {
     if (!token) return;
     setLoadingCards(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/cards`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        setCards(await res.json());
-      }
+      const data = await get<Card[]>('/api/cards', token).catch(() => []);
+      setCards(data || []);
     } catch (error) {
       console.error('Failed to fetch cards:', error);
     } finally {

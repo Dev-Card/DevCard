@@ -8,15 +8,13 @@ import {
   TextInput,
   Alert,
   StatusBar,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
+import Avatar from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
-import { API_BASE_URL } from '../config';
-
-import { useNavigation } from '@react-navigation/native';
+import { put } from '../services/api';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
@@ -31,26 +29,17 @@ export default function SettingsScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          displayName: displayName.trim(),
-          bio: bio.trim() || null,
-          pronouns: pronouns.trim() || null,
-          role: role.trim() || null,
-          company: company.trim() || null,
-        }),
-      });
-      if (res.ok) {
-        await refreshUser();
-        Alert.alert('Success', 'Profile updated!');
-      } else {
-        Alert.alert('Error', 'Failed to update profile');
-      }
+      const payload = {
+        displayName: displayName.trim() || undefined,
+        bio: bio.trim() || null,
+        pronouns: pronouns.trim() || null,
+        role: role.trim() || null,
+        company: company.trim() || null,
+      };
+
+      await put('/api/profiles/me', payload, token);
+      await refreshUser();
+      Alert.alert('Success', 'Profile updated!');
     } catch {
       Alert.alert('Error', 'Something went wrong');
     } finally {
@@ -74,15 +63,7 @@ export default function SettingsScreen() {
 
         {/* Avatar */}
         <View style={styles.avatarSection}>
-          {user?.avatarUrl ? (
-            <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={styles.avatarText}>
-                {(user?.displayName || 'D').charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <Avatar uri={user?.avatarUrl} name={user?.displayName} size={80} style={styles.avatar} />
           <Text style={styles.usernameDisplay}>@{user?.username}</Text>
         </View>
 
