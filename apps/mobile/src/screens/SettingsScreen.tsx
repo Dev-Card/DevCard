@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import Avatar from '../components/Avatar';
+import ColorPicker from '../components/ColorPicker';
 import { useAuth } from '../context/AuthContext';
 import { put } from '../services/api';
 
@@ -24,7 +25,19 @@ export default function SettingsScreen() {
   const [pronouns, setPronouns] = useState(user?.pronouns || '');
   const [role, setRole] = useState(user?.role || '');
   const [company, setCompany] = useState(user?.company || '');
+  const [accentColor, setAccentColor] = useState(user?.accentColor || '#6366F1');
   const [saving, setSaving] = useState(false);
+
+  const handleAvatarTap = () => {
+    // TODO: Integrate react-native-image-picker when building on device
+    // import { launchImageLibrary } from 'react-native-image-picker';
+    // const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
+    // Upload via multipart/form-data to PUT /api/profiles/me/avatar
+    Alert.alert(
+      'Change Avatar',
+      'Avatar upload requires react-native-image-picker in a dev build. Coming soon!',
+    );
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -35,6 +48,7 @@ export default function SettingsScreen() {
         pronouns: pronouns.trim() || null,
         role: role.trim() || null,
         company: company.trim() || null,
+        accentColor,
       };
 
       await put('/api/profiles/me', payload, token);
@@ -62,9 +76,16 @@ export default function SettingsScreen() {
         <Text style={styles.title}>Profile Settings</Text>
 
         {/* Avatar */}
-        <View style={styles.avatarSection}>
+        <TouchableOpacity style={styles.avatarSection} onPress={handleAvatarTap} activeOpacity={0.7}>
           <Avatar uri={user?.avatarUrl} name={user?.displayName} size={80} style={styles.avatar} />
+          <Text style={styles.avatarHint}>Tap to change</Text>
           <Text style={styles.usernameDisplay}>@{user?.username}</Text>
+        </TouchableOpacity>
+
+        {/* Accent Color */}
+        <View style={styles.colorSection}>
+          <Text style={styles.sectionSubtitle}>Card Accent Color</Text>
+          <ColorPicker selected={accentColor} onSelect={setAccentColor} />
         </View>
 
         {/* Form */}
@@ -148,11 +169,13 @@ const styles = StyleSheet.create({
   title: { fontSize: FONT_SIZE.xl, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.lg },
   avatarSection: { alignItems: 'center', marginBottom: SPACING.xl },
   avatar: { width: 80, height: 80, borderRadius: 40 },
+  avatarHint: { fontSize: FONT_SIZE.xs, color: COLORS.primary, marginTop: SPACING.xs, fontWeight: '500' },
   avatarPlaceholder: {
     backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center',
   },
   avatarText: { fontSize: FONT_SIZE.xxl, fontWeight: '700', color: COLORS.white },
   usernameDisplay: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary, marginTop: SPACING.sm },
+  colorSection: { marginBottom: SPACING.lg },
   form: { gap: SPACING.md, marginBottom: SPACING.lg },
   field: {},
   fieldLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginBottom: SPACING.xs, fontWeight: '500' },
