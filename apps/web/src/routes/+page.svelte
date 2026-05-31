@@ -1,3 +1,83 @@
+<script>
+  let isDark = true;
+
+  function toggleTheme() {
+    isDark = !isDark;
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('dark', isDark);
+    }
+  }
+</script>
+
+<div class="bg-glow"></div>
+
+<nav>
+  <div class="nav-content">
+    <div class="logo">⚡ DevCard</div>
+    <button class="theme-toggle" onclick={toggleTheme}>
+      {isDark ? '☀️' : '🌙'}
+    </button>
+  </div>
+</nav>
+
+<section class="landing">
+  <div class="hero">
+    <div class="hero-badge">🚀 Open Source</div>
+    <h1>One Tap. Every Profile. Every Platform.</h1>
+    <p class="description">
+      Share all your developer profiles instantly with a single QR code. Connect across GitHub, LinkedIn, Twitter, and 10+ platforms without switching apps.
+    </p>
+    
+    <div class="cta-group">
+      <button class="btn-secondary">Get Started</button>
+      <button class="btn-secondary">View on GitHub</button>
+    </div>
+  </div>
+
+  <div class="features">
+    <div class="feature-card">
+      <div class="feature-icon">🔗</div>
+      <h3>Universal Profile</h3>
+      <p>Aggregate all your developer profiles in one place</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <h3>QR Code Sharing</h3>
+      <p>Share your profile with a single scannable code</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>One-Screen Connect</h3>
+      <p>Follow on all platforms from a single card</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Advanced Analytics</h3>
+      <p>Track who viewed your card and when</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <h3>Privacy First</h3>
+      <p>Your data stays yours, no tracking or selling</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">🛠️</div>
+      <h3>Open Source</h3>
+      <p>Apache 2.0 licensed, community-governed</p>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>&copy; 2024 DevCard. Built with ❤️ by the developer community.</p>
+    <p><a href="https://github.com/Dev-Card/DevCard" style="color: var(--primary);">GitHub</a> • <a href="https://discord.gg/QueQN83wn" style="color: var(--primary);">Discord</a></p>
+  </footer>
+</section>
+
 <style>
   .bg-glow {
     position: fixed;

@@ -11,7 +11,8 @@ const config = {
 			mode: 'auto',
 			directives: {
 				'default-src': ['self'],
-				'script-src': ['self', 'unsafe-inline'],
+				'script-src': ['self'],
+				'worker-src': ['blob:', 'self'],
 				'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
 				'img-src': ['self', 'data:', 'https:'],
 				'connect-src': ['self'],
