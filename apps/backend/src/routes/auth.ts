@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { randomBytes } from 'crypto';
 import { encrypt } from '../utils/encryption.js';
-import { buildOAuthState, getMobileRedirectUri } from '../services/authService.js';
+import { extractRawJwt, blocklistKey } from '../utils/jwt.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -290,4 +291,71 @@ export async function authRoutes(app: FastifyInstance) {
     reply.clearCookie('token', { path: '/' });
     return { message: 'Logged out' };
   });
+
+  // ─── Secure Logout — blocklists the token in Redis ───
+  //
+  // Requires a valid JWT so that only the token's owner can revoke it.
+  // The token signature is hashed and stored in Redis with a TTL equal to the
+  // token's remaining lifetime, so the entry self-cleans when the JWT expires.
+  //
+  // Tradeoff: if Redis is down the block write is skipped (non-fatal), but the
+  // token will still expire naturally based on its exp claim.
+
+  app.delete('/logout', {
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const raw = extractRawJwt(request);
+
+    if (raw && app.hasDecorator('redis')) {
+      // jwt.decode() skips signature verification — safe here because the
+      // authenticate preHandler above already called jwtVerify() successfully.
+      const payload = app.jwt.decode<{ exp?: number }>(raw);
+      const exp = payload?.exp;
+
+      if (exp) {
+        const ttl = exp - Math.floor(Date.now() / 1000);
+        if (ttl > 0) {
+          try {
+            await app.redis.set(blocklistKey(raw), '1', 'EX', ttl);
+          } catch (err) {
+            // Non-fatal: log and continue. The token will expire on its own.
+            app.log.warn({ err }, 'Redis blocklist write failed during logout — token will expire naturally');
+          }
+        }
+      }
+    }
+
+    reply.clearCookie('token', { path: '/' });
+    return { message: 'Logged out' };
+  });
+}
+
+function generateState(): string {
+  return randomBytes(32).toString('hex');
+}
+
+function buildOAuthState(clientState: string, mobileRedirectUri: string): string {
+  if (!clientState) {
+    return generateState();
+  }
+  if (clientState.startsWith('mobile_') && mobileRedirectUri) {
+    const encodedRedirect = Buffer.from(mobileRedirectUri, 'utf8').toString('base64url');
+    return `${clientState}.${encodedRedirect}.${generateState()}`;
+  }
+  return `${clientState}.${generateState()}`;
+}
+
+function getMobileRedirectUri(state?: string): string | null {
+  if (!state?.startsWith('mobile_')) {
+    return null;
+  }
+  const encodedRedirect = state.split('.')[1];
+  if (!encodedRedirect) {
+    return null;
+  }
+  try {
+    return Buffer.from(encodedRedirect, 'base64url').toString('utf8');
+  } catch {
+    return null;
+  }
 }

@@ -23,6 +23,7 @@ import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
 import { validateEnv } from './utils/validateEnv.js';
 import { teamRoutes } from './routes/team.js';
+import { extractRawJwt, blocklistKey } from './utils/jwt.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -88,9 +89,27 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(redisPlugin);
 }
   // ─── Auth Decorator ───
+  // Checks the Redis blocklist before calling jwtVerify so that a logged-out
+  // token is rejected immediately even if it has not yet expired.
+  // The blocklist check is skipped when Redis is not registered (test env).
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
-      // Ensure the verified payload is assigned to `request.user` like the original plugin.
+      if (app.hasDecorator('redis')) {
+        const raw = extractRawJwt(request);
+        if (raw) {
+          try {
+            const revoked = await app.redis.exists(blocklistKey(raw));
+            if (revoked) {
+              return reply.status(401).send({ error: 'Token has been revoked' });
+            }
+          } catch (redisErr) {
+            // Redis is unavailable — fail open to avoid an outage on every
+            // authenticated request. The JWT expiry is still the safety net.
+            app.log.warn({ err: redisErr }, 'Redis blocklist check failed — proceeding with JWT verification');
+          }
+        }
+      }
+      // Assign verified payload to request.user (upstream addition).
       const payload = await request.jwtVerify();
       if (payload) request.user = payload;
     } catch (error) {
