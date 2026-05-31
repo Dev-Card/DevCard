@@ -11,13 +11,25 @@ module.exports = async ({ github, context }) => {
 
         if (
             eventName === 'issues' &&
-            issueAssociation === 'FIRST_TIMER'
+            issueAssociation === 'NONE'
         ) {
-            return await github.rest.issues.createComment({
+            // Verify this is truly their first issue (listForRepo returns PRs too)
+            const userIssues = await github.rest.issues.listForRepo({
                 owner,
                 repo,
-                issue_number: issueNumber,
-                body: `👋 Thanks for opening your first issue, @${ghUsername}!
+                state: 'all',
+                creator: ghUsername,
+                per_page: 10
+            });
+
+            const actualIssues = userIssues.data.filter(issue => !issue.pull_request);
+
+            if (actualIssues.length === 1) {
+                return await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    body: `👋 Thanks for opening your first issue, @${ghUsername}!
 
 We appreciate your contribution and are excited to have you here. Please make sure to follow the contribution guidelines and provide as much detail as possible.
 
@@ -25,7 +37,8 @@ To stay updated, ask questions, and connect with maintainers and contributors, p
 https://discord.gg/QueQN83wn
 
 Looking forward to collaborating with you!`
-            });
+                });
+            }
         }
 
         const prAssociation =
