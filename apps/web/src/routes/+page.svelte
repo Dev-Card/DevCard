@@ -1,5 +1,8 @@
 <script>
-  let isDark = true;
+  import { onMount } from 'svelte';
+
+  let isDark = $state(true);
+  let mounted = $state(false);
 
   function toggleTheme() {
     isDark = !isDark;
@@ -7,6 +10,40 @@
       document.documentElement.classList.toggle('dark', isDark);
     }
   }
+
+  function handleGetStarted() {
+    window.location.href = '/app';
+  }
+
+  function handleGitHub() {
+    window.open('https://github.com/Dev-Card/DevCard', '_blank');
+  }
+
+  onMount(() => {
+    mounted = true;
+
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    const getStartedBtn = document.getElementById('get-started-btn');
+    const githubBtn = document.getElementById('github-btn');
+
+    if (themeBtn) {
+      themeBtn.addEventListener('click', toggleTheme);
+    }
+
+    if (getStartedBtn) {
+      getStartedBtn.addEventListener('click', handleGetStarted);
+    }
+
+    if (githubBtn) {
+      githubBtn.addEventListener('click', handleGitHub);
+    }
+
+    return () => {
+      themeBtn?.removeEventListener('click', toggleTheme);
+      getStartedBtn?.removeEventListener('click', handleGetStarted);
+      githubBtn?.removeEventListener('click', handleGitHub);
+    };
+  });
 </script>
 
 <div class="bg-glow"></div>
@@ -14,7 +51,7 @@
 <nav>
   <div class="nav-content">
     <div class="logo">⚡ DevCard</div>
-    <button class="theme-toggle" onclick={toggleTheme}>
+    <button class="theme-toggle" id="theme-toggle-btn" type="button">
       {isDark ? '☀️' : '🌙'}
     </button>
   </div>
@@ -29,8 +66,8 @@
     </p>
     
     <div class="cta-group">
-      <button class="btn-secondary">Get Started</button>
-      <button class="btn-secondary">View on GitHub</button>
+      <button class="btn-secondary" id="get-started-btn" type="button">Get Started</button>
+      <button class="btn-secondary" id="github-btn" type="button">View on GitHub</button>
     </div>
   </div>
 
@@ -199,11 +236,19 @@
     border: 1px solid rgba(255, 255, 255, 0.18);
     background: rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
+    cursor: pointer;
+    transition: background-color 0.24s ease, border-color 0.24s ease, transform 0.24s ease;
   }
 
   .btn-secondary:hover {
     background: rgba(255, 255, 255, 0.14);
     border-color: rgba(99, 102, 241, 0.45);
+    transform: translateY(-2px);
+  }
+
+  .btn-secondary:focus-visible {
+    outline: 2px solid rgba(99, 102, 241, 0.5);
+    outline-offset: 2px;
   }
 
   .features {
