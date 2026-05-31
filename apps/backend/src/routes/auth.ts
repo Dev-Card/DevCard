@@ -57,8 +57,7 @@ export async function authRoutes(app: FastifyInstance) {
   // GitHub OAuth callback
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
-    const storedState = (request.cookies as any)?.oauth_state;
-
+    const storedState = request.cookies?.oauth_state;
     if (!state || !storedState || state !== storedState) {
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
@@ -183,7 +182,8 @@ export async function authRoutes(app: FastifyInstance) {
   // Google callback
   app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
-    const storedState = (request.cookies as any)?.oauth_state;
+
+    const storedState = request.cookies?.oauth_state;
     if (!state || !storedState || state !== storedState) {
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
