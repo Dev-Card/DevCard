@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, isHttpError } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 const API_BASE = process.env.BACKEND_URL || 'http://localhost:3000';
@@ -19,9 +19,9 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 
 		const card = await res.json();
 		return { card };
-	} catch (err) {
+	} catch (err: unknown) {
 		// Type guard for SvelteKit error objects
-		if (err instanceof Error && 'status' in err) {
+		if (isHttpError(err)) {
 			throw err;
 		}
 		throw error(500, 'Failed to connect to backend');
