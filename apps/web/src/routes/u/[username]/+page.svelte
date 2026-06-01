@@ -17,8 +17,8 @@
   let mounted = $state(false);
   let copyMessage = $state('');
   let copyStatus = $state<'success' | 'error'>('success');
-  let copyMessageTimeout: ReturnType<typeof setTimeout>;
-  let copyTimeout: ReturnType<typeof setTimeout>;
+  let copyMessageTimeout: ReturnType<typeof setTimeout> | undefined = undefined;
+  let copyTimeout: ReturnType<typeof setTimeout> | undefined = undefined;
 
   onMount(() => {
     mounted = true;

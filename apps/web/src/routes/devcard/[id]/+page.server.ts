@@ -24,6 +24,8 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		if (isHttpError(err)) {
 			throw err;
 		}
-		throw error(500, 'Failed to connect to backend');
+		// Use a different variable name to avoid collision with imported 'error' function
+		const httpError = error(500, 'Failed to connect to backend');
+		throw httpError;
 	}
 };
