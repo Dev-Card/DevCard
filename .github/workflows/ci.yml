@@ -36,6 +36,11 @@ jobs:
     if: needs.detect-changes.outputs.backendChanged == 'true'
     runs-on: ubuntu-latest
 
+    outputs:
+      backend_lint: ${{ steps.backend_lint.outcome }}
+      backend_test: ${{ steps.backend_test.outcome }}
+      backend_typecheck: ${{ steps.backend_typecheck.outcome }}
+
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
@@ -49,20 +54,31 @@ jobs:
 
       - name: Backend lint
         id: backend_lint
+        continue-on-error: true
         run: cd apps/backend && pnpm eslint ${{ needs.detect-changes.outputs.backendFiles }}
 
       - name: Backend test
         id: backend_test
+        continue-on-error: true
         run: cd apps/backend && pnpm test ${{ needs.detect-changes.outputs.backendFiles }}
 
       - name: Backend typecheck
         id: backend_typecheck
+        continue-on-error: true
         run: cd apps/backend && pnpm typecheck ${{ needs.detect-changes.outputs.backendFiles }}
+
+      - name: Fail backend if checks failed
+        if: steps.backend_lint.outcome == 'failure' || steps.backend_test.outcome == 'failure' || steps.backend_typecheck.outcome == 'failure'
+        run: exit 1
 
   web-ci:
     needs: detect-changes
     if: needs.detect-changes.outputs.webChanged == 'true'
     runs-on: ubuntu-latest
+
+    outputs:
+      web_check: ${{ steps.web_check.outcome }}
+      web_build: ${{ steps.web_build.outcome }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -77,16 +93,26 @@ jobs:
 
       - name: Web check
         id: web_check
+        continue-on-error: true
         run: cd apps/web && pnpm check
 
       - name: Web build
         id: web_build
+        continue-on-error: true
         run: cd apps/web && pnpm build
+
+      - name: Fail web if checks failed
+        if: steps.web_check.outcome == 'failure' || steps.web_build.outcome == 'failure'
+        run: exit 1
 
   mobile-ci:
     needs: detect-changes
     if: needs.detect-changes.outputs.mobileChanged == 'true'
     runs-on: ubuntu-latest
+
+    outputs:
+      mobile_lint: ${{ steps.mobile_lint.outcome }}
+      mobile_test: ${{ steps.mobile_test.outcome }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -101,11 +127,17 @@ jobs:
 
       - name: Mobile lint
         id: mobile_lint
+        continue-on-error: true
         run: cd apps/mobile && pnpm eslint ${{ needs.detect-changes.outputs.mobileFiles }}
 
       - name: Mobile test
         id: mobile_test
+        continue-on-error: true
         run: cd apps/mobile && pnpm test
+
+      - name: Fail mobile if checks failed
+        if: steps.mobile_lint.outcome == 'failure' || steps.mobile_test.outcome == 'failure'
+        run: exit 1
 
   comment-results:
     needs:
@@ -128,7 +160,18 @@ jobs:
             await script({
               github,
               context,
+
               backend: '${{ needs.backend-ci.result }}',
               web: '${{ needs.web-ci.result }}',
-              mobile: '${{ needs.mobile-ci.result }}'
-            });
+              mobile: '${{ needs.mobile-ci.result }}',
+
+              backendLint: '${{ needs.backend-ci.outputs.backend_lint }}',
+              backendTest: '${{ needs.backend-ci.outputs.backend_test }}',
+              backendTypecheck: '${{ needs.backend-ci.outputs.backend_typecheck }}',
+
+              mobileLint: '${{ needs.mobile-ci.outputs.mobile_lint }}',
+              mobileTest: '${{ needs.mobile-ci.outputs.mobile_test }}',
+
+              webCheck: '${{ needs.web-ci.outputs.web_check }}',
+              webBuild: '${{ needs.web-ci.outputs.web_build }}'
+            });   
