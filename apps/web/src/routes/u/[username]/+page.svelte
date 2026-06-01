@@ -3,8 +3,8 @@
   import { onMount } from 'svelte';
 
   let { data } = $props();
-  const profile = $derived(data.profile);
-  const error = $derived(data.error);
+  const profile = $derived(data?.profile);
+  const error = $derived(data?.error);
 
   const platformColors: Record<string, string> = {
     github: '#181717', linkedin: '#0A66C2', twitter: '#000000',

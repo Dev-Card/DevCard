@@ -20,7 +20,8 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		const card = await res.json();
 		return { card };
 	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) {
+		// Type guard for SvelteKit error objects
+		if (err instanceof Error && 'status' in err) {
 			throw err;
 		}
 		throw error(500, 'Failed to connect to backend');
