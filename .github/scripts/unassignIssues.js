@@ -4,7 +4,8 @@ module.exports = async ({ github, context }) => {
 
   const PROTECTED_ASSIGNEES = [
     'ShantKhatri',
-    'Harxhit'
+    'Harxhit',
+    'blankirigaya'
   ];
 
   // Fetch all open issues (excluding PRs)
