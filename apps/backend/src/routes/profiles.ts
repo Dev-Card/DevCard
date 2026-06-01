@@ -1,7 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getProfileUrl } from '@devcard/shared';
 import { updateProfileSchema, createLinkSchema, reorderLinksSchema } from '../utils/validators.js';
-import { getErrorMessage } from '../utils/error.util.js';
 import * as profileService from '../services/profileService'
 
 // ── Response types ────────────────────────────────────────────────────────────
