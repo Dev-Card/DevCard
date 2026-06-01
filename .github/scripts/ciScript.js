@@ -56,7 +56,7 @@ module.exports = async ({ github, context, core }) => {
       backendFiles,
       backendTests,
       mobileFiles,
-      webFiles
+      webFiles, 
     });
 
     core.setOutput(
