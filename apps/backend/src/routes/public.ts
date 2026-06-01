@@ -1,135 +1,134 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+import type { PlatformLink } from '@devcard/shared';
+import { getErrorMessage } from '../utils/error.util.js';
+import * as publicService from '../services/publicService'
+
+
+// ── QR size bounds ────────────────────────────────────────────────────────────
+// Enforced before any DB query or image allocation.  Values outside this range
+// are rejected with 400 so a single unauthenticated request cannot trigger an
+// unbounded memory allocation in the QR rasteriser.
+const MIN_QR_SIZE = 1;
+const MAX_QR_SIZE = 2048;
+
+// ── Cache constants ───────────────────────────────────────────────────────────
+// Public profile cache TTL matches the Cache-Control max-age (5 minutes).
+// The QR session JWT TTL is 10 minutes so an offline scan remains valid well
+// beyond the HTTP cache window.
+const PROFILE_CACHE_TTL = 300; // seconds (5 minutes)
+const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60';
 
 type PublicProfileLink = {
   id: string;
   platform: string;
-  username: string; 
-  url: string; 
-  displayOrder: number; 
+  username: string;
+  url: string;
+  displayOrder: number;
+  followed?: boolean;
 }
 
-type UsernamePublicProfileResponse =  {
-  username: string; 
+type UsernamePublicProfileResponse = {
+  username: string;
   displayName: string;
-  bio: string | null; 
-  pronouns: string | null; 
-  role: string | null; 
+  bio: string | null;
+  pronouns: string | null;
+  role: string | null;
   company: string | null;
-  avatarUrl: string | null; 
+  avatarUrl: string | null;
   accentColor: string;
   links: PublicProfileLink[]
-} 
+}
 
 type PublicProfileCardLink = {
   id: string;
   platform: string;
-  username: string; 
-  url: string; 
+  username: string;
+  url: string;
+  followed?: boolean;
 }
 
 type CardPublicProfileResponse = {
-  id: string; 
-  title: string; 
+  id: string;
+  title: string;
   owner: {
-    username: string; 
-    displayName: string; 
+    username: string;
+    displayName: string;
     bio: string | null;
     avatarUrl: string | null;
-    accentColor: string; 
-  }; 
+    accentColor: string;
+  };
   links: PublicProfileCardLink[]
 }
 
 type UsernameCardPublicProfileResponse = {
-  title: string; 
+  title: string;
   owner: {
-    username: string; 
+    username: string;
     displayName: string;
-    bio: string | null; 
-    pronouns: string | null; 
-    role: string | null; 
+    bio: string | null;
+    pronouns: string | null;
+    role: string | null;
     company: string | null;
-    avatarUrl: string | null; 
+    avatarUrl: string | null;
     accentColor: string;
-  }; 
+  };
   links: PublicProfileCardLink[]
 }
 
+// Represents a CardLink record with the joined PlatformLink relation
+interface CardLinkWithPlatform {
+  id: string;
+  displayOrder: number;
+  platformLink: PlatformLink;
+}
+
+// ── Internal Redis cache shape ────────────────────────────────────────────────
+// Extends the public response with the owner's DB id so that background view
+// tracking can still fire on cache-HIT requests without an extra DB read.
+type CachedProfileEntry = UsernamePublicProfileResponse & { _userId: string };
 
 
 export async function publicRoutes(app: FastifyInstance) {
+  // ─── Public Profile ───────────────────────────────────────────────────────
   // ─── Public Profile ───
-  /**
-   * GET /api/public/:username
+ /**
+   * GET /api/u/:username
    * Returns the public profile information for a user.
-  */
-  app.get('/:username', async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
-    const { username } = request.params;
-
-    const user = await app.prisma.user.findUnique({
-      where: { username },
-      include: {
-        platformLinks: {
-          orderBy: { displayOrder: 'asc' },
-        },
+   */
+  app.get('/:username', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute',
       },
-    });
+    },
+  }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
+    const { username } = request.params;
+    const cacheKey = `profile:${username}`;
 
-    if (!user) {
-      return reply.status(404).send({ error: 'User not found' });
-    }
-
-    // Try to extract viewer from Authorization header (soft auth)
-    let viewerId = null;
+    // Try to extract viewer from Authorization header (soft auth).
+    let viewerId: string | null = null
     try {
       if (request.headers.authorization) {
-        const decoded = await request.jwtVerify() as any;
-        if (decoded?.id !== user.id) {
-          viewerId = decoded.id; // Only log if they aren't the owner
-        }
+        const decoded = (await request.jwtVerify()) as { id?: string }
+        viewerId = decoded?.id ?? null
       } else {
-        viewerId = null; // Unauthenticated viewer
+        viewerId = null
       }
-    } catch (e) {
-      // Ignored if invalid token
+    } catch {
+      // ignored
     }
 
-    // Don't track if the owner is viewing their own profile
-    if (viewerId !== user.id) {
-      // Background view tracking
-      app.prisma.cardView.create({
-        data: {
-          ownerId: user.id,
-          cardId: null, // this is a profile view, not a card view
-          viewerId,
-          viewerIp: request.ip || null,
-          viewerAgent: request.headers['user-agent'] || null,
-          source: (request.query as any)?.source || 'link',
-        },
-      }).catch(err => app.log.error('Failed to log view:', err));
+    try {
+      const result = await publicService.getPublicProfile(app, username, viewerId, request)
+      if (!result) return reply.status(404).send({ error: 'User not found' })
+      reply.header('X-Cache', result.cached ? 'HIT' : 'MISS').header('Cache-Control', CACHE_CONTROL_HEADER)
+      return result.data
+    } catch (err: any) {
+      app.log.error({ err }, 'Failed to fetch public profile')
+      return reply.status(500).send({ error: 'Internal server error' })
     }
-
-    const response: UsernamePublicProfileResponse = {
-      username: user.username,
-      displayName: user.displayName,
-      bio: user.bio,
-      pronouns: user.pronouns,
-      role: user.role,
-      company: user.company,
-      avatarUrl: user.avatarUrl,
-      accentColor: user.accentColor,
-      links: user.platformLinks.map((link) => ({
-        id: link.id,
-        platform: link.platform,
-        username: link.username,
-        url: link.url,
-        displayOrder: link.displayOrder,
-      })),
-    }
-
-    return response; 
-
   });
 
   /**
@@ -139,133 +138,121 @@ export async function publicRoutes(app: FastifyInstance) {
   */
   // ─── Shared Card View (Direct) ───
 
-  app.get('/card/:cardId', async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
+  app.get('/card/:cardId', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute'
+      }
+    } as FastifyContextConfig
+  }, async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
     const { cardId } = request.params;
 
-    const card = await app.prisma.card.findUnique({
-      where: { id: cardId },
-      include: {
-        user: true,
-        cardLinks: {
-          include: { platformLink: true },
-          orderBy: { displayOrder: 'asc' },
-        },
-      },
-    });
-
-    if (!card) {
-      return reply.status(404).send({ error: 'Card not found' });
+    try {
+      const card = await publicService.getCardById(app, cardId)
+      if (!card) return reply.status(404).send({ error: 'Card not found' })
+      const response = { id: card.id, title: card.title, owner: { username: card.user.username, displayName: card.user.displayName, bio: card.user.bio, avatarUrl: card.user.avatarUrl, accentColor: card.user.accentColor }, links: card.cardLinks.map((cl: any) => ({ id: cl.platformLink.id, platform: cl.platformLink.platform, username: cl.platformLink.username, url: cl.platformLink.url })) }
+      return response
+    } catch (err: any) {
+      app.log.error({ err }, 'Failed to fetch shared card')
+      return reply.status(500).send({ error: 'Internal server error' })
     }
-
-    const response: CardPublicProfileResponse = {
-      id: card.id,
-      title: card.title,
-      owner: {
-        username: card.user.username,
-        displayName: card.user.displayName,
-        bio: card.user.bio,
-        avatarUrl: card.user.avatarUrl,
-        accentColor: card.user.accentColor,
-      },
-      links: card.cardLinks.map((cl) => ({
-        id: cl.platformLink.id,
-        platform: cl.platformLink.platform,
-        username: cl.platformLink.username,
-        url: cl.platformLink.url,
-      })),
-    }
-
-    return response; 
-
   });
 
+  // ─── Public Card View ─────────────────────────────────────────────────────
   // ─── Public Card View ───
   /**
-   * GET /api/public/:username/card/:cardId
+   * GET /api/u/:username/card/:cardId
    * Returns full owner profile + specific card data.
    * Used when viewing a card through username + cardId (e.g. QR code scans).
-  */
-  app.get('/:username/card/:cardId', async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
+   */
+  app.get('/:username/card/:cardId', {
+    config: {
+      rateLimit: {
+        max: 100,
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
     const { username, cardId } = request.params;
 
-    const user = await app.prisma.user.findUnique({
-      where: { username },
-    });
-
-    if (!user) {
-      return reply.status(404).send({ error: 'User not found' });
-    }
-
-    const card = await app.prisma.card.findFirst({
-      where: { id: cardId, userId: user.id },
-      include: {
-        cardLinks: {
-          include: { platformLink: true },
-          orderBy: { displayOrder: 'asc' },
-        },
-      },
-    });
-
-    if (!card) {
-      return reply.status(404).send({ error: 'Card not found' });
-    }
-
-    let viewerId = null;
+    let viewerId: string | null = null
     try {
       if (request.headers.authorization) {
-        const decoded = await request.jwtVerify() as any;
-        if (decoded?.id !== user.id) {
-          viewerId = decoded.id;
-        }
+        const decoded = (await request.jwtVerify()) as { id?: string }
+        viewerId = decoded?.id ?? null
       }
-    } catch (e) {}
-
-    if (viewerId !== user.id) {
-      app.prisma.cardView.create({
-        data: {
-          ownerId: user.id,
-          cardId: card.id,
-          viewerId,
-          viewerIp: request.ip || null,
-          viewerAgent: request.headers['user-agent'] || null,
-          source: (request.query as any)?.source || 'qr',
-        },
-      }).catch(err => app.log.error('Failed to log card view:', err));
+    } catch {
+      // ignored
     }
 
-
-    const response: UsernameCardPublicProfileResponse = {
-      title: card.title,
-      owner: {
-        username: user.username,
-        displayName: user.displayName,
-        bio: user.bio,
-        pronouns: user.pronouns,
-        role: user.role,
-        company: user.company,
-        avatarUrl: user.avatarUrl,
-        accentColor: user.accentColor,
-      },
-      links: card.cardLinks.map((cl) => ({
-        id: cl.platformLink.id,
-        platform: cl.platformLink.platform,
-        username: cl.platformLink.username,
-        url: cl.platformLink.url,
-        displayOrder: cl.displayOrder,
-      })),
+    try {
+      const result = await publicService.getUserCard(app, username, cardId, viewerId, request)
+      if (result.notFound) return reply.status(404).send({ error: 'User or card not found' })
+      return result.data
+    } catch (err: any) {
+      app.log.error({ err }, 'Failed to fetch user card')
+      return reply.status(500).send({ error: 'Internal server error' })
     }
-    return response; 
   });
 
-  // ─── QR Code Generation ───
+  // ─── QR Session ──────────────────────────────────────────────────────────
+  // Returns a short-lived signed JWT encoding the public profile snapshot.
+  // Intended for native apps to generate QR codes that remain scannable when
+  // the device has no live network connectivity (offline QR mode, spec §5.9).
+  app.get('/:username/qr-session', {
+    config: {
+      rateLimit: {
+        max: 30,
+        timeWindow: '1 minute'
+      }
+    } as FastifyContextConfig
+  }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
+    const { username } = request.params;
+    const cacheKey = `profile:${username}`;
 
-  app.get('/:username/qr', async (request: FastifyRequest<{
+    try {
+      const result = await publicService.getPublicProfile(app, username, null, request)
+      if (!result) return reply.status(404).send({ error: 'User not found' })
+      const snapshot = result.data
+      const expiresIn = 600
+      const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString()
+      const token = app.jwt.sign({ profile: snapshot, sub: username }, { expiresIn: '10m' })
+      reply.header('Cache-Control', CACHE_CONTROL_HEADER)
+      return { token, tokenType: 'JWT', expiresIn, expiresAt }
+    } catch (err: any) {
+      app.log.error({ err }, 'Failed to create qr-session')
+      return reply.status(500).send({ error: 'Internal server error' })
+    }
+  });
+
+  // ─── QR Code Generation ───────────────────────────────────────────────────
+
+  app.get('/:username/qr', {
+    config: {
+      rateLimit: {
+        max: 50, // Lower limit for QR generation as it's more resource intensive
+        timeWindow: '1 minute'
+      }
+    } as FastifyContextConfig
+  }, async (request: FastifyRequest<{
     Params: { username: string };
     Querystring: { format?: string; size?: string };
   }>, reply: FastifyReply) => {
     const { username } = request.params;
     const format = (request.query as any).format || 'png';
-    const size = parseInt((request.query as any).size || '400', 10);
+
+    // Parse and validate size before touching the DB or allocating any buffers.
+    // parseInt safely handles non-numeric strings (returns NaN) and ignores any
+    // trailing fractional part, so '400.9' → 400 which is within bounds.
+    const rawSize = (request.query as any).size;
+    const size = rawSize !== undefined ? parseInt(rawSize, 10) : 400;
+
+    if (!Number.isInteger(size) || size < MIN_QR_SIZE || size > MAX_QR_SIZE) {
+      return reply.status(400).send({
+        error: `QR size must be an integer between ${MIN_QR_SIZE} and ${MAX_QR_SIZE}`,
+      });
+    }
 
     // Verify user exists
     const user = await app.prisma.user.findUnique({
@@ -278,18 +265,16 @@ export async function publicRoutes(app: FastifyInstance) {
 
     const profileUrl = `${process.env.PUBLIC_APP_URL}/u/${username}`;
 
-    if (format === 'svg') {
-      const svg = await generateQRSvg(profileUrl, { width: size });
-      return reply
-        .header('Content-Type', 'image/svg+xml')
-        .header('Content-Disposition', `inline; filename="devcard-${username}.svg"`)
-        .send(svg);
+    try {
+      if (format === 'svg') {
+        const svg = await generateQRSvg(profileUrl, { width: size })
+        return reply.header('Content-Type', 'image/svg+xml').header('Content-Disposition', `inline; filename="devcard-${username}.svg"`).send(svg)
+      }
+      const png = await generateQRBuffer(profileUrl, { width: size })
+      return reply.header('Content-Type', 'image/png').header('Content-Disposition', `inline; filename="devcard-${username}.png"`).send(png)
+    } catch (error) {
+      app.log.error({ error, username, size, format }, 'QR generation failed')
+      return reply.status(500).send({ error: 'QR code generation failed' })
     }
-
-    const png = await generateQRBuffer(profileUrl, { width: size });
-    return reply
-      .header('Content-Type', 'image/png')
-      .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
-      .send(png);
   });
 }
