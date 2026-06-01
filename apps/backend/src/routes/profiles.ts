@@ -7,18 +7,7 @@ import * as profileService from '../services/profileService'
 // Declared explicitly so the API contract is visible without tracing through
 // Prisma's generic return types.  Follows the convention in public.ts.
 
-type ProfileUpdateResponse = {
-  id: string;
-  email: string;
-  username: string;
-  displayName: string;
-  bio: string | null;
-  pronouns: string | null;
-  role: string | null;
-  company: string | null;
-  avatarUrl: string | null;
-  accentColor: string;
-};
+
 
 export async function profileRoutes(app: FastifyInstance) {
   // All profile routes require auth
