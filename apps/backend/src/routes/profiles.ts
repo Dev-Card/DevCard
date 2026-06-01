@@ -3,9 +3,7 @@ import { getProfileUrl } from '@devcard/shared';
 import { updateProfileSchema, createLinkSchema, reorderLinksSchema } from '../utils/validators.js';
 import * as profileService from '../services/profileService'
 
-// ── Response types ────────────────────────────────────────────────────────────
-// Declared explicitly so the API contract is visible without tracing through
-// Prisma's generic return types.  Follows the convention in public.ts.
+
 
 
 
