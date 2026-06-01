@@ -19,6 +19,7 @@ export async function analyticsRoutes(
       _reply: FastifyReply
     ) => {
       const userId = (request.user as any).id;
+      const username = (request.user as any).username;  
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -40,7 +41,7 @@ export async function analyticsRoutes(
         // Follows performed BY this user
         app.prisma.followLog.count({
           where: {
-            followerId: userId,
+            targetUsername: username,
             status: 'success',
           },
         }),
