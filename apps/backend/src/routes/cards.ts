@@ -79,6 +79,57 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
+      // Verify every supplied link belongs to the authenticated user before any write.
+      // A count mismatch means at least one ID is foreign — reject before touching the DB.
+      if (parsed.data.linkIds.length > 0) {
+        const ownedLinks = await app.prisma.platformLink.findMany({
+          where: { id: { in: parsed.data.linkIds }, userId },
+          select: { id: true },
+        });
+
+        if (ownedLinks.length !== parsed.data.linkIds.length) {
+          return reply.status(403).send({ error: 'One or more links do not belong to your account' });
+        }
+      }
+
+      // Check if user's first card -> make it default.
+      // Prisma wraps the nested cardLinks.create inside card.create in a single
+      // implicit transaction, so either both the card and its links are written or neither is.
+      const card = await app.prisma.$transaction(async (tx) => {
+  const cardCount = await tx.card.count({
+    where: { userId },
+  });
+
+  return tx.card.create({
+        data: {
+          userId,
+          title: parsed.data.title,
+          isDefault: cardCount === 0,
+          cardLinks: {
+            create: parsed.data.linkIds.map((linkId, index) => ({
+              platformLinkId: linkId,
+              displayOrder: index,
+            })),
+          },
+        },
+        include: {
+          cardLinks: {
+            include: { platformLink: true },
+            orderBy: { displayOrder: 'asc' },
+          },
+        },
+      });
+    }};
+      const response = {
+        id: card.id, 
+        title: card.title,
+        isDefault: card.isDefault,
+        links: card.cardLinks.map((cl: CardLinkWithPlatform) => cl.platformLink),
+      }
+
+      return reply.status(201).send(response);
+    } catch (error) {
+      return handleDbError(error, request, reply);
       const card = await cardService.createCard(app, userId, parsed.data)
       return reply.status(201).send(card)
     } catch (error: any) {
