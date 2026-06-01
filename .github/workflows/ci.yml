@@ -18,6 +18,7 @@ jobs:
       backendFiles: ${{ steps.detect.outputs.backendFiles }}
       mobileFiles: ${{ steps.detect.outputs.mobileFiles }}
       webFiles: ${{ steps.detect.outputs.webFiles }}
+      backendTests: ${{ steps.detect.outputs.backendTests }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -60,7 +61,7 @@ jobs:
       - name: Backend test
         id: backend_test
         continue-on-error: true
-        run: cd apps/backend && pnpm test ${{ needs.detect-changes.outputs.backendFiles }}
+        run: cd apps/backend && pnpm test ${{ needs.detect-changes.outputs.backendTests }}
 
       - name: Backend typecheck
         id: backend_typecheck
