@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      backendChanged: ${{ steps.detect.outputs.backendChanged }}
+      mobileChanged: ${{ steps.detect.outputs.mobileChanged }}
+      webChanged: ${{ steps.detect.outputs.webChanged }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Detect changed files
+        id: detect
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const script = require('./.github/scripts/ciScript.js');
+            return await script({ github, context, core });
+
+  backend-ci:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backendChanged == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v6.0.8
+
+      - run: pnpm install
+      - run: cd apps/backend && pnpm lint
+      - run: cd apps/backend && pnpm test
+      - run: cd apps/backend && pnpm typecheck
+
+  web-ci:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.webChanged == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v6.0.8
+
+      - run: pnpm install
+      - run: cd apps/web && pnpm check
+      - run: cd apps/web && pnpm build
+
+  mobile-ci:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.mobileChanged == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v6.0.8
+
+      - run: pnpm install
+      - run: cd apps/mobile && pnpm lint
+      - run: cd apps/mobile && pnpm test
+
+  comment-results:
+    needs:
+      - backend-ci
+      - web-ci
+      - mobile-ci
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Comment results
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const script = require('./.github/scripts/commentResults.js');
+              await script({
+              github,
+              context,
+              backend: '${{ needs.backend-ci.result }}',
+              web: '${{ needs.web-ci.result }}',
+              mobile: '${{ needs.mobile-ci.result }}'
+            });
