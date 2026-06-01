@@ -2,11 +2,12 @@ module.exports = async ({ github, context }) => {
   const pr = context.payload.pull_request;
   const ignoreUsers = [
     'ShantKhatri',
-    'Harxhit'
+    'Harxhit',
+    'blankirigaya'
   ]
   try {
       // Only continue if merged
-      if (!pr || !pr.merged) {
+      if (!pr || !pr.merged) {  
         console.log('PR not merged.');
         return;
       }
