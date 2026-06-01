@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TOKEN_KEY = 'devcard_auth_token';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadToken = async () => {
       try {
-        const savedToken = await SecureStore.getItemAsync(TOKEN_KEY);
+       const savedToken = await AsyncStorage.getItem(TOKEN_KEY);
         if (savedToken) {
           setToken(savedToken);
           const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const userData = await res.json();
             setUser(userData);
           } else {
-            await SecureStore.deleteItemAsync(TOKEN_KEY);
+            await AsyncStorage.removeItem(TOKEN_KEY);
           }
         }
       } catch (err) {
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (newToken: string) => {
     setToken(newToken);
-    await SecureStore.setItemAsync(TOKEN_KEY, newToken);
+   await AsyncStorage.setItem(TOKEN_KEY, newToken);
     try {
       const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
         headers: { Authorization: `Bearer ${newToken}` },
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     setToken(null);
     setUser(null);
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await AsyncStorage.removeItem(TOKEN_KEY);
   };
 
   return (
