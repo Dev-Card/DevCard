@@ -40,15 +40,36 @@ module.exports = async ({ github, context, core }) => {
       }
     });
 
-    console.log({
-      backendFiles,
-      mobileFiles,
-      webFiles
-    });
+  console.log({
+    backendFiles,
+    mobileFiles,
+    webFiles
+  });
 
-    core.setOutput("backendChanged",backendFiles.length > 0)
-    core.setOutput("mobileChanged",mobileFiles.length > 0)
-    core.setOutput("webChanged",webFiles.length > 0)
+  core.setOutput(
+    "backendFiles",
+    backendFiles
+      .map(file => file.replace("apps/backend/", ""))
+      .join(" ")
+  )
+
+  core.setOutput(
+    "mobileFiles",
+    mobileFiles
+      .map(file => file.replace("apps/mobile/", ""))
+      .join(" ")
+  )
+
+  core.setOutput(
+    "webFiles",
+    webFiles
+      .map(file => file.replace("apps/web/", ""))
+      .join(" ")
+  )
+
+  core.setOutput("backendChanged", backendFiles.length > 0)
+  core.setOutput("mobileChanged", mobileFiles.length > 0)
+  core.setOutput("webChanged", webFiles.length > 0)
 
   } catch (error) {
     console.error(error);
