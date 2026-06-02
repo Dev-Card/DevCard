@@ -5,4 +5,5 @@ function DraggableFlatList(props) {
 }
 
 module.exports = DraggableFlatList;
+module.exports.default = DraggableFlatList;
 module.exports.ScaleDecorator = ({ children }) => children;
