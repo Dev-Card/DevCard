@@ -11,7 +11,9 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "eslint": "^10.4.0",
     "typescript": "^5.4.0",
+    "typescript-eslint": "^8.59.3",
     "vitest": "^2.0.0"
   }
 }

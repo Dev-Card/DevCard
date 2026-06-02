@@ -1,7 +1,8 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createEventSchema, joinEventSchema} from '../validations/event.validation';
-
 import {generateUniqueSlug} from '../utils/slug'
+import { createEventSchema } from '../validations/event.validation';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
 
 
 type EventDetails = {
@@ -62,7 +63,7 @@ export async function eventRoutes(app:FastifyInstance) {
                 const server = request.server as any;
                 if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
                 if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-                try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+                try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
             }] }, async (request: FastifyRequest<{
         Body: {
             name: string,
@@ -80,8 +81,8 @@ export async function eventRoutes(app:FastifyInstance) {
         
         const {name, description, startDate, endDate, isPublic ,location} = parsed.data
 
-        let finalSlug = await generateUniqueSlug(name, async(slug) => {
-            const existing = await app.prisma.event.findUnique({where: {slug : slug}})
+        const finalSlug = await generateUniqueSlug(name, async(slug) => {
+            const existing = await app.prisma.event.findUnique({where: {slug}})
             
             return !!existing
         })
@@ -95,7 +96,7 @@ export async function eventRoutes(app:FastifyInstance) {
                     name, 
                     description, 
                     slug: finalSlug, 
-                    location: location,
+                    location,
                     startDate: startDateObj, 
                     endDate: endDateObj, 
                     isPublic: isPublic ?? true, 
@@ -104,8 +105,8 @@ export async function eventRoutes(app:FastifyInstance) {
             })
 
             return reply.status(201).send(newEvent); 
-        } catch (error) {
-            app.log.error('Failed to create event'); 
+        } catch {
+            app.log.error('Failed to create event');
             return reply.status(500).send({error: 'Failed to create event'})
         }
         
@@ -153,7 +154,7 @@ export async function eventRoutes(app:FastifyInstance) {
         return response; 
     })
 
-        app.post('/:slug/join', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+        app.post('/:slug/join', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
         const userId = (request.user as any).id;
         const paramsSlug = request.params.slug; 
 
@@ -171,7 +172,7 @@ export async function eventRoutes(app:FastifyInstance) {
             await app.prisma.eventAttendee.create({
                 data: {
                     eventId: event.id, 
-                    userId: userId, 
+                    userId, 
                     joinedAt: new Date()
                 }
             })
@@ -187,7 +188,7 @@ export async function eventRoutes(app:FastifyInstance) {
 
     })
 
-        app.delete('/:slug/leave', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+        app.delete('/:slug/leave', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
         const userId = (request.user as any).id;
         const paramsSlug = request.params.slug; 
 
@@ -205,7 +206,7 @@ export async function eventRoutes(app:FastifyInstance) {
             await app.prisma.eventAttendee.delete({
                 where: {
                     userId_eventId: {
-                        userId: userId, 
+                        userId, 
                         eventId: event.id
                     }
                 }

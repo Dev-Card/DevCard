@@ -1,7 +1,9 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
+
 import { encrypt } from '../utils/encryption.js';
 import { extractRawJwt, blocklistKey } from '../utils/jwt.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -254,12 +256,10 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Current user
-  app.get('/me', { preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
-    }] }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/me', {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const user = await app.prisma.user.findUnique({
       where: { id: userId },
@@ -287,7 +287,28 @@ export async function authRoutes(app: FastifyInstance) {
     return { ...userData, connectedPlatforms: oauthTokens };
   });
 
+  // Legacy cookie-clear endpoint kept for backward compatibility.
+  // Also opportunistically blocklists the token when one is present so that
+  // existing clients that call POST instead of DELETE also get proper revocation.
+  // No auth required — the token is decoded but not verified here; this is safe
+  // because the blocklist key is derived from the signature which cannot be
+  // forged without the JWT secret.
   app.post('/logout', async (request: FastifyRequest, reply: FastifyReply) => {
+    const raw = extractRawJwt(request);
+    if (raw && app.hasDecorator('redis')) {
+      const payload = app.jwt.decode<{ exp?: number }>(raw);
+      const exp = payload?.exp;
+      if (exp) {
+        const ttl = exp - Math.floor(Date.now() / 1000);
+        if (ttl > 0) {
+          try {
+            await app.redis.set(blocklistKey(raw), '1', 'EX', ttl);
+          } catch (err) {
+            app.log.warn({ err }, 'Redis blocklist write failed during POST logout — token will expire naturally');
+          }
+        }
+      }
+    }
     reply.clearCookie('token', { path: '/' });
     return { message: 'Logged out' };
   });
@@ -302,6 +323,7 @@ export async function authRoutes(app: FastifyInstance) {
   // token will still expire naturally based on its exp claim.
 
   app.delete('/logout', {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const raw = extractRawJwt(request);
@@ -322,6 +344,15 @@ export async function authRoutes(app: FastifyInstance) {
             app.log.warn({ err }, 'Redis blocklist write failed during logout — token will expire naturally');
           }
         }
+      } else {
+        // A JWT without exp cannot be given a finite Redis TTL, so it cannot be
+        // actively revoked. This should never happen with tokens signed by this
+        // server (we always pass expiresIn), but log a warning so it is
+        // visible if a custom or third-party token ever reaches this path.
+        app.log.warn(
+          { userId: (request.user as any)?.id },
+          'JWT missing exp claim — skipping Redis blocklist; token cannot be actively revoked',
+        );
       }
     }
 

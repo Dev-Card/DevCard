@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import type { FastifyRequest } from 'fastify';
 
 /**
@@ -8,8 +9,8 @@ import type { FastifyRequest } from 'fastify';
  */
 export function extractRawJwt(request: FastifyRequest): string | null {
   const auth = request.headers.authorization;
-  if (auth?.startsWith('Bearer ')) return auth.slice(7);
-  return request.cookies?.token ?? null;
+  if (auth?.startsWith('Bearer ')) { return auth.slice(7) || null; }
+  return request.cookies?.token || null;
 }
 
 /**

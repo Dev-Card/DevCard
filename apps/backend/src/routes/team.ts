@@ -29,7 +29,7 @@ export async function teamRoutes(app:FastifyInstance){
             const server = request.server as any;
             if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
             if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-            try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+            try { const payload = await request.jwtVerify(); if (payload) {(request as any).user = payload;} } catch { reply.status(401).send({ error: 'Unauthorized' }) }
         }] }, async(request:FastifyRequest<{
         Body: {name: string, description? : string, avatarUrl?: string }
     }>, reply: FastifyReply) => {
@@ -48,7 +48,7 @@ export async function teamRoutes(app:FastifyInstance){
 
         try {
             const team = await app.prisma.$transaction(async (tx) => {
-                const team = await tx.team.create({
+                const created = await tx.team.create({
                     data: {
                         name, 
                         slug: finalSlug, 
@@ -60,14 +60,14 @@ export async function teamRoutes(app:FastifyInstance){
     
                 await tx.teamMember.create({
                     data: {
-                        teamId : team.id, 
-                        userId, 
-                        role: TeamRole.OWNER, 
-                        joinedAt: new Date(), 
+                        teamId : created.id,
+                        userId,
+                        role: TeamRole.OWNER,
+                        joinedAt: new Date(),
                     }
                 })
-                return team
-            })   
+                return created
+            })
             return reply.status(201).send(team)
 
         }catch (error) {
@@ -161,7 +161,7 @@ export async function teamRoutes(app:FastifyInstance){
             const server = request.server as any;
             if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
             if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-            try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+            try { const payload = await request.jwtVerify(); if (payload) {(request as any).user = payload;} } catch { reply.status(401).send({ error: 'Unauthorized' }) }
         }] }, async(request: FastifyRequest<{Params: {slug:string}, Body:{username:string}}>, reply: FastifyReply) => {
         const paramsSlug = request.params.slug; 
         const userId = (request.user as any).id;
@@ -224,7 +224,7 @@ export async function teamRoutes(app:FastifyInstance){
         }
     })
 
-    app.delete('/:slug/members/:userId', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string, userId: string}}>, reply: FastifyReply)  => {
+    app.delete('/:slug/members/:userId', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string, userId: string}}>, reply: FastifyReply)  => {
         const paramsSlug = request.params.slug 
         const paramsUserId = request.params.userId
         const userID = (request.user as any).id; 
@@ -286,7 +286,7 @@ export async function teamRoutes(app:FastifyInstance){
         }
     })
 
-    app.patch('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string},Body: {description?:string, name?:string, avatarUrl?:string}}>, reply: FastifyReply) => {
+    app.patch('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string},Body: {description?:string, name?:string, avatarUrl?:string}}>, reply: FastifyReply) => {
         const userId = (request.user as any).id; 
         const paramsSlug = request.params.slug; 
         const parsed = updateTeam.safeParse(request.body); 
@@ -328,7 +328,7 @@ export async function teamRoutes(app:FastifyInstance){
         
     })
 
-    app.delete('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request:FastifyRequest<{Params:{slug: string}}>, reply:FastifyReply) => {
+    app.delete('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request:FastifyRequest<{Params:{slug: string}}>, reply:FastifyReply) => {
         const userId = (request.user as any).id; 
         const paramsSlug = request.params.slug; 
 

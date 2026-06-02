@@ -1,8 +1,8 @@
-import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
-import type { PlatformLink } from '@devcard/shared';
-import { getErrorMessage } from '../utils/error.util.js';
 import * as publicService from '../services/publicService'
+import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+
+import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
 
 
 // ── QR size bounds ────────────────────────────────────────────────────────────
@@ -16,78 +16,7 @@ const MAX_QR_SIZE = 2048;
 // Public profile cache TTL matches the Cache-Control max-age (5 minutes).
 // The QR session JWT TTL is 10 minutes so an offline scan remains valid well
 // beyond the HTTP cache window.
-const PROFILE_CACHE_TTL = 300; // seconds (5 minutes)
 const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60';
-
-type PublicProfileLink = {
-  id: string;
-  platform: string;
-  username: string;
-  url: string;
-  displayOrder: number;
-  followed?: boolean;
-}
-
-type UsernamePublicProfileResponse = {
-  username: string;
-  displayName: string;
-  bio: string | null;
-  pronouns: string | null;
-  role: string | null;
-  company: string | null;
-  avatarUrl: string | null;
-  accentColor: string;
-  links: PublicProfileLink[]
-}
-
-type PublicProfileCardLink = {
-  id: string;
-  platform: string;
-  username: string;
-  url: string;
-  followed?: boolean;
-}
-
-type CardPublicProfileResponse = {
-  id: string;
-  title: string;
-  owner: {
-    username: string;
-    displayName: string;
-    bio: string | null;
-    avatarUrl: string | null;
-    accentColor: string;
-  };
-  links: PublicProfileCardLink[]
-}
-
-type UsernameCardPublicProfileResponse = {
-  title: string;
-  owner: {
-    username: string;
-    displayName: string;
-    bio: string | null;
-    pronouns: string | null;
-    role: string | null;
-    company: string | null;
-    avatarUrl: string | null;
-    accentColor: string;
-  };
-  links: PublicProfileCardLink[]
-}
-
-// Represents a CardLink record with the joined PlatformLink relation
-interface CardLinkWithPlatform {
-  id: string;
-  displayOrder: number;
-  platformLink: PlatformLink;
-}
-
-// ── Internal Redis cache shape ────────────────────────────────────────────────
-// Extends the public response with the owner's DB id so that background view
-// tracking can still fire on cache-HIT requests without an extra DB read.
-type CachedProfileEntry = UsernamePublicProfileResponse & { _userId: string };
-
 
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───────────────────────────────────────────────────────
@@ -105,7 +34,7 @@ export async function publicRoutes(app: FastifyInstance) {
     },
   }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
-    const cacheKey = `profile:${username}`;
+
 
     // Try to extract viewer from Authorization header (soft auth).
     let viewerId: string | null = null
@@ -122,7 +51,7 @@ export async function publicRoutes(app: FastifyInstance) {
 
     try {
       const result = await publicService.getPublicProfile(app, username, viewerId, request)
-      if (!result) return reply.status(404).send({ error: 'User not found' })
+      if (!result) {return reply.status(404).send({ error: 'User not found' })}
       reply.header('X-Cache', result.cached ? 'HIT' : 'MISS').header('Cache-Control', CACHE_CONTROL_HEADER)
       return result.data
     } catch (err: any) {
@@ -150,7 +79,7 @@ export async function publicRoutes(app: FastifyInstance) {
 
     try {
       const card = await publicService.getCardById(app, cardId)
-      if (!card) return reply.status(404).send({ error: 'Card not found' })
+      if (!card) {return reply.status(404).send({ error: 'Card not found' })}
       const response = { id: card.id, title: card.title, owner: { username: card.user.username, displayName: card.user.displayName, bio: card.user.bio, avatarUrl: card.user.avatarUrl, accentColor: card.user.accentColor }, links: card.cardLinks.map((cl: any) => ({ id: cl.platformLink.id, platform: cl.platformLink.platform, username: cl.platformLink.username, url: cl.platformLink.url })) }
       return response
     } catch (err: any) {
@@ -188,7 +117,7 @@ export async function publicRoutes(app: FastifyInstance) {
 
     try {
       const result = await publicService.getUserCard(app, username, cardId, viewerId, request)
-      if (result.notFound) return reply.status(404).send({ error: 'User or card not found' })
+      if (result.notFound) {return reply.status(404).send({ error: 'User or card not found' })}
       return result.data
     } catch (err: any) {
       app.log.error({ err }, 'Failed to fetch user card')
@@ -209,11 +138,11 @@ export async function publicRoutes(app: FastifyInstance) {
     } as FastifyContextConfig
   }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
-    const cacheKey = `profile:${username}`;
+
 
     try {
       const result = await publicService.getPublicProfile(app, username, null, request)
-      if (!result) return reply.status(404).send({ error: 'User not found' })
+      if (!result) {return reply.status(404).send({ error: 'User not found' })}
       const snapshot = result.data
       const expiresIn = 600
       const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString()

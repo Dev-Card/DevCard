@@ -1,7 +1,12 @@
-process.env.NODE_ENV = 'test';
-
 import { describe, it, expect } from 'vitest';
+
 import { buildApp } from '../app';
+
+process.env.NODE_ENV = 'test';
+// validateEnv() runs inside buildApp() and exits if these are absent.
+// Provide safe test-only fallbacks so CI doesn't need real secrets here.
+process.env.JWT_SECRET ??= 'test-jwt-secret-not-for-production-xxxxxxxxxxxxxxxxxxxxxxx';
+process.env.ENCRYPTION_KEY ??= 'a'.repeat(64);
 
 describe('GET /health', () => {
   it('should return status ok', async () => {

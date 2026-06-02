@@ -1,25 +1,7 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getProfileUrl } from '@devcard/shared';
-import { updateProfileSchema, createLinkSchema, reorderLinksSchema } from '../utils/validators.js';
-import { getErrorMessage } from '../utils/error.util.js';
 import * as profileService from '../services/profileService'
+import { updateProfileSchema, createLinkSchema, reorderLinksSchema } from '../utils/validators.js';
 
-// ── Response types ────────────────────────────────────────────────────────────
-// Declared explicitly so the API contract is visible without tracing through
-// Prisma's generic return types.  Follows the convention in public.ts.
-
-type ProfileUpdateResponse = {
-  id: string;
-  email: string;
-  username: string;
-  displayName: string;
-  bio: string | null;
-  pronouns: string | null;
-  role: string | null;
-  company: string | null;
-  avatarUrl: string | null;
-  accentColor: string;
-};
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 export async function profileRoutes(app: FastifyInstance) {
   // All profile routes require auth
@@ -35,7 +17,7 @@ export async function profileRoutes(app: FastifyInstance) {
     }
     try {
       await request.jwtVerify();
-    } catch (e) {
+    } catch {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
@@ -45,7 +27,7 @@ export async function profileRoutes(app: FastifyInstance) {
   app.get('/me', async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const user = await profileService.getOwnProfile(app, userId)
-    if (!user) return reply.status(404).send({ error: 'User not found' })
+    if (!user) {return reply.status(404).send({ error: 'User not found' })}
     return user
   });
 
@@ -80,7 +62,7 @@ export async function profileRoutes(app: FastifyInstance) {
       const response = await profileService.updateProfile(app, userId, parsed.data)
       return response
     } catch (err: any) {
-      if (err?.code === 'P2002') return reply.status(409).send({ error: 'Username already taken' })
+      if (err?.code === 'P2002') {return reply.status(409).send({ error: 'Username already taken' })}
       app.log.error({ err }, 'DB error in PUT /profiles/me')
       return reply.status(500).send({ error: 'Internal server error' })
     }
@@ -112,10 +94,10 @@ export async function profileRoutes(app: FastifyInstance) {
     const { id } = request.params;
 
     const parsedReq = createLinkSchema.safeParse(request.body)
-    if (!parsedReq.success) return reply.status(400).send({ error: 'Validation failed', details: parsedReq.error.flatten() })
+    if (!parsedReq.success) {return reply.status(400).send({ error: 'Validation failed', details: parsedReq.error.flatten() })}
     try {
       const updated = await profileService.updatePlatformLink(app, userId, id, parsedReq.data)
-      if (!updated) return reply.status(404).send({ error: 'Link not found' })
+      if (!updated) {return reply.status(404).send({ error: 'Link not found' })}
       return updated
     } catch (err: any) {
       app.log.error({ err }, 'Failed to update platform link')
@@ -131,7 +113,7 @@ export async function profileRoutes(app: FastifyInstance) {
 
     try {
       const deleted = await profileService.deletePlatformLink(app, userId, id)
-      if (!deleted) return reply.status(404).send({ error: 'Link not found' })
+      if (!deleted) {return reply.status(404).send({ error: 'Link not found' })}
       return reply.status(204).send()
     } catch (err: any) {
       app.log.error({ err }, 'Failed to delete platform link')
@@ -144,7 +126,7 @@ export async function profileRoutes(app: FastifyInstance) {
   app.put('/me/links/reorder', async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const parsedReq = reorderLinksSchema.safeParse(request.body)
-    if (!parsedReq.success) return reply.status(400).send({ error: 'Validation failed', details: parsedReq.error.flatten() })
+    if (!parsedReq.success) {return reply.status(400).send({ error: 'Validation failed', details: parsedReq.error.flatten() })}
     try {
       const resp = await profileService.reorderLinks(app, userId, parsedReq.data.links)
       return resp

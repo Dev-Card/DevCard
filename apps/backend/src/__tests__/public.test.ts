@@ -1,8 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
+import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { publicRoutes } from '../routes/public.js';
+import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+
 import type { PrismaClient } from '@prisma/client';
+
 
 // ── Mock QR utilities ─────────────────────────────────────────────────────────
 // Prevents real QR rasterisation (and any native canvas/image deps) from running
@@ -12,8 +16,6 @@ vi.mock('../utils/qr.js', () => ({
   generateQRBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-png')),
   generateQRSvg: vi.fn().mockResolvedValue('<svg>fake</svg>'),
 }));
-
-import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 
 const mockUser = {
   id: 'user-123',

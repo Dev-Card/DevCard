@@ -269,9 +269,15 @@ importers:
 
   packages/shared:
     devDependencies:
+      eslint:
+        specifier: ^10.4.0
+        version: 10.4.1(jiti@2.7.0)
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.59.3
+        version: 8.60.0(eslint@10.4.1(jiti@2.7.0))(typescript@5.9.3)
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.19)(terser@5.48.0)

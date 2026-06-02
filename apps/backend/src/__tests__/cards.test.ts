@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { cardRoutes } from '../routes/cards.js';
 
 const USER_ID = 'user-123';

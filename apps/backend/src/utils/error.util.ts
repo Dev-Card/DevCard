@@ -1,5 +1,6 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Prisma } from '@prisma/client';
+
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

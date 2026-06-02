@@ -104,7 +104,7 @@ export default function ScanScreen({ navigation }: Props) {
           title: 'My DevCard QR',
           url: uri,
         });
-      } catch (err) {
+      } catch {
         Alert.alert('Error', 'Failed to save QR code');
       }
     }

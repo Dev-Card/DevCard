@@ -11,10 +11,12 @@
  * flow so the two records are independent and can never overwrite each other.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { connectRoutes } from '../routes/connect.js';
 import { followRoutes } from '../routes/follow.js';
+
 import type { PrismaClient } from '@prisma/client';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -45,7 +47,7 @@ function makeConnectState(userId: string): string {
 function buildConnectApp(mockPrisma: Partial<PrismaClient>) {
   const app = Fastify({ logger: false });
   app.decorate('prisma', mockPrisma as PrismaClient);
-  app.decorate('authenticate', async (req: any) => { req.user = { id: USER_ID }; });
+  app.decorate('authenticate', async (request: any) => { request.user = { id: USER_ID }; });
   app.register(connectRoutes, { prefix: '/api/connect' });
   return app.ready().then(() => app);
 }
@@ -55,7 +57,7 @@ function buildConnectApp(mockPrisma: Partial<PrismaClient>) {
 function buildFollowApp(mockPrisma: Partial<PrismaClient>) {
   const app = Fastify({ logger: false });
   app.decorate('prisma', mockPrisma as PrismaClient);
-  app.decorate('authenticate', async (req: any) => { req.user = { id: USER_ID }; });
+  app.decorate('authenticate', async (request: any) => { request.user = { id: USER_ID }; });
   app.register(followRoutes, { prefix: '/api/follow' });
   return app.ready().then(() => app);
 }

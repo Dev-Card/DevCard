@@ -4,7 +4,6 @@ import {
   StatusBar, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Avatar from '../components/Avatar';
 import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
 import { EmptyState } from '../components/EmptyState';

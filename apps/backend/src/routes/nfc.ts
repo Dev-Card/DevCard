@@ -1,5 +1,6 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 type NfcPayloadResponse = {
   type: 'URI';
@@ -23,7 +24,7 @@ export async function nfcRoutes(app: FastifyInstance) {
         }
         try {
           await request.jwtVerify();
-        } catch (e) {
+        } catch {
           reply.status(401).send({ error: 'Unauthorized' });
         }
   });
