@@ -201,20 +201,14 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
 
-<<<<<<< HEAD
-    const storedState = request.cookies?.oauth_state;
-=======
     // ── CSRF check ──────────────────────────────────────────────────────────────
     const storedState = (request.cookies as any)?.oauth_state;
->>>>>>> 7520db3 (fix(auth): adapt token test for CSRF cookie check and direct encrypt import)
     if (!state || !storedState || state !== storedState) {
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
+    // Clear the state cookie immediately — prevents replay
     reply.clearCookie('oauth_state', { path: '/' });
-<<<<<<< HEAD
-=======
     // ────────────────────────────────────────────────────────────────────────────
->>>>>>> 7520db3 (fix(auth): adapt token test for CSRF cookie check and direct encrypt import)
 
     if (!code) {
       return reply.status(400).send({ error: 'Missing authorization code' });

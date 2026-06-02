@@ -260,6 +260,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         _count: { attendees: 42 },
+        organizer: { username: MOCK_USER_PROFILE.username, displayName: MOCK_USER_PROFILE.displayName },
       });
 
       const res = await app.inject({ method: 'GET', url: '/api/events/devcard-conf-2025' });
@@ -269,7 +270,8 @@ describe('Events API', () => {
       expect(body.slug).toBe('devcard-conf-2025');
       expect(body.attendeesCount).toBe(42);
       expect(body.location).toBe('San Francisco, CA');
-      expect(body.organizerId).toBe(MOCK_USER_ID);
+      expect(body.organizerUsername).toBe(MOCK_USER_PROFILE.username);
+      expect(body.organizerDisplayName).toBe(MOCK_USER_PROFILE.displayName);
     });
 
     it('404 — returns 404 for unknown slug', async () => {
@@ -287,6 +289,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         _count: { attendees: 0 },
+        organizer: { username: MOCK_USER_PROFILE.username, displayName: MOCK_USER_PROFILE.displayName },
       });
 
       const res = await app.inject({ method: 'GET', url: '/api/events/devcard-conf-2025' });
@@ -301,6 +304,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_PRIVATE_EVENT,
         _count: { attendees: 5 },
+        organizer: { username: MOCK_USER_PROFILE.username, displayName: MOCK_USER_PROFILE.displayName },
       });
 
       // No Authorization header — request is unauthenticated.
@@ -318,6 +322,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_PRIVATE_EVENT,
         _count: { attendees: 3 },
+        organizer: { username: MOCK_USER_PROFILE.username, displayName: MOCK_USER_PROFILE.displayName },
       });
 
       const res = await app.inject({
@@ -338,6 +343,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_PRIVATE_EVENT,
         _count: { attendees: 3 },
+        organizer: { username: MOCK_USER_PROFILE.username, displayName: MOCK_USER_PROFILE.displayName },
       });
       prismaMock.eventAttendee.findUnique.mockResolvedValue({
         userId: MOCK_OTHER_USER_ID,
@@ -358,6 +364,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_PRIVATE_EVENT,
         _count: { attendees: 3 },
+        organizer: { username: MOCK_USER_PROFILE.username, displayName: MOCK_USER_PROFILE.displayName },
       });
       // Attendee lookup finds no record for this user.
       prismaMock.eventAttendee.findUnique.mockResolvedValue(null);
@@ -378,6 +385,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         _count: { attendees: 0 },
+        organizer: { username: MOCK_USER_PROFILE.username, displayName: MOCK_USER_PROFILE.displayName },
       });
 
       const res = await app.inject({ method: 'GET', url: '/api/events/devcard-conf-2025' });
@@ -556,6 +564,7 @@ describe('Events API', () => {
     it('200 — returns paginated attendees with default page/limit', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 2 },
         attendees: [
           makeAttendeeRow(MOCK_USER_PROFILE),
           makeAttendeeRow(MOCK_OTHER_USER_PROFILE),
@@ -581,6 +590,7 @@ describe('Events API', () => {
     it('200 — respects custom page and limit query params', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_OTHER_USER_PROFILE)],
       });
 
@@ -600,7 +610,7 @@ describe('Events API', () => {
     });
 
     it('200 — caps limit at 50 even if a higher value is requested', async () => {
-      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, _count: { attendees: 0 }, attendees: [] });
 
       const res = await app.inject({
         method: 'GET',
@@ -613,7 +623,7 @@ describe('Events API', () => {
     });
 
     it('200 — treats page < 1 as page 1', async () => {
-      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, _count: { attendees: 0 }, attendees: [] });
 
       const res = await app.inject({
         method: 'GET',
@@ -626,7 +636,7 @@ describe('Events API', () => {
     });
 
     it('200 — returns empty attendees list for event with no attendees', async () => {
-      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, _count: { attendees: 0 }, attendees: [] });
 
       const res = await app.inject({
         method: 'GET',
@@ -642,6 +652,7 @@ describe('Events API', () => {
     it('200 — attendee profiles do not expose sensitive fields', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
       });
 
@@ -676,7 +687,7 @@ describe('Events API', () => {
     });
 
     it('200 — attendees are ordered by joinedAt desc (latest first)', async () => {
-      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, _count: { attendees: 0 }, attendees: [] });
 
       await app.inject({ method: 'GET', url: '/api/events/devcard-conf-2025/attendees' });
 
@@ -689,6 +700,7 @@ describe('Events API', () => {
     it('401 — unauthenticated caller cannot enumerate private event attendees', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_PRIVATE_EVENT,
+        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
       });
 
@@ -708,6 +720,7 @@ describe('Events API', () => {
       mockJwtVerify.mockResolvedValue({ id: MOCK_USER_ID }); // organizer
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_PRIVATE_EVENT,
+        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_OTHER_USER_PROFILE)],
       });
 
@@ -727,6 +740,7 @@ describe('Events API', () => {
       mockJwtVerify.mockResolvedValue({ id: MOCK_OTHER_USER_ID }); // attendee, not organizer
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_PRIVATE_EVENT,
+        _count: { attendees: 2 },
         attendees: [
           makeAttendeeRow(MOCK_USER_PROFILE),
           makeAttendeeRow(MOCK_OTHER_USER_PROFILE),
@@ -750,6 +764,7 @@ describe('Events API', () => {
       mockJwtVerify.mockResolvedValue({ id: 'stranger-user-id' });
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_PRIVATE_EVENT,
+        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
       });
       prismaMock.eventAttendee.findUnique.mockResolvedValue(null);
@@ -768,7 +783,7 @@ describe('Events API', () => {
 
     it('200 — public event attendee list remains accessible without authentication', async () => {
       mockJwtVerify.mockRejectedValue(new Error('Should not be called'));
-      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, attendees: [] });
+      prismaMock.event.findUnique.mockResolvedValue({ ...MOCK_EVENT, _count: { attendees: 0 }, attendees: [] });
 
       const res = await app.inject({
         method: 'GET',

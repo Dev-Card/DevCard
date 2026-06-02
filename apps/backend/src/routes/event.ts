@@ -344,7 +344,7 @@ export async function eventRoutes(app: FastifyInstance) {
 
     const response: PaginatedAttendeesResponse = {
       attendees,
-      pagination: { page, limit, total: event._count.attendees },
+      pagination: { page, limit, total: event._count?.attendees ?? event.attendees.length },
     };
 
     return response;
