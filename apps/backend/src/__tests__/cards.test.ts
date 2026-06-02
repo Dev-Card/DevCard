@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { cardRoutes } from '../routes/cards.js';
 
 const USER_ID = 'user-123';
@@ -51,7 +52,7 @@ function wireTransaction() {
 
 async function buildApp() {
   const app = Fastify({ logger: false });
-  app.decorate('prisma', mockPrisma);
+  app.decorate('prisma', mockPrisma as any);
   app.decorate('authenticate', async (request: any) => {
     request.user = { id: USER_ID };
   });

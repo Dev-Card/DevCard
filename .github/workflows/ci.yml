@@ -53,6 +53,9 @@ jobs:
 
       - run: pnpm install
 
+      - name: Generate Prisma client
+        run: cd apps/backend && pnpm prisma generate
+
       - name: Backend lint
         id: backend_lint
         continue-on-error: true
@@ -66,7 +69,7 @@ jobs:
       - name: Backend typecheck
         id: backend_typecheck
         continue-on-error: true
-        run: cd apps/backend && pnpm typecheck ${{ needs.detect-changes.outputs.backendFiles }}
+        run: cd apps/backend && pnpm typecheck
 
       - name: Fail backend if checks failed
         if: steps.backend_lint.outcome == 'failure' || steps.backend_test.outcome == 'failure' || steps.backend_typecheck.outcome == 'failure'

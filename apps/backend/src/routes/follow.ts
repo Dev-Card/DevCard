@@ -1,15 +1,17 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
+
 import { decrypt } from '../utils/encryption.js';
 import { getErrorMessage } from '../utils/error.util.js';
-import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 import { followLogSchema } from '../validations/follow.validation.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 export async function followRoutes(app: FastifyInstance) {
     app.addHook('preHandler', async (request, reply) => {
       const server = request.server as any;
       if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
       if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+      try { const payload = await request.jwtVerify(); if (payload) { (request as any).user = payload; } } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
     });
 
   // ─── Follow via API (Layer 1) ───
@@ -138,7 +140,7 @@ export async function followRoutes(app: FastifyInstance) {
       });
       return reply.send({ status: 'success', logId: log.id });
     } catch (error: any) {
-      app.log.error('Failed to log follow:', error);
+      app.log.error({ error }, 'Failed to log follow');
       return reply.status(500).send({ error: 'Failed to log follow event' });
     }
   });
