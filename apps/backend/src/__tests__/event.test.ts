@@ -1,7 +1,10 @@
+import Fastify from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Fastify, { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+
 import { eventRoutes } from '../routes/event.js';
+
+import type { PrismaClient } from '@prisma/client';
+import type { FastifyInstance } from 'fastify';
 
 // ── Shared mock data ──────────────────────────────────────────────────────────
 
@@ -72,7 +75,7 @@ const prismaMock = {
 //
 // Routes are registered under /api/events to match the production prefix.
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });

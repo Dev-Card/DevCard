@@ -1,5 +1,5 @@
-import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
+import Fastify from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authRoutes } from '../routes/auth.js';
