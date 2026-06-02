@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { profileRoutes } from '../routes/profiles.js';
+
 import type { PrismaClient } from '@prisma/client';
 
 const mockUser = {
@@ -20,12 +22,12 @@ const mockUser = {
   providerId: 'gh-123',
 };
 
-const mockPrisma: Pick<PrismaClient, 'user'> = {
+const mockPrisma = {
   user: {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
     update: vi.fn(),
-  } as unknown as PrismaClient['user'],
+  },
 };
 
 async function buildApp() {

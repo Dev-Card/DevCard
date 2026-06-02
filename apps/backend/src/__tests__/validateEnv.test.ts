@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+
 import { validateEnv } from '../utils/validateEnv.js';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -9,7 +10,7 @@ import { validateEnv } from '../utils/validateEnv.js';
  * Returns the spy so callers can assert the exit code.
  */
 function stubExit() {
-  return vi.spyOn(process, 'exit').mockImplementation((code?: number | string) => {
+  return vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => {
     throw new Error(`process.exit(${code})`);
   }) as unknown as ReturnType<typeof vi.spyOn>;
 }

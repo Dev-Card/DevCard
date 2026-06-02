@@ -7,7 +7,6 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import fastifyStatic from '@fastify/static';
 import Fastify, {type FastifyInstance} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
@@ -21,8 +20,8 @@ import { followRoutes } from './routes/follow.js';
 import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
-import { validateEnv } from './utils/validateEnv.js';
 import { teamRoutes } from './routes/team.js';
+import { validateEnv } from './utils/validateEnv.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -77,23 +76,21 @@ export async function buildApp():Promise<FastifyInstance> {
     timeWindow: '1 minute',
   });
 
-// Files must be served through authenticated route handlers
-// with ownership validation.
-
   // ─── Database & Cache Plugins ───
- if (process.env.NODE_ENV !== 'test') {
-  await app.register(prismaPlugin); //change 
-}
   if (process.env.NODE_ENV !== 'test') {
-  await app.register(redisPlugin);
-}
+    await app.register(prismaPlugin);
+  }
+  if (process.env.NODE_ENV !== 'test') {
+    await app.register(redisPlugin);
+  }
+
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
       // Ensure the verified payload is assigned to `request.user` like the original plugin.
       const payload = await request.jwtVerify();
-      if (payload) request.user = payload;
-    } catch (error) {
+      if (payload) { request.user = payload; }
+    } catch (_err) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
@@ -108,18 +105,17 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
   await app.register(nfcRoutes, { prefix: '/api/nfc' });
-  await app.register(eventRoutes, {prefix: '/api/events'})
-  await app.register(teamRoutes, {prefix: '/api/teams'})
-
+  await app.register(eventRoutes, { prefix: '/api/events' });
+  await app.register(teamRoutes, { prefix: '/api/teams' });
 
   // ─── Health Check ───
-type HealthResponse = {
-  status: 'ok';
-};
+  type HealthResponse = {
+    status: 'ok';
+  };
 
-app.get('/health', async (): Promise<HealthResponse> => {
-  return { status: 'ok' };
-});
+  app.get('/health', async (): Promise<HealthResponse> => {
+    return { status: 'ok' };
+  });
 
   // Centralized error handler: log and return a consistent 500 shape for unhandled errors.
   app.setErrorHandler((error, request, reply) => {
