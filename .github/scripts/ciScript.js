@@ -36,13 +36,21 @@ module.exports = async ({ github, context, core }) => {
         backendFiles.push(fileName);
 
         const relative = fileName.replace('apps/backend/src/', '');
-        const baseName = relative
-          .split('/')
-          .pop()
-          ?.replace(/\.(ts|tsx|js|jsx)$/, '');
 
-        if (baseName) {
-          backendTests.push(`src/__tests__/${baseName}.test.ts`);
+        if (relative.startsWith('__tests__/')) {
+          // Already a test file — use it directly. Without this guard the
+          // extension strip above turns logout.test.ts into logout.test and
+          // then appends .test.ts again, producing logout.test.test.ts.
+          backendTests.push(`src/${relative}`);
+        } else {
+          const baseName = relative
+            .split('/')
+            .pop()
+            ?.replace(/\.(ts|tsx|js|jsx)$/, '');
+
+          if (baseName) {
+            backendTests.push(`src/__tests__/${baseName}.test.ts`);
+          }
         }
 
       } else if (fileName.startsWith('apps/mobile/')) {
