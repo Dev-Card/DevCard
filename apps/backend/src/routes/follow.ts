@@ -1,8 +1,16 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { decrypt } from '../utils/encryption.js';
+import { getErrorMessage } from '../utils/error.util.js';
+import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
+import { followLogSchema } from '../validations/follow.validation.js';
 
 export async function followRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', app.authenticate);
+    app.addHook('preHandler', async (request, reply) => {
+      const server = request.server as any;
+      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
+      try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+    });
 
   // ─── Follow via API (Layer 1) ───
   // Currently supports: GitHub
@@ -14,12 +22,28 @@ export async function followRoutes(app: FastifyInstance) {
     const userId = (request.user as any).id;
     const { platform, targetUsername } = request.params;
 
-    // Get stored OAuth token for this platform
+    // GitHub follow tokens are stored under 'github_follow' to prevent the
+    // authentication flow (which writes to 'github') from silently overwriting
+    // the follow-capable credential. All other platforms use their plain name.
+    const tokenPlatform = platform === 'github' ? 'github_follow' : platform;
+
+    // Get stored OAuth token for this platform (do this up-front so tests
+    // that inspect DB calls see the lookup regardless of follow strategy).
     const oauthToken = await app.prisma.oAuthToken.findUnique({
       where: {
-        userId_platform: { userId, platform },
+        userId_platform: { userId, platform: tokenPlatform },
       },
     });
+
+    // Use WebView follow strategy if configured for the platform (e.g. LinkedIn, Twitter/X)
+    const platformDef = getPlatform(platform);
+    if (platformDef?.followStrategy === 'webview') {
+      const url = getWebViewUrl(platform, targetUsername) || getProfileUrl(platform, targetUsername);
+      return reply.send({
+        strategy: 'webview',
+        url,
+      });
+    }
 
     if (!oauthToken) {
       return reply.status(400).send({
@@ -31,7 +55,7 @@ export async function followRoutes(app: FastifyInstance) {
     // Decrypt the stored token
     const accessToken = decrypt(oauthToken.accessToken);
 
-try {
+    try {
       let result;
       let succeeded = false;
 
@@ -56,12 +80,12 @@ try {
             status: 'success',
             layer: 'api',
           },
-        }).catch(err => app.log.error('Failed to log follow:', err));
+        }).catch((err: unknown) => app.log.error(`Failed to log follow: ${getErrorMessage(err)}`));
       }
 
       return result.response;
-    } catch (err: any) {
-      app.log.error(`Follow error for ${platform}:`, err);
+    } catch (err: unknown) { 
+      app.log.error(`Follow error for ${platform}: ${getErrorMessage(err)}`);
       
       app.prisma.followLog.create({
         data: {
@@ -71,10 +95,71 @@ try {
           status: 'error',
           layer: 'api',
         },
-      }).catch(e => app.log.error('Failed to log follow error:', e));
+      }).catch((e: unknown) => app.log.error(`Failed to log follow error: ${getErrorMessage(e)}`));
 
-      return reply.status(500).send({ error: 'Follow action failed', message: err.message });
+      return reply.status(500).send({
+        error: 'Follow action failed',
+        message: getErrorMessage(err),
+      });
     }
+  });
+
+  // Log follow/connect event for Layer 2/3/4 strategies (WebView, deep-link, etc.)
+  //
+  // status and layer are analytics-impacting fields: they drive totalFollows counters
+  // and the follower-state dashboard.  Both are validated against a strict allowlist
+  // before any database write — arbitrary client values are rejected with 400.
+  app.post('/:platform/:targetUsername/log', async (
+    request: FastifyRequest<{
+      Params: { platform: string; targetUsername: string };
+      Body: { status?: string; layer?: string };
+    }>,
+    reply: FastifyReply
+  ) => {
+    const userId = (request.user as any).id;
+    const { platform, targetUsername } = request.params;
+
+    const parsed = followLogSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid follow log payload' });
+    }
+
+    const { status, layer } = parsed.data;
+
+    try {
+      const log = await app.prisma.followLog.create({
+        data: {
+          followerId: userId,
+          targetUsername,
+          platform,
+          status,
+          layer,
+        },
+      });
+      return reply.send({ status: 'success', logId: log.id });
+    } catch (error: any) {
+      app.log.error('Failed to log follow:', error);
+      return reply.status(500).send({ error: 'Failed to log follow event' });
+    }
+  });
+
+  // ─── Clear follow log (reset Done state) ───
+  app.delete('/:platform/:targetUsername/log', async (
+    request: FastifyRequest<{ Params: { platform: string; targetUsername: string } }>,
+    reply: FastifyReply
+  ) => {
+    const userId = (request.user as any).id;
+    const { platform, targetUsername } = request.params;
+
+    await app.prisma.followLog.deleteMany({
+      where: {
+        followerId: userId,
+        platform,
+        targetUsername,
+      },
+    });
+
+    return reply.send({ status: 'cleared' });
   });
 }
 

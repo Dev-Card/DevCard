@@ -30,9 +30,11 @@ model User {
   viewedCards   CardView[]     @relation("cardViewer")
   followLogs    FollowLog[]
   organizer     Event[]    
-  attendedEvents           EventAttendee[] 
+  attendedEvents EventAttendee[] 
 
   webhookEndpoints WebhookEndpoint[]
+  ownedTeams       Team[]          @relation("TeamOwner")
+  teamMemberships  TeamMember[]    @relation("TeamMember")
 
   @@unique([provider, providerId])
   @@map("users")
@@ -149,7 +151,29 @@ model EventAttendee {
   userId String  
   eventId String   
   joinedAt DateTime
-} 
+
+  event Event @relation(fields: [eventId] , references: [id])
+  user User @relation(fields: [userId],references: [id])
+
+  @@unique([userId, eventId])
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  url       String
+  secret    String
+  events    String[]
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("webhook_endpoints")
+}
+
 model WebhookDelivery {
   id           String    @id @default(uuid())
   endpointId   String    @map("endpoint_id")
@@ -164,11 +188,45 @@ model WebhookDelivery {
   errorMessage String?   @map("error_message")
   deliveredAt  DateTime? @map("delivered_at")
 
-  event Event @relation(fields: [eventId] , references: [id])
-  user User @relation(fields: [userId],references: [id])
-
-  @@unique([userId, eventId])
   @@index([endpointId])
   @@index([status, nextRetryAt])
   @@map("webhook_deliveries")
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Team{
+  id String @id @default(uuid())
+  name String 
+  slug String @unique
+  description String? 
+  avatarUrl String? 
+  ownerId String 
+  createdAt DateTime @default(now()) 
+  updatedAt DateTime @updatedAt
+
+  owner User @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members TeamMember[] @relation("TeamMember")
+
+  @@map("teams")
+  @@index([slug])
+}
+
+model TeamMember{
+  id String @id @default(uuid())
+  teamId String
+  userId String
+  role TeamRole
+  joinedAt DateTime 
+
+  team Team @relation("TeamMember",fields: [teamId] , references: [id], onDelete: Cascade)
+  user User @relation("TeamMember",fields: [userId] , references: [id])
+
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@map("team_members")
 }

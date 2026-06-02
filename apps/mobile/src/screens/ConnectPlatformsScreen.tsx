@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../config';
+import { get, del } from '../services/api';
+import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
 
@@ -27,15 +29,10 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigatio
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/connect/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setConnectedPlatforms(data.connectedPlatforms || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch connected platforms', err);
+      const data = await get<any>('/api/connect/status', token).catch(() => null);
+      setConnectedPlatforms(data?.connectedPlatforms || []);
+    } catch (error) {
+      console.error('Failed to fetch connected platforms', error);
     } finally {
       setLoading(false);
     }
@@ -78,15 +75,8 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigatio
           onPress: async () => {
              try {
                if (!token) return;
-               const response = await fetch(`${API_BASE_URL}/api/connect/${platform}`, {
-                 method: 'DELETE',
-                 headers: { Authorization: `Bearer ${token}` },
-               });
-               if (response.ok) {
-                 fetchConnections();
-               } else {
-                 Alert.alert('Error', 'Failed to disconnect');
-               }
+               await del(`/api/connect/${platform}`, undefined, token);
+               fetchConnections();
              } catch {
                Alert.alert('Error', 'Failed to disconnect');
              }
@@ -136,9 +126,9 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigatio
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
+      <SafeAreaView style={styles.container}>
+        <LoadingPlaceholder rows={3} />
+      </SafeAreaView>
     );
   }
 
