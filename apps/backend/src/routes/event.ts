@@ -1,5 +1,6 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createEventSchema } from '../validations/event.validation.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 // ── Response types ────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ type AccessResult = 'allowed' | 'unauthenticated' | 'forbidden';
  * Never throws — safe to call on any request regardless of auth state.
  */
 async function getRequestUserId(request: FastifyRequest): Promise<string | null> {
-  if (!request.headers.authorization) return null;
+  if (!request.headers.authorization) { return null; }
   try {
     const decoded = (await request.jwtVerify()) as { id: string };
     return decoded?.id ?? null;
@@ -71,9 +72,9 @@ async function canAccessEvent(
   event: { id: string; isPublic: boolean; organizerId: string },
   userId: string | null,
 ): Promise<AccessResult> {
-  if (event.isPublic) return 'allowed';
-  if (!userId) return 'unauthenticated';
-  if (userId === event.organizerId) return 'allowed';
+  if (event.isPublic) { return 'allowed'; }
+  if (!userId) { return 'unauthenticated'; }
+  if (userId === event.organizerId) { return 'allowed'; }
 
   const membership = await app.prisma.eventAttendee.findUnique({
     where: { userId_eventId: { userId, eventId: event.id } },
@@ -119,7 +120,7 @@ export async function eventRoutes(app: FastifyInstance) {
 
     // Derive a URL-safe slug from the event name and ensure it is unique.
     // The loop retries with a short random suffix on collision.
-    let cleanSlug = name
+    const cleanSlug = name
       .toLowerCase()
       .trim()
       .replace(/\s+/g, '-')
@@ -130,8 +131,8 @@ export async function eventRoutes(app: FastifyInstance) {
 
     while (true) {
       const existing = await app.prisma.event.findUnique({ where: { slug: finalSlug } });
-      if (!existing) break;
-      const randomSuffix = Math.random().toString(36).substring(2, 6);
+      if (!existing) { break; }
+      const randomSuffix = Math.random().toString(36).slice(2, 6);
       finalSlug = `${cleanSlug}-${randomSuffix}`;
     }
 
@@ -149,7 +150,7 @@ export async function eventRoutes(app: FastifyInstance) {
         },
       });
       return reply.status(201).send(newEvent);
-    } catch (error) {
+    } catch (_error) {
       app.log.error('Failed to create event');
       return reply.status(500).send({ error: 'Failed to create event' });
     }
