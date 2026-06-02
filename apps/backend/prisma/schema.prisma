@@ -188,7 +188,7 @@ model TeamMember{
   role TeamRole
   joinedAt DateTime 
 
-  team Team @relation("TeamMember",fields: [teamId] , references: [id])
+  team Team @relation("TeamMember",fields: [teamId] , references: [id], onDelete: Cascade)
   user User @relation("TeamMember",fields: [userId] , references: [id])
 
   @@unique([userId, teamId])
