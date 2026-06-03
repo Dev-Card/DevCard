@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { cardRoutes } from '../routes/cards.js';
+
 import type { PrismaClient } from '@prisma/client';
 
 const USER_ID = 'user-123';

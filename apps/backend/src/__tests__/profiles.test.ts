@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { profileRoutes } from '../routes/profiles.js';
+
 import type { PrismaClient } from '@prisma/client';
 
 const mockUser = {
