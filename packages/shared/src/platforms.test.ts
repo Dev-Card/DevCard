@@ -74,3 +74,38 @@ describe('getWebViewUrl / getDeepLinkUrl – stackoverflow', () => {
     expect(getDeepLinkUrl('stackoverflow', '1234/user')).toBeNull();
   });
 });
+
+// ─── validationRegex Tests ───
+
+describe('validationRegex logic', () => {
+  it('should correctly validate github usernames', () => {
+    const regex = PLATFORMS.github.validationRegex!;
+    expect(regex.test('valid-user')).toBe(true);
+    expect(regex.test('a')).toBe(true);
+    expect(regex.test('user123')).toBe(true);
+    // Invalid
+    expect(regex.test('-invalid')).toBe(false);
+    expect(regex.test('invalid-')).toBe(false);
+    expect(regex.test('in--valid')).toBe(false);
+    expect(regex.test('user name')).toBe(false);
+  });
+
+  it('should correctly validate linkedin usernames', () => {
+    const regex = PLATFORMS.linkedin.validationRegex!;
+    expect(regex.test('valid-user')).toBe(true);
+    expect(regex.test('user123')).toBe(true);
+    // Invalid
+    expect(regex.test('ab')).toBe(false); // Too short
+    expect(regex.test('user name')).toBe(false);
+  });
+
+  it('should correctly validate twitter usernames', () => {
+    const regex = PLATFORMS.twitter.validationRegex!;
+    expect(regex.test('valid_user')).toBe(true);
+    expect(regex.test('user123')).toBe(true);
+    // Invalid
+    expect(regex.test('user-name')).toBe(false); // Hyphens not allowed
+    expect(regex.test('this_is_a_very_long_name_indeed')).toBe(false); // Too long
+    expect(regex.test('user name')).toBe(false);
+  });
+});
