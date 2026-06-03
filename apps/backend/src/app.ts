@@ -12,6 +12,7 @@ import Fastify, {type FastifyInstance} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
+import { oauthRateLimitPlugin } from './plugins/oauthRateLimit.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { authRoutes } from './routes/auth.js';
 import { cardRoutes } from './routes/cards.js';
@@ -87,6 +88,9 @@ export async function buildApp():Promise<FastifyInstance> {
   if (process.env.NODE_ENV !== 'test') {
   await app.register(redisPlugin);
 }
+
+  // ─── OAuth Rate Limiting ───
+  await app.register(oauthRateLimitPlugin);
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {

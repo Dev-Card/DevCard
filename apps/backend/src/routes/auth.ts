@@ -28,7 +28,7 @@ export async function authRoutes(app: FastifyInstance) {
   }
 
   // GitHub OAuth start
-  app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/github', { preHandler: [app.oauthStartRateLimit] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
     const clientState = (request.query as any).state || '';
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
@@ -55,7 +55,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // GitHub OAuth callback
-  app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+  app.get('/github/callback', { preHandler: [app.oauthCallbackRateLimit] }, async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
     const storedState = request.cookies?.oauth_state;
     if (!state || !storedState || state !== storedState) {
@@ -151,7 +151,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Google OAuth start
-  app.get('/google', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/google', { preHandler: [app.oauthStartRateLimit] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
     const clientState = (request.query as any).state || '';
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
@@ -180,7 +180,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Google callback
-  app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+  app.get('/google/callback', { preHandler: [app.oauthCallbackRateLimit] }, async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
 
     const storedState = request.cookies?.oauth_state;
