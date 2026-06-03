@@ -10,8 +10,8 @@ async function start() {
   try {
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`🚀 DevCard API running at http://${HOST}:${PORT}`);
-  } catch (error) {
-    app.log.error(error);
+  } catch (err) {
+    app.log.error(err);
     process.exit(1);
   }
 }

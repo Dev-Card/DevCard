@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, ViewStyle, DimensionValue } from 'react-native';
+import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
 import { COLORS } from '../theme/tokens';
 
 interface SkeletonProps {
-  width?: DimensionValue;
-  height?: DimensionValue;
+  width?: number | string;
+  height?: number | string;
   borderRadius?: number;
   style?: ViewStyle;
 }

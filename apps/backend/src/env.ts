@@ -8,9 +8,8 @@ const envPath = path.resolve(__dirname, '../../../.env');
 const result = dotenv.config({ path: envPath });
 
 if (result.error) {
-  // Keep failing fast but avoid leaking via console in production code paths.
-  // This file runs before the Fastify logger is available; throw so the process exits.
-  throw result.error;
+  console.error('❌ Failed to load .env from:', envPath);
+  console.error(result.error);
 } else {
-  // .env loaded successfully
+  console.log('✅ Loaded .env from:', envPath);
 }

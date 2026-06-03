@@ -6,9 +6,6 @@
     <a href="https://github.com/Dev-Card/DevCard">
       <img src="https://img.shields.io/badge/GitHub-Dev--Card%2FDevCard-blue?logo=github&style=flat-square" alt="GitHub Repo" />
     </a>
-    <a href="https://discord.gg/QueQN83wn">
-      <img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white&style=flat-square" alt="Discord Server" />
-    </a>
   </p>
 </p>
 
@@ -72,11 +69,6 @@ docker compose up -d
 
 # Copy environment config
 cp .env.example .env
-
-# ⚠️ Replace secret placeholders before starting the server:
-# JWT_SECRET  → node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# ENCRYPTION_KEY → node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# Paste the generated values into your .env file. Never use placeholders in production.
 
 # Run database migrations
 pnpm db:migrate
@@ -277,32 +269,6 @@ New to open source? We've got you covered! Check out our [Good First Issues](htt
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions, coding standards, and PR process.
-
-## Contributors
-
-Thanks to all the amazing people who contribute to **DevCard** 🚀
-
-<p align="center">
-  <a href="https://github.com/Dev-Card/DevCard/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=Dev-Card/DevCard" alt="Contributors"/>
-  </a>
-</p>
-
-<br>
-
-## Project Support
-
-<p align="center">
-  <a href="https://github.com/Dev-Card/DevCard/stargazers">
-    <img src="https://img.shields.io/github/stars/Dev-Card/DevCard?style=social" alt="Stars">
-  </a>
-  &nbsp;&nbsp;
-  <a href="https://github.com/Dev-Card/DevCard/network/members">
-    <img src="https://img.shields.io/github/forks/Dev-Card/DevCard?style=social" alt="Forks">
-  </a>
-</p>
-
----
 
 ## License
 
