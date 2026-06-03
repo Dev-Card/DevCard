@@ -7,9 +7,9 @@
   "scripts": {
     "dev:backend": "pnpm --filter @devcard/backend dev",
     "dev:mobile": "pnpm --filter @devcard/mobile start",
-    "dev:web": "pnpm --filter @devcard/web dev",
+    "dev:web": "npm --prefix apps/web run dev",
     "build:backend": "pnpm --filter @devcard/backend build",
-    "build:web": "pnpm --filter @devcard/web build",
+    "build:web": "npm --prefix apps/web run build",
     "test": "pnpm -r test",
     "test:backend": "pnpm --filter @devcard/backend test",
     "lint": "pnpm -r lint",
@@ -18,7 +18,7 @@
     "db:studio": "pnpm --filter @devcard/backend db:studio",
     "android": "pnpm --filter @devcard/mobile android",
     "dev:android": "concurrently \"pnpm dev:mobile\" \"pnpm android\"",
-    "web": "pnpm --filter @devcard/web dev"
+    "web": "npm --prefix apps/web run dev"
   },
   "engines": {
     "node": ">=20.0.0",
