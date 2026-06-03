@@ -9,7 +9,7 @@ import { validateEnv } from '../utils/validateEnv.js';
  * that a failing validateEnv() call does not terminate the test process.
  * Returns the spy so callers can assert the exit code.
  */
-function stubExit() {
+function stubExit(): ReturnType<typeof vi.spyOn> {
   return vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => {
     throw new Error(`process.exit(${code})`);
   }) as unknown as ReturnType<typeof vi.spyOn>;

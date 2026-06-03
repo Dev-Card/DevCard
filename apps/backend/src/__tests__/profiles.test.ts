@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { profileRoutes } from '../routes/profiles.js';
@@ -30,7 +30,7 @@ const mockPrisma = {
   },
 };
 
-async function buildApp() {
+async function buildApp():Promise<FastifyInstance> {
   const app = Fastify();
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
   app.decorate('authenticate', async (request: any) => {
