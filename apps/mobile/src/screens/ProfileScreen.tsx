@@ -10,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { get, put } from '../services/api';
@@ -79,7 +78,7 @@ export default function ProfileScreen() {
             accessibilityRole="button"
             style={[styles.settingsButton, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
             onPress={() => navigation.navigate('Settings')}>
-            <Icon name="settings" size={20} color={colors.textSecondary} />
+            <Text style={[styles.settingsIcon, { color: colors.textSecondary }]}>⚙</Text>
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Profile</Text>
           <TouchableOpacity disabled={saving} onPress={handleSave} style={styles.saveButtonInline}>
@@ -171,6 +170,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgSecondary,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  settingsIcon: {
+    fontSize: 20,
+    lineHeight: 24,
   },
   headerTitle: { color: COLORS.textPrimary, fontSize: FONT_SIZE.xl, fontWeight: '800' },
   saveButtonInline: { minWidth: 38, alignItems: 'flex-end' },

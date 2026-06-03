@@ -1,212 +1,259 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
   Alert,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
-import Avatar from '../components/Avatar';
-import ColorPicker from '../components/ColorPicker';
 import { useAuth } from '../context/AuthContext';
-import { put } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
+
+const SETTINGS_KEY = 'devcard.settings';
+const ACCENT_COLORS = ['#2C2C2C', '#EF4444', '#65A30D', '#3B82F6'];
+
+type LocalSettings = {
+  discoverableViaBle: boolean;
+  inAppConnect: boolean;
+  accentColor: string;
+};
+
+const DEFAULT_SETTINGS: LocalSettings = {
+  discoverableViaBle: true,
+  inAppConnect: true,
+  accentColor: '#65A30D',
+};
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
-  const { user, token, refreshUser, logout } = useAuth();
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [bio, setBio] = useState(user?.bio || '');
-  const [pronouns, setPronouns] = useState(user?.pronouns || '');
-  const [role, setRole] = useState(user?.role || '');
-  const [company, setCompany] = useState(user?.company || '');
-  const [accentColor, setAccentColor] = useState(user?.accentColor || '#6366F1');
-  const [saving, setSaving] = useState(false);
+  const { logout } = useAuth();
+  const { colors, isDark, mode, toggleTheme } = useTheme();
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
-  const handleAvatarTap = () => {
-    // TODO: Integrate react-native-image-picker when building on device
-    // import { launchImageLibrary } from 'react-native-image-picker';
-    // const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
-    // Upload via multipart/form-data to PUT /api/profiles/me/avatar
-    Alert.alert(
-      'Change Avatar',
-      'Avatar upload requires react-native-image-picker in a dev build. Coming soon!',
-    );
+  useEffect(() => {
+    AsyncStorage.getItem(SETTINGS_KEY)
+      .then(raw => setSettings(raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS))
+      .catch(() => setSettings(DEFAULT_SETTINGS));
+  }, []);
+
+  const updateSettings = async (patch: Partial<LocalSettings>) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const payload = {
-        displayName: displayName.trim() || undefined,
-        bio: bio.trim() || null,
-        pronouns: pronouns.trim() || null,
-        role: role.trim() || null,
-        company: company.trim() || null,
-        accentColor,
-      };
-
-      await put('/api/profiles/me', payload, token);
-      await refreshUser();
-      Alert.alert('Success', 'Profile updated!');
-    } catch {
-      Alert.alert('Error', 'Something went wrong');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure?', [
+  const deleteAllData = () => {
+    Alert.alert('Delete all my data?', 'This clears local app data and signs you out.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: logout },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.clear();
+          await logout();
+        },
+      },
     ]);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Profile Settings</Text>
-
-        {/* Avatar */}
-        <TouchableOpacity style={styles.avatarSection} onPress={handleAvatarTap} activeOpacity={0.7}>
-          <Avatar uri={user?.avatarUrl} name={user?.displayName} size={80} style={styles.avatar} />
-          <Text style={styles.avatarHint}>Tap to change</Text>
-          <Text style={styles.usernameDisplay}>@{user?.username}</Text>
-        </TouchableOpacity>
-
-        {/* Accent Color */}
-        <View style={styles.colorSection}>
-          <Text style={styles.sectionSubtitle}>Card Accent Color</Text>
-          <ColorPicker selected={accentColor} onSelect={setAccentColor} />
-        </View>
-
-        {/* Form */}
-        <View style={styles.form}>
-          <FormField label="Display Name" value={displayName} onChangeText={setDisplayName} />
-          <FormField label="Bio" value={bio} onChangeText={setBio} multiline placeholder="Tell people about yourself..." />
-          <FormField label="Pronouns" value={pronouns} onChangeText={setPronouns} placeholder="e.g. they/them" />
-          <FormField label="Role" value={role} onChangeText={setRole} placeholder="e.g. Senior Engineer" />
-          <FormField label="Company" value={company} onChangeText={setCompany} placeholder="e.g. OpenSource Inc." />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={saving}>
-          <Text style={styles.saveButtonText}>
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Integration Settings */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionSubtitle}>Integrations</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPrimary} />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.headerRow}>
           <TouchableOpacity
-            style={styles.settingRow}
-            onPress={() => (navigation as any).navigate('ConnectPlatforms')}>
-            <View style={styles.settingRowLeft}>
-              <Text style={styles.settingRowIcon}>🔌</Text>
-              <Text style={styles.settingRowText}>Connected Platforms</Text>
-            </View>
-            <Text style={styles.settingRowArrow}>→</Text>
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            style={[styles.backButton, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+            onPress={() => navigation.goBack()}>
+            <Text style={[styles.backIcon, { color: colors.textSecondary }]}>‹</Text>
           </TouchableOpacity>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Settings</Text>
+          <View style={styles.headerSpacer} />
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Log Out</Text>
+        <Section title="ACCOUNT">
+          <SettingRow label="Connected Platforms" onPress={() => navigation.navigate('ConnectPlatforms')} />
+        </Section>
+
+        <Section title="PRIVACY">
+          <SettingRow
+            label="OAuth Tokens"
+            detail="View / Revoke"
+            onPress={() => Alert.alert('OAuth Tokens', 'Token management will be available here.')}
+          />
+          <SettingRow
+            label="Discoverable via BLE"
+            subtitle="Who can detect your DevCard nearby"
+            right={<Switch value={settings.discoverableViaBle} onValueChange={value => updateSettings({ discoverableViaBle: value })} />}
+          />
+          <SettingRow
+            label="In-app Connect"
+            subtitle="Enable WebView platform connections"
+            right={<Switch value={settings.inAppConnect} onValueChange={value => updateSettings({ inAppConnect: value })} />}
+          />
+        </Section>
+
+        <Section title="APPEARANCE">
+          <SettingRow
+            label="Theme"
+            detail={mode === 'dark' ? 'Dark' : 'Light'}
+            right={<Switch value={!isDark} onValueChange={toggleTheme} />}
+          />
+          <SettingRow
+            label="Accent Color"
+            right={
+              <View style={styles.swatches}>
+                {ACCENT_COLORS.map(color => (
+                  <TouchableOpacity
+                    accessibilityLabel={`Use ${color} accent color`}
+                    key={color}
+                    onPress={() => updateSettings({ accentColor: color })}
+                    style={[
+                      styles.swatch,
+                      { backgroundColor: color },
+                      settings.accentColor === color && styles.swatchActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            }
+          />
+        </Section>
+
+        <Section title="DANGER ZONE">
+          <TouchableOpacity style={styles.deleteButton} onPress={deleteAllData}>
+            <Text style={styles.deleteText}>Delete All My Data</Text>
+          </TouchableOpacity>
+        </Section>
+
+        <TouchableOpacity style={styles.signOutButton} onPress={logout}>
+          <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
 
-        {/* App Info */}
-        <View style={styles.appInfo}>
-          <Text style={styles.appInfoText}>DevCard v1.0.0</Text>
-          <Text style={styles.appInfoText}>Open Source • Apache 2.0</Text>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Self-hosting: devcard.dev/self-host</Text>
+          <Text style={styles.footerText}>Docker Compose - Apache 2.0 - community-owned</Text>
         </View>
       </ScrollView>
+
     </SafeAreaView>
   );
 }
 
-function FormField({
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+function SettingRow({
   label,
-  value,
-  onChangeText,
-  multiline = false,
-  placeholder = '',
+  detail,
+  subtitle,
+  right,
+  onPress,
 }: {
   label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  multiline?: boolean;
-  placeholder?: string;
+  detail?: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  onPress?: () => void;
 }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        style={[styles.fieldInput, multiline && styles.fieldInputMultiline]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.textMuted}
-        multiline={multiline}
-        numberOfLines={multiline ? 3 : 1}
-      />
-    </View>
+  const content = (
+    <>
+      <View style={styles.rowText}>
+        <Text style={styles.rowLabel}>{label}<Text style={styles.rowDetail}>{detail ? ` ${detail}` : ''}</Text></Text>
+        {!!subtitle && <Text style={styles.rowSubtitle}>{subtitle}</Text>}
+      </View>
+      {right || (onPress && <Icon name="chevron-right" size={20} color={COLORS.textMuted} />)}
+    </>
+  );
+
+  return onPress ? (
+    <TouchableOpacity style={styles.row} onPress={onPress}>{content}</TouchableOpacity>
+  ) : (
+    <View style={styles.row}>{content}</View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgPrimary },
-  scrollContent: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
-  title: { fontSize: FONT_SIZE.xl, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.lg },
-  avatarSection: { alignItems: 'center', marginBottom: SPACING.xl },
-  avatar: { width: 80, height: 80, borderRadius: 40 },
-  avatarHint: { fontSize: FONT_SIZE.xs, color: COLORS.primary, marginTop: SPACING.xs, fontWeight: '500' },
-  avatarPlaceholder: {
-    backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center',
+  content: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.lg,
   },
-  avatarText: { fontSize: FONT_SIZE.xxl, fontWeight: '700', color: COLORS.white },
-  usernameDisplay: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary, marginTop: SPACING.sm },
-  colorSection: { marginBottom: SPACING.lg },
-  form: { gap: SPACING.md, marginBottom: SPACING.lg },
-  field: {},
-  fieldLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginBottom: SPACING.xs, fontWeight: '500' },
-  fieldInput: {
-    backgroundColor: COLORS.bgCard, borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md, color: COLORS.textPrimary, fontSize: FONT_SIZE.md,
-    borderWidth: 1, borderColor: COLORS.border,
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
-  fieldInputMultiline: { height: 80, textAlignVertical: 'top' },
-  saveButton: {
-    backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md, alignItems: 'center', marginBottom: SPACING.md,
+  backIcon: {
+    fontSize: 30,
+    lineHeight: 34,
+    marginTop: -2,
   },
-  saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZE.md },
-  logoutButton: {
-    borderRadius: BORDER_RADIUS.md, padding: SPACING.md,
-    alignItems: 'center', borderWidth: 1, borderColor: COLORS.error,
+  headerSpacer: { width: 38, height: 38 },
+  title: { color: COLORS.textPrimary, fontSize: FONT_SIZE.xl, fontWeight: '800', textAlign: 'center' },
+  section: { marginBottom: SPACING.md },
+  sectionTitle: { color: COLORS.textMuted, fontSize: FONT_SIZE.xs, fontWeight: '700', marginBottom: SPACING.xs },
+  row: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.bgSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
-  logoutButtonText: { color: COLORS.error, fontWeight: '600', fontSize: FONT_SIZE.md },
-  sectionContainer: { marginBottom: SPACING.xl },
-  sectionSubtitle: { fontSize: FONT_SIZE.md, fontWeight: '700', color: COLORS.textSecondary, marginBottom: SPACING.sm },
-  settingRow: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.bgCard, padding: SPACING.md, borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1, borderColor: COLORS.border
+  rowText: { flex: 1 },
+  rowLabel: { color: COLORS.textPrimary, fontSize: FONT_SIZE.sm },
+  rowDetail: { color: COLORS.textMuted, fontSize: FONT_SIZE.xs },
+  rowSubtitle: { color: COLORS.textMuted, fontSize: FONT_SIZE.xs, marginTop: 2 },
+  swatches: { flexDirection: 'row', gap: 5 },
+  swatch: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: COLORS.transparent },
+  swatchActive: { borderColor: COLORS.white },
+  deleteButton: {
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
   },
-  settingRowLeft: { flexDirection: 'row', alignItems: 'center' },
-  settingRowIcon: { fontSize: 20, marginRight: SPACING.sm },
-  settingRowText: { fontSize: FONT_SIZE.md, color: COLORS.textPrimary, fontWeight: '500' },
-  settingRowArrow: { fontSize: 20, color: COLORS.textMuted },
-  appInfo: { alignItems: 'center', marginTop: SPACING.xl, gap: 4 },
-  appInfoText: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted },
+  deleteText: { color: COLORS.error, fontSize: FONT_SIZE.sm },
+  signOutButton: {
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.bgSecondary,
+  },
+  signOutText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm },
+  footer: { alignItems: 'center', marginTop: SPACING.md },
+  footerText: { color: COLORS.textMuted, fontSize: FONT_SIZE.xs },
 });

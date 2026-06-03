@@ -1,23 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  Alert,
+  Linking,
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Share,
   StatusBar,
   RefreshControl,
-  TextInput,
 } from 'react-native';
 import { Skeleton } from '../components/Skeleton';
-import Avatar from '../components/Avatar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
-import { PLATFORMS } from '@devcard/shared';
-import { APP_URL } from '../config';
+import { useTheme } from '../context/ThemeContext';
 import { get } from '../services/api';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
@@ -26,41 +24,18 @@ type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList>;
 };
 
-interface PlatformLink {
-  id: string;
-  platform: string;
-  username: string;
-  url: string;
-  displayOrder: number;
-}
-
 export default function HomeScreen({ navigation }: Props) {
-  const { user, token } = useAuth();
-  const [links, setLinks] = useState<PlatformLink[]>([]);
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [showQR, setShowQR] = useState(false);
+  const { token } = useAuth();
+  const { colors, isDark } = useTheme();
+  const themed = React.useMemo(() => createThemedStyles(colors), [colors]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [searchUsername, setSearchUsername] = useState('');
-
-  const profileUrl = user?.defaultCardId 
-    ? `${APP_URL}/devcard/${user.defaultCardId}`
-    : `${APP_URL}/u/${user?.username}`;
+  const repoUrl = 'https://github.com/Dev-Card/DevCard';
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [profileData, analyticsData] = await Promise.all([
-        get<any>('/api/profiles/me', token).catch(() => null),
-        get<any>('/api/analytics/overview', token).catch(() => null),
-      ]);
-
-      if (profileData) {
-        setLinks(profileData.platformLinks || []);
-      }
-      if (analyticsData) {
-        setAnalytics(analyticsData);
-      }
+      await get<any>('/api/profiles/me', token).catch(() => null);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -78,22 +53,22 @@ export default function HomeScreen({ navigation }: Props) {
     setRefreshing(false);
   };
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: `Check out my DevCard: ${profileUrl}`,
-        url: profileUrl,
-      });
-    } catch (error) {
-      console.error('Share failed:', error);
-    }
+  const openRepo = (title: string) => {
+    Alert.alert(
+      'Open card link?',
+      `Open ${title} in your browser?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open', onPress: () => Linking.openURL(repoUrl) },
+      ],
+    );
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
-        <View style={styles.loadingRoot}>
+      <SafeAreaView style={themed.container}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPrimary} />
+        <View style={themed.loadingRoot}>
           <Skeleton width={140} height={28} borderRadius={12} />
           <Skeleton width="75%" height={20} borderRadius={12} style={styles.loadingSpacer} />
           <Skeleton width="100%" height={180} borderRadius={24} style={styles.loadingSection} />
@@ -105,8 +80,8 @@ export default function HomeScreen({ navigation }: Props) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
+    <SafeAreaView style={themed.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPrimary} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -114,192 +89,50 @@ export default function HomeScreen({ navigation }: Props) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.greeting}>Hello,</Text>
-          <Text style={styles.displayName}>{user?.displayName || 'Developer'} 👋</Text>
-        </View>
+        <Text style={themed.pageTitle}>Dashboard</Text>
 
-        {/* Profile Card Preview */}
-        <View style={styles.profileCard}>
-          <View style={styles.profileHeader}>
-            <Avatar uri={user?.avatarUrl} name={user?.displayName} size={56} style={styles.avatar} />
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user?.displayName}</Text>
-              {user?.pronouns && (
-                <Text style={styles.pronouns}>{user.pronouns}</Text>
-              )}
-              {user?.role && (
-                <Text style={styles.profileRole}>
-                  {user.role}
-                  {user.company ? ` @ ${user.company}` : ''}
-                </Text>
-              )}
+        <TouchableOpacity style={[themed.homeCard, themed.activeHomeCard]} activeOpacity={0.85} onPress={() => openRepo('Current Active Card')}>
+          <View style={styles.cardTopRow}>
+            <Text style={themed.cardEyebrow}>CURRENT ACTIVE CARD</Text>
+            <Text style={themed.openHint}>Open →</Text>
+          </View>
+          <View style={styles.cardContentRow}>
+            <View style={styles.cardCopy}>
+              <Text style={themed.cardTitle}>DevCard Repository</Text>
+              <Text style={themed.cardSubtitle}>{repoUrl}</Text>
+            </View>
+            <View style={themed.qrBox}>
+              <QRCode value={repoUrl} size={72} color={colors.textPrimary} backgroundColor={colors.bgCard} />
             </View>
           </View>
-
-          {user?.bio && <Text style={styles.bio}>{user.bio}</Text>}
-
-          {/* Platform Links Summary */}
-          <View style={styles.linksSummary}>
-            {links.length > 0 ? (
-              <>
-                {links.slice(0, 4).map(link => {
-                  const platform = PLATFORMS[link.platform];
-                  return (
-                    <View key={link.id} style={styles.linkBadge}>
-                      <Text style={styles.linkBadgeText}>
-                        {platform?.name || link.platform}
-                      </Text>
-                    </View>
-                  );
-                })}
-                {links.length > 4 && (
-                  <View style={styles.linkBadge}>
-                    <Text style={styles.linkBadgeText}>+{links.length - 4}</Text>
-                  </View>
-                )}
-              </>
-            ) : (
-              <Text style={styles.emptyHint}>No platform links added yet. Add links in the Links tab to populate your preview.</Text>
-            )}
-          </View>
-        </View>
-
-        {/* QR Code Section */}
-        <TouchableOpacity
-          style={styles.qrSection}
-          onPress={() => setShowQR(!showQR)}
-          activeOpacity={0.85}>
-          {showQR ? (
-            <View style={styles.qrContainer}>
-              <QRCode
-                value={profileUrl}
-                size={200}
-                color={COLORS.textPrimary}
-                backgroundColor={COLORS.bgCard}
-              />
-              <Text style={styles.qrHint}>Scan to open your DevCard</Text>
-            </View>
-          ) : (
-            <View style={styles.qrToggle}>
-              <Text style={styles.qrToggleEmoji}>📱</Text>
-              <Text style={styles.qrToggleText}>Tap to show QR code</Text>
-            </View>
-          )}
         </TouchableOpacity>
 
-        {/* Action Buttons */}
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleShare}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>📤</Text>
-            <Text style={styles.actionText}>Share</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => (navigation as any).navigate('Views')}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>📈</Text>
-            <Text style={styles.actionText}>Stats</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => (navigation as any).navigate('DevCardView', { username: user?.username || '' })}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>👁️</Text>
-            <Text style={styles.actionText}>Preview</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => (navigation as any).navigate('Links')}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>🔗</Text>
-            <Text style={styles.actionText}>Links</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => (navigation as any).navigate('Events')}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>🎪</Text>
-            <Text style={styles.actionText}>Events</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => (navigation as any).navigate('Teams')}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>👥</Text>
-            <Text style={styles.actionText}>Teams</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => (navigation as any).navigate('Nfc')}
-            activeOpacity={0.85}>
-            <Text style={styles.actionEmoji}>📳</Text>
-            <Text style={styles.actionText}>NFC</Text>
-          </TouchableOpacity>
-          <View style={[styles.actionButton, { opacity: 0 }]} />
-        </View>
-
-        {/* Search / Lookup */}
-        <View style={styles.searchSection}>
-          <Text style={styles.searchLabel}>🔍 View a DevCard</Text>
-          <View style={styles.searchRow}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Enter username..."
-              placeholderTextColor={COLORS.textMuted}
-              value={searchUsername}
-              onChangeText={setSearchUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="go"
-              onSubmitEditing={() => {
-                const u = searchUsername.trim();
-                if (u) (navigation as any).navigate('DevCardView', { username: u });
-              }}
-            />
-            <TouchableOpacity
-              style={styles.searchBtn}
-              onPress={() => {
-                const u = searchUsername.trim();
-                if (u) (navigation as any).navigate('DevCardView', { username: u });
-              }}
-            >
-              <Text style={styles.searchBtnText}>Go →</Text>
-            </TouchableOpacity>
+        <TouchableOpacity style={themed.homeCard} activeOpacity={0.85} onPress={() => openRepo('Main repo saved card')}>
+          <View style={styles.cardTopRow}>
+            <Text style={themed.cardEyebrow}>SAVED CARD</Text>
+            <Text style={themed.openHint}>Open →</Text>
           </View>
-        </View>
+          <View style={styles.cardContentRow}>
+            <View style={styles.cardCopy}>
+              <Text style={themed.cardTitle}>main repo</Text>
+              <Text style={themed.cardSubtitle}>{repoUrl}</Text>
+            </View>
+            <View style={themed.qrBox}>
+              <QRCode value={repoUrl} size={72} color={colors.textPrimary} backgroundColor={colors.bgCard} />
+            </View>
+          </View>
+        </TouchableOpacity>
 
-        {/* Stats */}
-        <View style={styles.stats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{links.length}</Text>
-            <Text style={styles.statLabel}>Links</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{analytics?.totalViews || 0}</Text>
-            <Text style={styles.statLabel}>Views</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{analytics?.followsCount || 0}</Text>
-            <Text style={styles.statLabel}>Follows</Text>
-          </View>
+        <View style={themed.quickActions}>
+          <TouchableOpacity style={themed.quickButton} onPress={() => (navigation as any).navigate('Cards')}>
+            <Text style={themed.quickButtonText}>Manage Cards</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={themed.quickButton} onPress={() => (navigation as any).navigate('Contacts')}>
+            <Text style={themed.quickButtonText}>Saved Cards</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -425,4 +258,165 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   searchBtnText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZE.md },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  cardContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  cardCopy: {
+    flex: 1,
+  },
 });
+
+function createThemedStyles(colors: typeof COLORS) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bgPrimary },
+    loadingRoot: {
+      flex: 1,
+      padding: SPACING.lg,
+      backgroundColor: colors.bgPrimary,
+    },
+    pageTitle: {
+      color: colors.textPrimary,
+      fontSize: FONT_SIZE.xxl,
+      fontWeight: '800',
+      marginBottom: SPACING.lg,
+    },
+    homeCard: {
+      backgroundColor: colors.bgCard,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.lg,
+      marginBottom: SPACING.md,
+    },
+    activeHomeCard: {
+      backgroundColor: colors.bgElevated,
+      borderColor: colors.primary,
+    },
+    cardEyebrow: {
+      color: colors.primaryLight,
+      fontSize: FONT_SIZE.xs,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+    },
+    openHint: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.sm,
+      fontWeight: '600',
+    },
+    cardTitle: {
+      color: colors.textPrimary,
+      fontSize: FONT_SIZE.xl,
+      fontWeight: '800',
+      marginBottom: SPACING.xs,
+    },
+    cardSubtitle: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.sm,
+      lineHeight: 20,
+    },
+    qrBox: {
+      width: 88,
+      height: 88,
+      borderRadius: BORDER_RADIUS.md,
+      backgroundColor: colors.bgCard,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quickActions: {
+      flexDirection: 'row',
+      gap: SPACING.sm,
+      marginTop: SPACING.sm,
+    },
+    quickButton: {
+      flex: 1,
+      backgroundColor: colors.bgCard,
+      borderRadius: BORDER_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: SPACING.md,
+      alignItems: 'center',
+    },
+    quickButtonText: {
+      color: colors.textPrimary,
+      fontSize: FONT_SIZE.sm,
+      fontWeight: '700',
+    },
+    greeting: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
+    displayName: { fontSize: FONT_SIZE.xxl, fontWeight: '800', color: colors.textPrimary },
+    qrSection: {
+      backgroundColor: colors.bgCard,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      marginBottom: SPACING.lg,
+    },
+    qrHint: { fontSize: FONT_SIZE.sm, color: colors.textMuted },
+    qrToggleText: { fontSize: FONT_SIZE.md, color: colors.textSecondary, fontWeight: '500' },
+    actionButton: {
+      flex: 1,
+      backgroundColor: colors.bgCard,
+      borderRadius: BORDER_RADIUS.md,
+      padding: SPACING.sm,
+      paddingVertical: SPACING.md,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    actionText: { fontSize: FONT_SIZE.sm, color: colors.textPrimary, fontWeight: '600' },
+    searchLabel: {
+      fontSize: FONT_SIZE.sm,
+      fontWeight: '700',
+      color: colors.textSecondary,
+      marginBottom: SPACING.sm,
+      letterSpacing: 0.3,
+    },
+    searchInput: {
+      flex: 1,
+      backgroundColor: colors.bgCard,
+      borderRadius: BORDER_RADIUS.md,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: 12,
+      color: colors.textPrimary,
+      fontSize: FONT_SIZE.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    searchBtn: {
+      backgroundColor: colors.primary,
+      borderRadius: BORDER_RADIUS.md,
+      paddingHorizontal: SPACING.lg,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    lookupCard: {
+      backgroundColor: colors.bgCard,
+      borderRadius: BORDER_RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.lg,
+    },
+    stats: {
+      flexDirection: 'row',
+      backgroundColor: colors.bgCard,
+      borderRadius: BORDER_RADIUS.md,
+      padding: SPACING.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    statNumber: { fontSize: FONT_SIZE.xl, fontWeight: '800', color: colors.primary },
+    statLabel: { fontSize: FONT_SIZE.xs, color: colors.textMuted, marginTop: 4 },
+    statDivider: { width: 1, backgroundColor: colors.border },
+  });
+}
