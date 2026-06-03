@@ -1,3 +1,18 @@
+const isTestFile = (file) => /\.(test|spec)\.[jt]sx?$/.test(file);
+
+const deriveTestFiles = (files) => {
+  return files.map((file) => {
+    if (isTestFile(file)) return file;
+
+    const withoutExt = file.replace(/\.[jt]sx?$/, '');
+    const parts = withoutExt.split('/');
+    const baseName = parts[parts.length - 1];
+    const dir = parts.slice(0, -1).join('/');
+
+    return `${dir}/__tests__/${baseName}.test.ts`;
+  });
+};
+
 module.exports = async ({ github, context, core }) => {
   const owner = context.repo.owner;
   const repo = context.repo.repo;
@@ -40,36 +55,19 @@ module.exports = async ({ github, context, core }) => {
       }
     });
 
-  console.log({
-    backendFiles,
-    mobileFiles,
-    webFiles
-  });
+    const strippedBackend = backendFiles.map(f => f.replace('apps/backend/', ''));
+    const strippedMobile  = mobileFiles.map(f => f.replace('apps/mobile/', ''));
 
-  core.setOutput(
-    "backendFiles",
-    backendFiles
-      .map(file => file.replace("apps/backend/", ""))
-      .join(" ")
-  )
+    console.log({ backendFiles, mobileFiles, webFiles });
 
-  core.setOutput(
-    "mobileFiles",
-    mobileFiles
-      .map(file => file.replace("apps/mobile/", ""))
-      .join(" ")
-  )
-
-  core.setOutput(
-    "webFiles",
-    webFiles
-      .map(file => file.replace("apps/web/", ""))
-      .join(" ")
-  )
-
-  core.setOutput("backendChanged", backendFiles.length > 0)
-  core.setOutput("mobileChanged", mobileFiles.length > 0)
-  core.setOutput("webChanged", webFiles.length > 0)
+    core.setOutput('backendFiles',     strippedBackend.join(' '));
+    core.setOutput('mobileFiles',      strippedMobile.join(' '));
+    core.setOutput('webFiles',         webFiles.map(f => f.replace('apps/web/', '')).join(' '));
+    core.setOutput('backendTestFiles', deriveTestFiles(strippedBackend).join(' '));
+    core.setOutput('mobileTestFiles',  deriveTestFiles(strippedMobile).join(' '));
+    core.setOutput('backendChanged',   backendFiles.length > 0);
+    core.setOutput('mobileChanged',    mobileFiles.length > 0);
+    core.setOutput('webChanged',       webFiles.length > 0);
 
   } catch (error) {
     console.error(error);
