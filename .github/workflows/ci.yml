@@ -12,16 +12,20 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      backendChanged: ${{ steps.detect.outputs.backendChanged }}
-      mobileChanged: ${{ steps.detect.outputs.mobileChanged }}
-      webChanged: ${{ steps.detect.outputs.webChanged }}
-      backendFiles: ${{ steps.detect.outputs.backendFiles }}
-      mobileFiles: ${{ steps.detect.outputs.mobileFiles }}
-      webFiles: ${{ steps.detect.outputs.webFiles }}
-      backendTests: ${{ steps.detect.outputs.backendTests }}
+      backendChanged:   ${{ steps.detect.outputs.backendChanged }}
+      mobileChanged:    ${{ steps.detect.outputs.mobileChanged }}
+      webChanged:       ${{ steps.detect.outputs.webChanged }}
+      backendFiles:     ${{ steps.detect.outputs.backendFiles }}
+      mobileFiles:      ${{ steps.detect.outputs.mobileFiles }}
+      webFiles:         ${{ steps.detect.outputs.webFiles }}
+      backendTestFiles: ${{ steps.detect.outputs.backendTestFiles }}  
+      mobileTestFiles:  ${{ steps.detect.outputs.mobileTestFiles }}  
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha }} 
+                                                       
 
       - name: Detect changed files
         id: detect
@@ -37,13 +41,15 @@ jobs:
     if: needs.detect-changes.outputs.backendChanged == 'true'
     runs-on: ubuntu-latest
 
-    outputs:
-      backend_lint: ${{ steps.backend_lint.outcome }}
-      backend_test: ${{ steps.backend_test.outcome }}
-      backend_typecheck: ${{ steps.backend_typecheck.outcome }}
+    outputs:                                            
+      lint_result:      ${{ steps.backend_lint.outcome }}
+      test_result:      ${{ steps.backend_test.outcome }}
+      typecheck_result: ${{ steps.backend_typecheck.outcome }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
@@ -55,21 +61,25 @@ jobs:
 
       - name: Backend lint
         id: backend_lint
-        continue-on-error: true
+        continue-on-error: true                         
         run: cd apps/backend && pnpm eslint ${{ needs.detect-changes.outputs.backendFiles }}
 
       - name: Backend test
         id: backend_test
+        if: needs.detect-changes.outputs.backendTestFiles != ''  
         continue-on-error: true
-        run: cd apps/backend && pnpm test ${{ needs.detect-changes.outputs.backendTests }}
+        run: cd apps/backend && pnpm test --passWithNoTests ${{ needs.detect-changes.outputs.backendTestFiles }}
 
       - name: Backend typecheck
         id: backend_typecheck
         continue-on-error: true
-        run: cd apps/backend && pnpm typecheck ${{ needs.detect-changes.outputs.backendFiles }}
+        run: cd apps/backend && pnpm typecheck 
 
-      - name: Fail backend if checks failed
-        if: steps.backend_lint.outcome == 'failure' || steps.backend_test.outcome == 'failure' || steps.backend_typecheck.outcome == 'failure'
+      - name: Fail job if any check failed
+        if: >
+          steps.backend_lint.outcome      == 'failure' ||
+          steps.backend_test.outcome      == 'failure' ||
+          steps.backend_typecheck.outcome == 'failure'
         run: exit 1
 
   web-ci:
@@ -78,11 +88,13 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      web_check: ${{ steps.web_check.outcome }}
-      web_build: ${{ steps.web_build.outcome }}
+      check_result: ${{ steps.web_check.outcome }}
+      build_result: ${{ steps.web_build.outcome }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
@@ -102,8 +114,10 @@ jobs:
         continue-on-error: true
         run: cd apps/web && pnpm build
 
-      - name: Fail web if checks failed
-        if: steps.web_check.outcome == 'failure' || steps.web_build.outcome == 'failure'
+      - name: Fail job if any check failed
+        if: >
+          steps.web_check.outcome == 'failure' ||
+          steps.web_build.outcome == 'failure'
         run: exit 1
 
   mobile-ci:
@@ -112,11 +126,13 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      mobile_lint: ${{ steps.mobile_lint.outcome }}
-      mobile_test: ${{ steps.mobile_test.outcome }}
+      lint_result: ${{ steps.mobile_lint.outcome }}
+      test_result: ${{ steps.mobile_test.outcome }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
@@ -133,11 +149,14 @@ jobs:
 
       - name: Mobile test
         id: mobile_test
+        if: needs.detect-changes.outputs.mobileTestFiles != ''
         continue-on-error: true
-        run: cd apps/mobile && pnpm test
+        run: cd apps/mobile && pnpm test --passWithNoTests ${{ needs.detect-changes.outputs.mobileTestFiles }}
 
-      - name: Fail mobile if checks failed
-        if: steps.mobile_lint.outcome == 'failure' || steps.mobile_test.outcome == 'failure'
+      - name: Fail job if any check failed
+        if: >
+          steps.mobile_lint.outcome == 'failure' ||
+          steps.mobile_test.outcome == 'failure'
         run: exit 1
 
   comment-results:
@@ -157,22 +176,17 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const script = require('./.github/scripts/commentResults.js');
-
             await script({
               github,
               context,
-
-              backend: '${{ needs.backend-ci.result }}',
-              web: '${{ needs.web-ci.result }}',
-              mobile: '${{ needs.mobile-ci.result }}',
-
-              backendLint: '${{ needs.backend-ci.outputs.backend_lint }}',
-              backendTest: '${{ needs.backend-ci.outputs.backend_test }}',
-              backendTypecheck: '${{ needs.backend-ci.outputs.backend_typecheck }}',
-
-              mobileLint: '${{ needs.mobile-ci.outputs.mobile_lint }}',
-              mobileTest: '${{ needs.mobile-ci.outputs.mobile_test }}',
-
-              webCheck: '${{ needs.web-ci.outputs.web_check }}',
-              webBuild: '${{ needs.web-ci.outputs.web_build }}'
-            });   
+              backend:          '${{ needs.backend-ci.result }}',
+              web:              '${{ needs.web-ci.result }}',
+              mobile:           '${{ needs.mobile-ci.result }}',
+              backendLint:      '${{ needs.backend-ci.outputs.lint_result }}',      
+              backendTest:      '${{ needs.backend-ci.outputs.test_result }}',
+              backendTypecheck: '${{ needs.backend-ci.outputs.typecheck_result }}',
+              webCheck:         '${{ needs.web-ci.outputs.check_result }}',
+              webBuild:         '${{ needs.web-ci.outputs.build_result }}',
+              mobileLint:       '${{ needs.mobile-ci.outputs.lint_result }}',
+              mobileTest:       '${{ needs.mobile-ci.outputs.test_result }}',
+            });

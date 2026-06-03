@@ -1,3 +1,18 @@
+const isTestFile = (file) => /\.(test|spec)\.[jt]sx?$/.test(file);
+
+const deriveTestFiles = (files) => {
+  return files.map((file) => {
+    if (isTestFile(file)) return file;
+
+    const withoutExt = file.replace(/\.[jt]sx?$/, '');
+    const parts = withoutExt.split('/');
+    const baseName = parts[parts.length - 1];
+    const dir = parts.slice(0, -1).join('/');
+
+    return `${dir}/__tests__/${baseName}.test.ts`;
+  });
+};
+
 module.exports = async ({ github, context, core }) => {
   const owner = context.repo.owner;
   const repo = context.repo.repo;
@@ -6,7 +21,6 @@ module.exports = async ({ github, context, core }) => {
   const prState = pr.state;
 
   const backendFiles = [];
-  const backendTests = [];
   const mobileFiles = [];
   const webFiles = [];
 
@@ -34,17 +48,6 @@ module.exports = async ({ github, context, core }) => {
 
       if (fileName.startsWith('apps/backend/')) {
         backendFiles.push(fileName);
-
-        const relative = fileName.replace('apps/backend/src/', '');
-        const baseName = relative
-          .split('/')
-          .pop()
-          ?.replace(/\.(ts|tsx|js|jsx)$/, '');
-
-        if (baseName) {
-          backendTests.push(`src/__tests__/${baseName}.test.ts`);
-        }
-
       } else if (fileName.startsWith('apps/mobile/')) {
         mobileFiles.push(fileName);
       } else if (fileName.startsWith('apps/web/')) {
@@ -52,42 +55,19 @@ module.exports = async ({ github, context, core }) => {
       }
     });
 
-    console.log({
-      backendFiles,
-      backendTests,
-      mobileFiles,
-      webFiles, 
-    });
+    const strippedBackend = backendFiles.map(f => f.replace('apps/backend/', ''));
+    const strippedMobile  = mobileFiles.map(f => f.replace('apps/mobile/', ''));
 
-    core.setOutput(
-      "backendFiles",
-      backendFiles
-        .map(file => file.replace("apps/backend/", ""))
-        .join(" ")
-    );
+    console.log({ backendFiles, mobileFiles, webFiles });
 
-    core.setOutput(
-      "backendTests",
-      [...new Set(backendTests)].join(" ")
-    );
-
-    core.setOutput(
-      "mobileFiles",
-      mobileFiles
-        .map(file => file.replace("apps/mobile/", ""))
-        .join(" ")
-    );
-
-    core.setOutput(
-      "webFiles",
-      webFiles
-        .map(file => file.replace("apps/web/", ""))
-        .join(" ")
-    );
-
-    core.setOutput("backendChanged", backendFiles.length > 0);
-    core.setOutput("mobileChanged", mobileFiles.length > 0);
-    core.setOutput("webChanged", webFiles.length > 0);
+    core.setOutput('backendFiles',     strippedBackend.join(' '));
+    core.setOutput('mobileFiles',      strippedMobile.join(' '));
+    core.setOutput('webFiles',         webFiles.map(f => f.replace('apps/web/', '')).join(' '));
+    core.setOutput('backendTestFiles', deriveTestFiles(strippedBackend).join(' '));
+    core.setOutput('mobileTestFiles',  deriveTestFiles(strippedMobile).join(' '));
+    core.setOutput('backendChanged',   backendFiles.length > 0);
+    core.setOutput('mobileChanged',    mobileFiles.length > 0);
+    core.setOutput('webChanged',       webFiles.length > 0);
 
   } catch (error) {
     console.error(error);
