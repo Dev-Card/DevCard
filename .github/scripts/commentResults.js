@@ -10,61 +10,60 @@ module.exports = async ({
   mobileLint,
   mobileTest,
   webCheck,
-  webBuild
+  webBuild,
+  backendLintOutput,
+  mobileLintOutput,
 }) => {
   const owner = context.repo.owner;
   const repo = context.repo.repo;
   const prNumber = context.payload.pull_request.number;
 
-  const emoji = (status) => {
-    if (status === 'success') return '✅';
-    if (status === 'failure') return '❌';
-    if (status === 'skipped') return '⏭️';
-    return '⚪';
+  const status = (s) => {
+    if (s === 'success') return 'PASS';
+    if (s === 'failure') return 'FAIL';
+    if (s === 'skipped') return 'SKIP';
+    return '-';
   };
 
-  const label = (status) => {
-    if (!status) return '⚪ unknown';
-    return `${emoji(status)} ${status}`;
+  const lintDetails = (output) => {
+    if (!output || !output.trim()) return '';
+    return `\n<details>\n<summary>View lint errors</summary>\n\n\`\`\`\n${output.trim()}\n\`\`\`\n</details>`;
   };
 
-  const anyFailure = [
-    backend,
-    mobile,
-    web
-  ].includes('failure');
-
-  const title = anyFailure
-    ? '❌ Some checks failed'
-    : '✅ CI completed';
-
+  const anyFailure = [backend, mobile, web].includes('failure');
+  const title = anyFailure ? 'CI — Checks Failed' : 'CI — All Checks Passed';
   const timestamp = new Date().toUTCString();
 
-  const body = `## CI Results — ${title}
+  const body = `## ${title}
 
-### 🖥️ Backend (${label(backend)})
-| Check | Status |
-|---|---|
-| Lint | ${label(backendLint)} |
-| Test | ${label(backendTest)} |
-| Typecheck | ${label(backendTypecheck)} |
+### Backend — ${status(backend)}
 
-### 📱 Mobile (${label(mobile)})
-| Check | Status |
+| Check | Result |
 |---|---|
-| Lint | ${label(mobileLint)} |
-| Test | ${label(mobileTest)} |
+| Lint | ${status(backendLint)} |
+| Test | ${status(backendTest)} |
+| Typecheck | ${status(backendTypecheck)} |
+${backendLint === 'failure' ? lintDetails(backendLintOutput) : ''}
 
-### 🌐 Web (${label(web)})
-| Check | Status |
+### Mobile — ${status(mobile)}
+
+| Check | Result |
 |---|---|
-| Check | ${label(webCheck)} |
-| Build | ${label(webBuild)} |
+| Lint | ${status(mobileLint)} |
+| Test | ${status(mobileTest)} |
+${mobileLint === 'failure' ? lintDetails(mobileLintOutput) : ''}
+
+### Web — ${status(web)}
+
+| Check | Result |
+|---|---|
+| Check | ${status(webCheck)} |
+| Build | ${status(webBuild)} |
 
 ---
-🕐 Last updated: \`${timestamp}\``;
+Last updated: \`${timestamp}\``;
 
-  const COMMENT_MARKER = '## CI Results —';
+  const COMMENT_MARKER = '## CI —';
 
   try {
     const comments = await github.paginate(
