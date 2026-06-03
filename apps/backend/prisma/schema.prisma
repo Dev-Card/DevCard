@@ -65,7 +65,7 @@ model RefreshToken {
   revokedAt DateTime? @map("revoked_at")         // null = still valid
   createdAt DateTime  @default(now()) @map("created_at")
   userAgent String?   @map("user_agent")          
-  ip        String?
+  ip        String?   //hash
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
