@@ -16,9 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORMS } from '@devcard/shared';
-import { get, post, del, put } from '../services/api';
-import { EmptyState } from '../components/EmptyState';
-import { Skeleton } from '../components/Skeleton';
+import { API_BASE_URL } from '../config';
 
 interface PlatformLink {
   id: string;
@@ -41,22 +39,26 @@ export default function CardsScreen() {
   const [newTitle, setNewTitle] = useState('');
   const [selectedLinkIds, setSelectedLinkIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async (showLoading = true) => {
-    if (showLoading) setLoading(true);
+  const fetchData = useCallback(async () => {
     try {
-      const [cardsData, profileData] = await Promise.all([
-        get<Card[]>('/api/cards', token).catch(() => []),
-        get<any>('/api/profiles/me', token).catch(() => null),
+      const [cardsRes, profileRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/cards`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/api/profiles/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
-      setCards(cardsData || []);
-      setAllLinks(profileData?.platformLinks || []);
-    } catch (error) {
-      console.error('Failed to fetch:', error);
+      if (cardsRes.ok) setCards(await cardsRes.json());
+      if (profileRes.ok) {
+        const data = await profileRes.json();
+        setAllLinks(data.platformLinks || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch:', err);
     } finally {
       setRefreshing(false);
-      if (showLoading) setLoading(false);
     }
   }, [token]);
 
@@ -68,7 +70,7 @@ export default function CardsScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchData(false);
+    fetchData();
   };
 
   const createCard = async () => {
@@ -77,12 +79,21 @@ export default function CardsScreen() {
       return;
     }
     try {
-      await post('/api/cards', { title: newTitle.trim(), linkIds: selectedLinkIds }, token);
-      setShowCreate(false);
-      setNewTitle('');
-      setSelectedLinkIds([]);
-      fetchData();
-    } catch {
+      const res = await fetch(`${API_BASE_URL}/api/cards`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: newTitle.trim(), linkIds: selectedLinkIds }),
+      });
+      if (res.ok) {
+        setShowCreate(false);
+        setNewTitle('');
+        setSelectedLinkIds([]);
+        fetchData();
+      }
+    } catch (err) {
       Alert.alert('Error', 'Failed to create card');
     }
   };
@@ -94,11 +105,10 @@ export default function CardsScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          try {
-            await del(`/api/cards/${id}`, undefined, token);
-          } catch {
-            // ignore
-          }
+          await fetch(`${API_BASE_URL}/api/cards/${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
           fetchData();
         },
       },
@@ -106,11 +116,10 @@ export default function CardsScreen() {
   };
 
   const setDefault = async (id: string) => {
-    try {
-      await put(`/api/cards/${id}/default`, undefined, token);
-    } catch {
-      // ignore
-    }
+    await fetch(`${API_BASE_URL}/api/cards/${id}/default`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+    });
     fetchData();
   };
 
@@ -121,29 +130,6 @@ export default function CardsScreen() {
         : [...prev, linkId]
     );
   };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
-        <View style={styles.header}>        
-          <Skeleton width={180} height={34} borderRadius={12} />
-          <Skeleton width={100} height={36} borderRadius={18} />
-        </View>
-        <View style={styles.loadingList}>
-          {[1, 2].map((item) => (
-            <View key={item} style={styles.loadingCard}>
-              <Skeleton width="100%" height={180} borderRadius={20} />
-              <View style={styles.loadingActionRow}>
-                <Skeleton width={120} height={36} borderRadius={16} />
-                <Skeleton width={80} height={30} borderRadius={16} />
-              </View>
-            </View>
-          ))}
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -225,11 +211,11 @@ export default function CardsScreen() {
           </View>
         )}
         ListEmptyComponent={
-          <EmptyState
-            emoji="💳"
-            title="No cards yet"
-            description="Create context cards for different situations"
-          />
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>💳</Text>
+            <Text style={styles.emptyText}>No cards yet</Text>
+            <Text style={styles.emptySubtext}>Create context cards for different situations</Text>
+          </View>
         }
       />
 
@@ -297,19 +283,6 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: SPACING.md },
   emptyText: { fontSize: FONT_SIZE.lg, fontWeight: '600', color: COLORS.textPrimary },
   emptySubtext: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, marginTop: SPACING.xs },
-  loadingList: { paddingHorizontal: SPACING.lg },
-  loadingCard: {
-    borderRadius: BORDER_RADIUS.lg,
-    backgroundColor: COLORS.bgCard,
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  loadingActionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: SPACING.md,
-  },
   modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
   modalContent: {
     backgroundColor: COLORS.bgSecondary, borderTopLeftRadius: BORDER_RADIUS.xl,

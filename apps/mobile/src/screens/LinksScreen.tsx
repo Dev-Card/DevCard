@@ -14,11 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORMS, getAllPlatforms } from '@devcard/shared';
-import { get, post, del } from '../services/api';
-import { EmptyState } from '../components/EmptyState';
-import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
+import { API_BASE_URL } from '../config';
 import type { PlatformDef } from '@devcard/shared';
-import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 
 interface PlatformLink {
   id: string;
@@ -34,17 +31,18 @@ export default function LinksScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformDef | null>(null);
   const [usernameInput, setUsernameInput] = useState('');
-  const [loading, setLoading] = useState(true);
 
   const fetchLinks = useCallback(async () => {
-    setLoading(true);
     try {
-      const data = await get<any>('/api/profiles/me', token).catch(() => null);
-      setLinks(data?.platformLinks || []);
-    } catch (error) {
-      console.error('Failed to fetch links:', error);
-    } finally {
-      setLoading(false);
+      const res = await fetch(`${API_BASE_URL}/api/profiles/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLinks(data.platformLinks || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch links:', err);
     }
   }, [token]);
 
@@ -55,12 +53,24 @@ export default function LinksScreen() {
   const addLink = async () => {
     if (!selectedPlatform || !usernameInput.trim()) return;
     try {
-      await post('/api/profiles/me/links', { platform: selectedPlatform.id, username: usernameInput.trim() }, token);
-      setShowAddModal(false);
-      setSelectedPlatform(null);
-      setUsernameInput('');
-      fetchLinks();
-    } catch {
+      const res = await fetch(`${API_BASE_URL}/api/profiles/me/links`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          platform: selectedPlatform.id,
+          username: usernameInput.trim(),
+        }),
+      });
+      if (res.ok) {
+        setShowAddModal(false);
+        setSelectedPlatform(null);
+        setUsernameInput('');
+        fetchLinks();
+      }
+    } catch (err) {
       Alert.alert('Error', 'Failed to add link');
     }
   };
@@ -72,70 +82,19 @@ export default function LinksScreen() {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-            try {
-              await del(`/api/profiles/me/links/${id}`, undefined, token);
-              fetchLinks();
-            } catch {
-              Alert.alert('Error', 'Failed to remove link');
-            }
+          try {
+            await fetch(`${API_BASE_URL}/api/profiles/me/links/${id}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            fetchLinks();
+          } catch (err) {
+            Alert.alert('Error', 'Failed to remove link');
+          }
         },
       },
     ]);
   };
-
-  const handleReorder = async (data: PlatformLink[]) => {
-    setLinks(data);
-    try {
-      const payload = {
-        links: data.map((link, index) => ({ id: link.id, displayOrder: index })),
-      };
-      await put('/api/profiles/me/links/reorder', payload, token);
-    } catch {
-      Alert.alert('Error', 'Failed to save new order');
-      fetchLinks(); // Revert on failure
-    }
-  };
-
-  const renderItem = ({ item, drag, isActive }: RenderItemParams<PlatformLink>) => {
-    const platform = PLATFORMS[item.platform];
-    return (
-      <ScaleDecorator>
-        <TouchableOpacity
-          onLongPress={drag}
-          disabled={isActive}
-          delayLongPress={150}
-          activeOpacity={0.9}
-          style={[
-            styles.linkItem,
-            isActive && styles.linkItemActive,
-          ]}
-        >
-          <View style={styles.dragHandle}>
-            <Text style={styles.dragHandleText}>⋮⋮</Text>
-          </View>
-          <View style={[styles.platformDot, { backgroundColor: platform?.color || COLORS.primary }]} />
-          <View style={styles.linkInfo}>
-            <Text style={styles.platformName}>{platform?.name || item.platform}</Text>
-            <Text style={styles.username}>{item.username}</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => deleteLink(item.id)}
-            style={styles.deleteBtn}>
-            <Text style={styles.deleteBtnText}>✕</Text>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </ScaleDecorator>
-    );
-  };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
-        <LoadingPlaceholder rows={4} />
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -150,18 +109,33 @@ export default function LinksScreen() {
         </TouchableOpacity>
       </View>
 
-      <DraggableFlatList
+      <FlatList
         data={links}
-        onDragEnd={({ data }) => handleReorder(data)}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
-        renderItem={renderItem}
+        renderItem={({ item }) => {
+          const platform = PLATFORMS[item.platform];
+          return (
+            <View style={styles.linkItem}>
+              <View style={[styles.platformDot, { backgroundColor: platform?.color || COLORS.primary }]} />
+              <View style={styles.linkInfo}>
+                <Text style={styles.platformName}>{platform?.name || item.platform}</Text>
+                <Text style={styles.username}>{item.username}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => deleteLink(item.id)}
+                style={styles.deleteBtn}>
+                <Text style={styles.deleteBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }}
         ListEmptyComponent={
-          <EmptyState
-            emoji="🔗"
-            title="No links yet"
-            description="Add your first platform link"
-          />
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>🔗</Text>
+            <Text style={styles.emptyText}>No links yet</Text>
+            <Text style={styles.emptySubtext}>Add your first platform link</Text>
+          </View>
         }
       />
 
@@ -238,30 +212,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgCard, borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
   },
-  linkItemActive: {
-    backgroundColor: COLORS.bgElevated,
-    borderColor: COLORS.primary,
-    elevation: 8,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  dragHandle: {
-    paddingRight: SPACING.sm,
-    justifyContent: 'center',
-  },
-  dragHandleText: {
-    color: COLORS.textMuted,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
   platformDot: { width: 12, height: 12, borderRadius: 6, marginRight: SPACING.md },
   linkInfo: { flex: 1 },
   platformName: { fontSize: FONT_SIZE.md, fontWeight: '600', color: COLORS.textPrimary },
   username: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: 2 },
   deleteBtn: { padding: SPACING.sm },
   deleteBtnText: { color: COLORS.error, fontSize: FONT_SIZE.md, fontWeight: '700' },
+  empty: { alignItems: 'center', paddingVertical: SPACING.xxl },
+  emptyEmoji: { fontSize: 48, marginBottom: SPACING.md },
+  emptyText: { fontSize: FONT_SIZE.lg, fontWeight: '600', color: COLORS.textPrimary },
+  emptySubtext: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, marginTop: SPACING.xs },
   modalOverlay: {
     flex: 1, backgroundColor: COLORS.overlay,
     justifyContent: 'flex-end',

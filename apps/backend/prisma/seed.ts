@@ -142,8 +142,8 @@ async function main() {
 }
 
 main()
-  .catch((error) => {
-    console.error('❌ Seed failed:', error);
+  .catch((e) => {
+    console.error('❌ Seed failed:', e);
     process.exit(1);
   })
   .finally(async () => {

@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { getPlatform } from '@devcard/shared';
 
 export const updateProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
@@ -23,17 +22,6 @@ export const createLinkSchema = z.object({
   platform: z.string().min(1),
   username: z.string().min(1).max(200),
   url: z.string().url().optional(),
-}).superRefine((data, ctx) => {
-  const platformDef = getPlatform(data.platform);
-  if (platformDef?.validationRegex) {
-    if (!platformDef.validationRegex.test(data.username)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `Invalid format for ${platformDef.name} handle`,
-        path: ['username'],
-      });
-    }
-  }
 });
 
 export const reorderLinksSchema = z.object({

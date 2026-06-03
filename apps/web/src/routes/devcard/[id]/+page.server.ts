@@ -1,28 +1,17 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-const API_BASE = process.env.BACKEND_URL || 'http://localhost:3000';
-
 export const load: PageServerLoad = async ({ params, fetch }) => {
 	const { id } = params;
 
-	try {
-		const res = await fetch(`${API_BASE}/api/u/card/${id}`);
+	// Use internal fetch to reach the backend
+	// In production, this would be the actual API URL
+	const res = await fetch(`http://localhost:3000/api/u/card/${id}`);
 
-		if (res.status === 404) {
-			throw error(404, 'Card not found');
-		}
-
-		if (!res.ok) {
-			throw error(500, 'Failed to load card');
-		}
-
-		const card = await res.json();
-		return { card };
-	} catch (error) {
-		if (error && typeof error === 'object' && 'status' in error) {
-			throw error;
-		}
-		throw error(500, 'Failed to connect to backend');
+	if (!res.ok) {
+		throw error(404, 'Card not found');
 	}
+
+	const card = await res.json();
+	return { card };
 };

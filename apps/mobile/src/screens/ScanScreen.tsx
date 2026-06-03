@@ -7,26 +7,19 @@ import {
   TextInput,
   StatusBar,
   Alert,
-  Share,
-  Platform,
-  PermissionsAndroid,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
-import ViewShot from 'react-native-view-shot';
-import { Camera } from 'react-native-camera-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
-import { EmptyState } from '../components/EmptyState';
-import { Skeleton } from '../components/Skeleton';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/MainTabs';
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import type { Card } from '@devcard/shared';
 import { useAuth } from '../context/AuthContext';
-import { APP_URL } from '../config';
-import { get } from '../services/api';
+import { API_BASE_URL, APP_URL } from '../config';
 import CardPickerSheet from '../components/CardPickerSheet';
 
 type Props = {
@@ -46,9 +39,6 @@ export default function ScanScreen({ navigation }: Props) {
   const [loadingCards, setLoadingCards] = useState(false);
   const sheetRef = useRef<BottomSheetModal>(null);
 
-  const qrRef = useRef<ViewShot>(null);
-  const [hasPermission, setHasPermission] = useState(false);
-
   // Extract username from DevCard URL
   const parseDevCardUrl = (url: string): string | null => {
     const match = url.match(/\/u\/([a-zA-Z0-9_-]+)/);
@@ -65,59 +55,22 @@ export default function ScanScreen({ navigation }: Props) {
     }
   };
 
-  const requestCameraPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: 'Camera Permission',
-            message: 'DevCard needs camera access to scan QR codes.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
-        );
-        setHasPermission(granted === PermissionsAndroid.RESULTS.GRANTED);
-      } catch (err) {
-        console.warn(err);
-      }
-    } else {
-      // iOS permissions would typically be handled via react-native-permissions
-      // For this demo, assume true if not Android
-      setHasPermission(true);
-    }
-  };
-
-  const handleCameraRead = (url: string) => {
-    const username = parseDevCardUrl(url);
-    if (username) {
-      navigation.navigate('DevCardView', { username });
-    }
-  };
-
-  const handleSaveQR = async () => {
-    if (qrRef.current && qrRef.current.capture) {
-      try {
-        const uri = await qrRef.current.capture();
-        await Share.share({
-          title: 'My DevCard QR',
-          url: uri,
-        });
-      } catch (err) {
-        Alert.alert('Error', 'Failed to save QR code');
-      }
-    }
-  };
+  // NOTE: Camera QR scanning requires react-native-camera-kit
+  // which needs native setup. For now, we provide manual entry.
+  // Camera integration will be added when building on device.
 
   const fetchCards = useCallback(async () => {
     if (!token) return;
     setLoadingCards(true);
     try {
-      const data = await get<Card[]>('/api/cards', token).catch(() => []);
-      setCards(data || []);
-    } catch (error) {
-      console.error('Failed to fetch cards:', error);
+      const res = await fetch(`${API_BASE_URL}/api/cards`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setCards(await res.json());
+      }
+    } catch (err) {
+      console.error('Failed to fetch cards:', err);
     } finally {
       setLoadingCards(false);
     }
@@ -178,8 +131,8 @@ export default function ScanScreen({ navigation }: Props) {
     setSelectedCardId(cardId);
     try {
       await AsyncStorage.setItem(LAST_SELECTED_CARD_KEY, cardId);
-    } catch (error) {
-      console.error('Failed to persist selected card:', error);
+    } catch (err) {
+      console.error('Failed to persist selected card:', err);
     } finally {
       sheetRef.current?.dismiss();
     }
@@ -227,12 +180,9 @@ export default function ScanScreen({ navigation }: Props) {
             </TouchableOpacity>
           </View>
 
-          <ViewShot ref={qrRef} options={{ format: 'png', quality: 1.0 }} style={styles.qrContainer}>
+          <View style={styles.qrContainer}>
             {loadingCards ? (
-              <View style={styles.qrSkeleton}>
-                <Skeleton width={200} height={200} borderRadius={BORDER_RADIUS.md} />
-                <Skeleton width={140} height={14} borderRadius={8} style={styles.qrSkeletonText} />
-              </View>
+              <ActivityIndicator size="small" color={COLORS.primary} />
             ) : qrUrl ? (
               <QRCode
                 value={qrUrl}
@@ -241,41 +191,23 @@ export default function ScanScreen({ navigation }: Props) {
                 backgroundColor={COLORS.bgCard}
               />
             ) : (
-              <EmptyState
-                title="No card to share"
-                description="Create a card to generate your DevCard QR code."
-              />
+              <Text style={styles.qrPlaceholder}>Create a card to generate a QR</Text>
             )}
-          </ViewShot>
-          
+          </View>
           {!!qrUrl && (
-            <View style={styles.qrFooter}>
-              <Text style={styles.qrHint}>Scan to open your DevCard</Text>
-              <TouchableOpacity style={styles.saveQrBtn} onPress={handleSaveQR}>
-                <Text style={styles.saveQrBtnText}>Share QR Image</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.qrHint}>Scan to open your DevCard</Text>
           )}
         </View>
 
-        {/* Camera Scanner */}
+        {/* Camera Placeholder */}
         <View style={styles.cameraArea}>
-          {hasPermission ? (
-            <Camera
-              style={StyleSheet.absoluteFill}
-              scanBarcode={true}
-              onReadCode={(event: any) => handleCameraRead(event.nativeEvent.codeStringValue)}
-              showFrame={false}
-            />
-          ) : (
-            <View style={styles.cameraPlaceholder}>
-              <Text style={styles.cameraEmoji}>📷</Text>
-              <Text style={styles.cameraText}>Camera Permission Required</Text>
-              <TouchableOpacity style={styles.reqPermBtn} onPress={requestCameraPermission}>
-                <Text style={styles.reqPermBtnText}>Grant Permission</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          <View style={styles.cameraPlaceholder}>
+            <Text style={styles.cameraEmoji}>📷</Text>
+            <Text style={styles.cameraText}>Camera QR Scanner</Text>
+            <Text style={styles.cameraSubtext}>
+              Point your camera at a DevCard QR code
+            </Text>
+          </View>
           {/* Corner markers */}
           <View style={[styles.corner, styles.topLeft]} />
           <View style={[styles.corner, styles.topRight]} />
@@ -358,22 +290,7 @@ const styles = StyleSheet.create({
     minHeight: 220,
   },
   qrHint: { textAlign: 'center', color: COLORS.textMuted, fontSize: FONT_SIZE.sm },
-  saveQrBtn: {
-    backgroundColor: COLORS.bgElevated,
-    borderRadius: BORDER_RADIUS.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  saveQrBtnText: { color: COLORS.primary, fontSize: FONT_SIZE.xs, fontWeight: '600' },
-  qrFooter: { alignItems: 'center', marginTop: SPACING.sm, gap: SPACING.xs },
-  qrSkeleton: {
-    alignItems: 'center',
-  },
-  qrSkeletonText: {
-    marginTop: SPACING.md,
-  },
+  qrPlaceholder: { color: COLORS.textMuted, fontSize: FONT_SIZE.sm },
   cameraArea: {
     flex: 1, maxHeight: 350,
     backgroundColor: COLORS.bgCard, borderRadius: BORDER_RADIUS.lg,
@@ -385,12 +302,6 @@ const styles = StyleSheet.create({
   cameraEmoji: { fontSize: 48, marginBottom: SPACING.md },
   cameraText: { fontSize: FONT_SIZE.md, fontWeight: '600', color: COLORS.textPrimary },
   cameraSubtext: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, marginTop: SPACING.xs },
-  reqPermBtn: {
-    backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.sm,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-    marginTop: SPACING.md,
-  },
-  reqPermBtnText: { color: COLORS.white, fontSize: FONT_SIZE.sm, fontWeight: '600' },
   corner: {
     position: 'absolute', width: 30, height: 30,
     borderColor: COLORS.primary, borderWidth: 3,
