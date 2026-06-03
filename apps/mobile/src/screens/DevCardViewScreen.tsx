@@ -527,7 +527,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99,102,241,0.12)',
   },
   cardGlass: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(255,255,255,0.015)',
   },
   cardTop: {
