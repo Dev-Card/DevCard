@@ -4,8 +4,8 @@
     "types": ["jest"],
     "baseUrl": ".",
     "paths": {
-      "@devcard/shared": ["../../../packages/shared/src/index.ts"],
-      "@devcard/shared/*": ["../../../packages/shared/src/*"]
+      "@devcard/shared": ["../../packages/shared/src/index.ts"],
+      "@devcard/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

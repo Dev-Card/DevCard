@@ -10,7 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@devcard/shared": "file:../../../packages/shared",
+    "@devcard/shared": "file:../../packages/shared",
     "@gorhom/bottom-sheet": "^5.0.5",
     "@react-native-async-storage/async-storage": "^2.1.0",
     "@react-navigation/bottom-tabs": "^7.0.0",
