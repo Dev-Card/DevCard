@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           ref: ${{ github.event.pull_request.head.sha }} 
-                                                       
+                                                        
 
       - name: Detect changed files
         id: detect
@@ -55,25 +55,27 @@ jobs:
         with:
           node-version: 22
 
-      - uses: pnpm/action-setup@v6.0.8
+      - name: Install shared dependencies
+        run: npm --prefix packages/shared install
 
-      - run: pnpm install
+      - name: Install backend dependencies
+        run: npm --prefix apps/backend install
 
       - name: Backend lint
         id: backend_lint
         continue-on-error: true                         
-        run: cd apps/backend && pnpm eslint ${{ needs.detect-changes.outputs.backendFiles }}
+        run: cd apps/backend && npx eslint ${{ needs.detect-changes.outputs.backendFiles }}
 
       - name: Backend test
         id: backend_test
         if: needs.detect-changes.outputs.backendTestFiles != ''  
         continue-on-error: true
-        run: cd apps/backend && pnpm test --passWithNoTests ${{ needs.detect-changes.outputs.backendTestFiles }}
+        run: npm --prefix apps/backend run test -- --passWithNoTests ${{ needs.detect-changes.outputs.backendTestFiles }}
 
       - name: Backend typecheck
         id: backend_typecheck
         continue-on-error: true
-        run: cd apps/backend && pnpm typecheck 
+        run: npm --prefix apps/backend run typecheck
 
       - name: Fail job if any check failed
         if: >
@@ -100,19 +102,18 @@ jobs:
         with:
           node-version: 22
 
-      - uses: pnpm/action-setup@v6.0.8
-
-      - run: pnpm install
+      - name: Install web dependencies
+        run: npm --prefix apps/web install
 
       - name: Web check
         id: web_check
         continue-on-error: true
-        run: cd apps/web && pnpm check
+        run: npm --prefix apps/web run lint
 
       - name: Web build
         id: web_build
         continue-on-error: true
-        run: cd apps/web && pnpm build
+        run: npm --prefix apps/web run build
 
       - name: Fail job if any check failed
         if: >
@@ -138,20 +139,22 @@ jobs:
         with:
           node-version: 22
 
-      - uses: pnpm/action-setup@v6.0.8
+      - name: Install shared dependencies
+        run: npm --prefix packages/shared install
 
-      - run: pnpm install
+      - name: Install mobile dependencies
+        run: npm --prefix apps/mobile install
 
       - name: Mobile lint
         id: mobile_lint
         continue-on-error: true
-        run: cd apps/mobile && pnpm eslint ${{ needs.detect-changes.outputs.mobileFiles }}
+        run: cd apps/mobile && npx eslint ${{ needs.detect-changes.outputs.mobileFiles }}
 
       - name: Mobile test
         id: mobile_test
         if: needs.detect-changes.outputs.mobileTestFiles != ''
         continue-on-error: true
-        run: cd apps/mobile && pnpm test --passWithNoTests ${{ needs.detect-changes.outputs.mobileTestFiles }}
+        run: npm --prefix apps/mobile run test -- --passWithNoTests ${{ needs.detect-changes.outputs.mobileTestFiles }}
 
       - name: Fail job if any check failed
         if: >

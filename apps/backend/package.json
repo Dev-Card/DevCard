@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@devcard/shared": "workspace:*",
+    "@devcard/shared": "file:../../packages/shared",
     "@fastify/cookie": "^11.0.0",
     "@fastify/cors": "^10.0.0",
     "@fastify/helmet": "^12.0.0",

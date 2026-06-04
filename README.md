@@ -52,8 +52,7 @@ Each exchange is manual, error-prone, and slow. DevCard fixes this.
 
 ### Prerequisites
 
-- Node.js >= 20
-- pnpm >= 9
+- Node.js >= 20 (includes npm)
 - Docker & Docker Compose
 - React Native development environment ([setup guide](https://reactnative.dev/docs/environment-setup))
 
@@ -65,7 +64,11 @@ git clone https://github.com/Dev-Card/DevCard.git
 cd devcard
 
 # Install dependencies
-pnpm install
+npm install                              # root orchestrator
+npm --prefix packages/shared install     # shared types/utils
+npm --prefix apps/backend install        # backend API
+npm --prefix apps/web install            # web app
+npm --prefix apps/mobile install         # mobile app (if needed)
 
 # Start infrastructure (PostgreSQL + Redis)
 docker compose up -d
@@ -79,16 +82,16 @@ cp .env.example .env
 # Paste the generated values into your .env file. Never use placeholders in production.
 
 # Run database migrations
-pnpm db:migrate
+npm run db:migrate
 
 # Seed sample data
-pnpm db:seed
+npm run db:seed
 
 # Start the backend
-pnpm dev:backend
+npm run dev:backend
 
 # In another terminal — start the mobile app
-pnpm dev:mobile
+npm run dev:mobile
 ```
 
 ## Architecture
@@ -96,13 +99,13 @@ pnpm dev:mobile
 ```
 devcard/
 ├── apps/
-│   ├── backend/          # Fastify + TypeScript API
-│   ├── mobile/           # React Native (Bare) mobile app
-│   └── web/              # SvelteKit web backup
+│   ├── backend/          # Fastify + TypeScript API (independent npm)
+│   ├── mobile/           # React Native (Bare) mobile app (independent npm)
+│   └── web/              # Vite + React web app (independent npm)
 ├── packages/
 │   └── shared/           # Shared types, platform registry, utils
 ├── docker-compose.yml    # PostgreSQL + Redis
-└── pnpm-workspace.yaml   # Monorepo config
+└── package.json          # Root orchestrator (npm scripts)
 ```
 
 ### Tech Stack
