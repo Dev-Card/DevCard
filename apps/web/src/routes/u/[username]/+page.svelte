@@ -3,8 +3,8 @@
   import { onMount } from 'svelte';
 
   let { data } = $props();
-  const profile = data.profile;
-  const error = data.error;
+  const profile = $derived(data.profile);
+  const error = $derived(data.error);
 
   const platformColors: Record<string, string> = {
     github: '#181717', linkedin: '#0A66C2', twitter: '#000000',
@@ -17,7 +17,8 @@
   let mounted = $state(false);
   let copyMessage = $state('');
   let copyStatus = $state<'success' | 'error'>('success');
-  let copyMessageTimeout: ReturnType<typeof setTimeout>;
+  let copyMessageTimeout: ReturnType<typeof setTimeout> | undefined;
+  let copyTimeout: ReturnType<typeof setTimeout>;
 
   onMount(() => {
     mounted = true;
