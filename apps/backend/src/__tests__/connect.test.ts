@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@prisma/client';
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { connectRoutes } from '../routes/connect.js';
+
+import type { PrismaClient } from '@prisma/client';
 
 const USER_ID = 'user-abc';
 const VALID_NONCE = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
