@@ -20,6 +20,7 @@ import { PLATFORMS, getProfileUrl, getWebViewUrl, resolveDeepLink } from '@devca
 import type { ResolvedLink } from '@devcard/shared';
 import { get, post, del } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useContacts } from '../hooks/useContacts';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/MainTabs';
@@ -94,9 +95,32 @@ const PLATFORM_BTN_COLOR: Record<string, string> = {
 export default function DevCardViewScreen({ navigation, route }: Props) {
   const { username } = route.params;
   const { token } = useAuth();
+  const { isContactSaved, saveContact, removeContact } = useContacts();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [followStates, setFollowStates] = useState<FollowState>({});
+
+  const isSaved = isContactSaved(username);
+
+  const handleSaveContact = async () => {
+    if (!profile) return;
+    if (isSaved) {
+      await removeContact(username);
+    } else {
+      await saveContact({
+        username: profile.username,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+        accentColor: profile.accentColor || COLORS.primary,
+        bio: profile.bio,
+        role: profile.role,
+        company: profile.company,
+        metAt: 'DevCard App',
+        note: null,
+      });
+      Alert.alert('Saved!', `${profile.displayName} has been added to your contacts.`);
+    }
+  };
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -357,6 +381,19 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         <Text style={styles.closeBtnText} aria-hidden>✕</Text>
       </TouchableOpacity>
 
+      {/* Save Contact Button */}
+      {profile && (
+        <TouchableOpacity 
+          style={styles.saveContactBtn} 
+          onPress={handleSaveContact}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.saveContactBtnText}>
+            {isSaved ? 'Saved' : 'Save'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Profile Card */}
         <View style={[styles.premiumHeaderCard, { borderColor: (profile.accentColor || COLORS.primary) + 'AA' }]}>
@@ -523,6 +560,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   closeBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.md },
+  saveContactBtn: {
+    position: 'absolute', top: 50, left: 20, zIndex: 10,
+    paddingHorizontal: SPACING.md, paddingVertical: 8, borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  saveContactBtnText: { color: COLORS.white, fontSize: FONT_SIZE.sm, fontWeight: '700' },
   scrollContent: { padding: SPACING.lg, paddingTop: SPACING.xxl },
   premiumHeaderCard: {
     backgroundColor: '#0B1120',
@@ -545,7 +589,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99,102,241,0.12)',
   },
   cardGlass: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(255,255,255,0.015)',
   },
   cardTop: {
