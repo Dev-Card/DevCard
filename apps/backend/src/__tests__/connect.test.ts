@@ -1,6 +1,7 @@
-import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import Fastify, { type FastifyInstance } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
+
 import { connectRoutes } from '../routes/connect.js';
 
 const USER_ID = 'user-abc';
@@ -8,6 +9,11 @@ const VALID_NONCE = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f
 const VALID_STATE = Buffer.from(JSON.stringify({ userId: USER_ID, nonce: VALID_NONCE })).toString('base64');
 const ATTACKER_USER_ID = 'user-victim';
 const CRAFTED_STATE = Buffer.from(JSON.stringify({ userId: ATTACKER_USER_ID, nonce: 'nonce-never-issued' })).toString('base64');
+
+// Mock encrypt so the token-storage path does not throw in tests
+vi.mock('../utils/encryption.js', () => ({
+  encrypt: vi.fn().mockReturnValue('encrypted_token'),
+}));
 
 const mockPrisma = {
   oAuthToken: {
@@ -40,7 +46,6 @@ async function buildApp(redisOverride?: object | null): Promise<FastifyInstance>
   app.decorate('authenticate', async (request: any) => {
     request.user = { id: USER_ID };
   });
-  // stub fetch globally for token exchange
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     json: async () => ({ access_token: 'gh_token_abc', scope: 'user:follow' }),
   }));
@@ -70,9 +75,7 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
     });
 
     expect(res.statusCode).toBe(503);
-    // Must not attempt token exchange or write any token
     expect(mockPrisma.oAuthToken.upsert).not.toHaveBeenCalled();
-    // Must not have queried Redis (it's down — no point)
     expect(mockRedisDown.get).not.toHaveBeenCalled();
   });
 
@@ -88,9 +91,7 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
   });
 
   it('redirects to invalid_state when nonce was never issued (crafted state)', async () => {
-    // Simulates an attacker constructing a state for an arbitrary userId
-    // with a nonce that was never stored by this server
-    mockRedis.get.mockResolvedValue(null); // nonce not in Redis
+    mockRedis.get.mockResolvedValue(null);
 
     const app = await buildApp();
     const res = await app.inject({
@@ -104,7 +105,6 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
   });
 
   it('redirects to invalid_state when nonce is present but userId does not match', async () => {
-    // Nonce exists but was issued for a different user — state tampering
     mockRedis.get.mockResolvedValue('user-different');
 
     const app = await buildApp();
@@ -119,7 +119,7 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
   });
 
   it('completes the OAuth flow and stores the token when nonce is valid', async () => {
-    mockRedis.get.mockResolvedValue(USER_ID); // nonce matches userId
+    mockRedis.get.mockResolvedValue(USER_ID);
     mockRedis.del.mockResolvedValue(1);
     mockPrisma.oAuthToken.upsert.mockResolvedValue({});
 
@@ -131,13 +131,11 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
 
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toContain('connected=github');
-    // Nonce must be consumed after a successful verification
     expect(mockRedis.del).toHaveBeenCalledWith(`oauth:nonce:${VALID_NONCE}`);
     expect(mockPrisma.oAuthToken.upsert).toHaveBeenCalledOnce();
   });
 
   it('consumes the nonce exactly once — replay of the same state is rejected', async () => {
-    // First call: nonce present → succeeds and deletes nonce
     mockRedis.get.mockResolvedValueOnce(USER_ID);
     mockRedis.del.mockResolvedValue(1);
     mockPrisma.oAuthToken.upsert.mockResolvedValue({});
@@ -150,7 +148,6 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
     expect(first.statusCode).toBe(302);
     expect(first.headers.location).toContain('connected=github');
 
-    // Second call: nonce already deleted → Redis returns null → rejected
     mockRedis.get.mockResolvedValueOnce(null);
     const second = await app.inject({
       method: 'GET',
@@ -158,7 +155,6 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
     });
     expect(second.statusCode).toBe(302);
     expect(second.headers.location).toContain('error=invalid_state');
-    // upsert must only have been called once across both requests
     expect(mockPrisma.oAuthToken.upsert).toHaveBeenCalledOnce();
   });
 
