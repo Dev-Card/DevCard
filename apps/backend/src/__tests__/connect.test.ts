@@ -1,6 +1,9 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { connectRoutes } from '../routes/connect.js';
+
 import type { PrismaClient } from '@prisma/client';
 
 const USER_ID = 'user-abc';
