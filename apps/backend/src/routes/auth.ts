@@ -17,7 +17,7 @@ interface OAuthCallbackQuery {
   state?: string;
 }
 
-export async function authRoutes(app: FastifyInstance) {
+export async function authRoutes(app: FastifyInstance): Promise<void> {
   // Developer login bypass (development only)
   if (process.env.NODE_ENV !== 'production') {
     app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {

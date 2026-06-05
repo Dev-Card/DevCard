@@ -1,7 +1,7 @@
 import cookiePlugin from '@fastify/cookie';
 import jwtPlugin from '@fastify/jwt';
-import Fastify, { type FastifyInstance } from 'fastify';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 
 import { authRoutes } from '../routes/auth.js';
 import { extractRawJwt, blocklistKey } from '../utils/jwt.js';
@@ -14,7 +14,7 @@ const USERNAME = 'testuser';
 
 // ─── Mock Redis factory ───────────────────────────────────────────────────────
 
-function createMockRedis() {
+function createMockRedis(): { exists: Mock; set: Mock; del: Mock } {
   return {
     exists: vi.fn().mockResolvedValue(0),
     set: vi.fn().mockResolvedValue('OK'),
@@ -97,7 +97,7 @@ async function buildTestApp(mockRedis: MockRedis): Promise<FastifyInstance> {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function bearerHeader(token: string) {
+function bearerHeader(token: string): { Authorization: string } {
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -624,7 +624,7 @@ describe('blocklistKey', () => {
 // ─── extractRawJwt utility ────────────────────────────────────────────────────
 
 describe('extractRawJwt', () => {
-  function makeRequest(overrides: Partial<{ authorization: string; cookies: Record<string, string> }>) {
+  function makeRequest(overrides: Partial<{ authorization: string; cookies: Record<string, string> }>): FastifyRequest {
     return {
       headers: { authorization: overrides.authorization },
       cookies: overrides.cookies ?? {},
