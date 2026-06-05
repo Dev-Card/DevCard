@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { Readable } from 'stream';
 
 export async function analyticsRoutes(app: FastifyInstance) {
   
@@ -99,41 +100,55 @@ export async function analyticsRoutes(app: FastifyInstance) {
     };
   });
 
-// ─── Export Analytics CSV ───
+// ─── Export Analytics CSV (Optimized) ───
   app.get('/export', {
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
 
-    // Fetch raw views
-    const views = await app.prisma.cardView.findMany({
-      where: { ownerId: userId },
-      select: { createdAt: true, source: true },
-    });
-
-    // Aggregation Object to group by date
-    const dailyStats: Record<string, number> = {};
-
-    views.forEach((view) => {
-      const date = view.createdAt.toISOString().split('T')[0];
-      if (!dailyStats[date]) {
-        dailyStats[date] = 0;
-      }
-      dailyStats[date]++;
-    });
-
-    // Create CSV Header strictly as per Acceptance Criteria
-    let csvContent = 'date,platform,event_type,count\n';
-
-    // Populate rows
-    for (const [date, count] of Object.entries(dailyStats)) {
-      csvContent += `${date},devcard,view,${count}\n`;
-    }
-
-    // Set Headers
+    // 1. Set headers early for streaming
     reply.header('Content-Type', 'text/csv');
     reply.header('Content-Disposition', 'attachment; filename="devcard-analytics.csv"');
-    
-    return reply.send(csvContent);
+
+    try {
+      // 2. DB Aggregation: Let the Database do the heavy lifting
+      // Note: Prisma doesn't natively group by Date strings easily, so we use $queryRaw
+      // This query groups views by day directly in the DB.
+      const aggregatedViews = await app.prisma.$queryRaw<Array<{ date: Date; count: bigint }>>`
+        SELECT 
+          DATE("createdAt") as date, 
+          COUNT(*) as count
+        FROM "CardView"
+        WHERE "ownerId" = ${userId}
+        GROUP BY DATE("createdAt")
+        ORDER BY date DESC
+      `;
+
+      // 3. Node.js Streams: Push data directly to the client without holding it in RAM
+      const csvStream = new Readable({
+        read() {} // required implementation
+      });
+
+      // Push Header
+      csvStream.push('date,platform,event_type,count\n');
+
+      // Push Rows
+      for (const row of aggregatedViews) {
+        // Convert DB Date to YYYY-MM-DD
+        const dateStr = new Date(row.date).toISOString().split('T')[0];
+        // Note: Prisma returns BigInt for COUNT(*), so we convert it to Number or String
+        csvStream.push(`${dateStr},devcard,view,${row.count.toString()}\n`);
+      }
+
+      // End the stream
+      csvStream.push(null);
+
+      // Fastify automatically handles piping the stream to the response
+      return reply.send(csvStream);
+
+    } catch (error) {
+      request.log.error(error);
+      return reply.status(500).send({ error: 'Failed to generate CSV export' });
+    }
   });
 }
