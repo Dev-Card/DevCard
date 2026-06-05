@@ -93,16 +93,23 @@ export async function connectRoutes(app: FastifyInstance) {
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
-      // Verify nonce was issued by this server -- prevents CSRF
-      const storedUserId = app.redis ? await app.redis.get(`oauth:nonce:${decodedState.nonce}`) : null;
+      // Hard-fail when Redis is unavailable: proceeding without nonce
+      // verification would allow CSRF — an attacker could craft a valid-looking
+      // state for any userId and have a token stored under their target's account.
+      if (!app.redis || app.redis.status !== 'ready') {
+        app.log.error('OAuth CSRF check skipped: Redis unavailable — aborting callback');
+        return reply.status(503).send({ error: 'Service temporarily unavailable. Please try again.' });
+      }
 
-      if (app.redis && (!storedUserId || storedUserId !== decodedState.userId)) {
-        app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed: nonce mismatch');
+      const storedUserId = await app.redis.get(`oauth:nonce:${decodedState.nonce}`);
+
+      if (!storedUserId || storedUserId !== decodedState.userId) {
+        app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed: nonce mismatch or nonce not found');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
       }
 
-      // Consume the nonce -- one-time use only (if redis configured)
-      if (app.redis) await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+      // Consume the nonce — one-time use, prevents replay attacks
+      await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
 
       const userId = decodedState.userId;
 
