@@ -1,5 +1,4 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { connectRoutes } from '../routes/connect.js';
