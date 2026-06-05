@@ -441,3 +441,120 @@ describe('PUT /api/cards/:id/default', () => {
     expect(mockPrisma.card.update).toHaveBeenCalled();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/cards/:id — atomicity of combined title + linkIds update (#437)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('PUT /api/cards/:id — atomicity of combined title + linkIds update', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    wireTransaction()
+  })
+
+  it('commits both title and links in a single transaction on success', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    mockPrisma.platformLink.findMany.mockResolvedValue([{ id: OWNED_LINK_ID }])
+    mockPrisma.card.update.mockResolvedValue({ ...mockCard, title: 'New Title' })
+    mockPrisma.cardLink.deleteMany.mockResolvedValue({ count: 0 })
+    mockPrisma.cardLink.createMany.mockResolvedValue({ count: 1 })
+    mockPrisma.card.findUnique.mockResolvedValue({ ...mockCard, title: 'New Title', cardLinks: [] })
+
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { title: 'New Title', linkIds: [OWNED_LINK_ID] },
+    })
+
+    expect(res.statusCode).toBe(200)
+    // Both mutations must be inside one transaction, not two separate calls
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce()
+    expect(mockPrisma.card.update).toHaveBeenCalledWith({ where: { id: CARD_ID }, data: { title: 'New Title' } })
+    expect(mockPrisma.cardLink.deleteMany).toHaveBeenCalledWith({ where: { cardId: CARD_ID } })
+    expect(mockPrisma.cardLink.createMany).toHaveBeenCalled()
+  })
+
+  it('does not commit the title when the linkIds createMany fails (full rollback)', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    mockPrisma.platformLink.findMany.mockResolvedValue([{ id: OWNED_LINK_ID }])
+    // card.update (title) succeeds inside tx, but createMany blows up
+    mockPrisma.card.update.mockResolvedValue({ ...mockCard, title: 'New Title' })
+    mockPrisma.cardLink.deleteMany.mockResolvedValue({ count: 1 })
+    mockPrisma.cardLink.createMany.mockRejectedValue(new Error('FK constraint violation'))
+
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { title: 'New Title', linkIds: [OWNED_LINK_ID] },
+    })
+
+    expect(res.statusCode).toBe(500)
+    // The transaction rolled back — the final read must not have been attempted
+    expect(mockPrisma.card.findUnique).not.toHaveBeenCalled()
+    // Confirm both operations ran inside the same tx (the DB undoes them together)
+    expect(mockPrisma.card.update).toHaveBeenCalled()
+    expect(mockPrisma.cardLink.createMany).toHaveBeenCalled()
+  })
+
+  it('returns 403 and opens no transaction when a linkId fails ownership validation', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    // Ownership check returns empty — foreign linkId
+    mockPrisma.platformLink.findMany.mockResolvedValue([])
+
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { title: 'New Title', linkIds: [FOREIGN_LINK_ID] },
+    })
+
+    expect(res.statusCode).toBe(403)
+    expect(res.json().error).toBe('One or more links do not belong to your account')
+    // No transaction must have been opened — no writes of any kind
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(mockPrisma.card.update).not.toHaveBeenCalled()
+    expect(mockPrisma.cardLink.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('applies only the title update when linkIds is absent', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    mockPrisma.card.update.mockResolvedValue({ ...mockCard, title: 'Title Only' })
+    mockPrisma.card.findUnique.mockResolvedValue({ ...mockCard, title: 'Title Only', cardLinks: [] })
+
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { title: 'Title Only' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce()
+    expect(mockPrisma.card.update).toHaveBeenCalledWith({ where: { id: CARD_ID }, data: { title: 'Title Only' } })
+    expect(mockPrisma.cardLink.deleteMany).not.toHaveBeenCalled()
+    expect(mockPrisma.platformLink.findMany).not.toHaveBeenCalled()
+  })
+
+  it('applies only link replacement when title is absent', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    mockPrisma.platformLink.findMany.mockResolvedValue([{ id: OWNED_LINK_ID }])
+    mockPrisma.cardLink.deleteMany.mockResolvedValue({ count: 1 })
+    mockPrisma.cardLink.createMany.mockResolvedValue({ count: 1 })
+    mockPrisma.card.findUnique.mockResolvedValue({ ...mockCard, cardLinks: [] })
+
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { linkIds: [OWNED_LINK_ID] },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce()
+    expect(mockPrisma.card.update).not.toHaveBeenCalled()
+    expect(mockPrisma.cardLink.deleteMany).toHaveBeenCalledWith({ where: { cardId: CARD_ID } })
+    expect(mockPrisma.cardLink.createMany).toHaveBeenCalled()
+  })
+})

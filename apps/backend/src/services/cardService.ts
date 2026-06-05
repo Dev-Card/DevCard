@@ -37,26 +37,38 @@ export async function updateCard(app: FastifyInstance, userId: string, id: strin
   const existing = await app.prisma.card.findFirst({ where: { id, userId } })
   if (!existing) return null
 
-  if (body.title) {
-    await app.prisma.card.update({ where: { id }, data: { title: body.title } })
+  if (body.linkIds && body.linkIds.length > 0) {
+    const ownedLinks = await app.prisma.platformLink.findMany({
+      where: { id: { in: body.linkIds }, userId },
+      select: { id: true },
+    })
+    if (ownedLinks.length !== body.linkIds.length)
+      throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' })
   }
 
-  if (body.linkIds) {
-    if (body.linkIds.length > 0) {
-      const ownedLinks = await app.prisma.platformLink.findMany({ where: { id: { in: body.linkIds }, userId }, select: { id: true } })
-      if (ownedLinks.length !== body.linkIds.length) throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' })
+  await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    if (body.title) {
+      await tx.card.update({ where: { id }, data: { title: body.title } })
     }
 
-    const linkIds = body.linkIds
-    await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    if (body.linkIds) {
       await tx.cardLink.deleteMany({ where: { cardId: id } })
-      if (linkIds.length > 0) {
-        await tx.cardLink.createMany({ data: linkIds.map((linkId, index) => ({ cardId: id, platformLinkId: linkId, displayOrder: index })) })
+      if (body.linkIds.length > 0) {
+        await tx.cardLink.createMany({
+          data: body.linkIds.map((linkId, index) => ({
+            cardId: id,
+            platformLinkId: linkId,
+            displayOrder: index,
+          })),
+        })
       }
-    })
-  }
+    }
+  })
 
-  const updated = await app.prisma.card.findUnique({ where: { id }, include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } } })
+  const updated = await app.prisma.card.findUnique({
+    where: { id },
+    include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
+  })
   return { id: updated!.id, title: updated!.title, isDefault: updated!.isDefault, links: updated!.cardLinks.map((cl: any) => cl.platformLink) }
 }
 
