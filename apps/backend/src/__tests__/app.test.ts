@@ -1,9 +1,10 @@
+import { describe, it, expect, vi } from 'vitest';
+
+import { buildApp } from '../app';
+
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET ||= 'test-jwt-secret';
 process.env.ENCRYPTION_KEY ||= 'test-encryption-key';
-
-import { describe, it, expect, vi } from 'vitest';
-import { buildApp } from '../app';
 
 describe('GET /health', () => {
   it('should return status ok', async () => {
