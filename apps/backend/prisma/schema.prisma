@@ -6,7 +6,12 @@ datasource db {
   url      = env("DATABASE_URL")
 
 }
-
+enum Role{
+  SUPERADMIN
+  ADMIN
+  USER
+  
+}
 model User {
   id          String   @id @default(uuid())
   email       String   @unique
@@ -14,7 +19,7 @@ model User {
   displayName String   @map("display_name")
   bio         String?
   pronouns    String?
-  role        String?
+  role        Role     @default(USER)
   company     String?
   avatarUrl   String?  @map("avatar_url")
   accentColor String   @default("#6366f1") @map("accent_color")
