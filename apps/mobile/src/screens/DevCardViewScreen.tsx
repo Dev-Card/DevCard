@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Linking,
   Clipboard,
   StatusBar,
@@ -16,9 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
 import { Skeleton } from '../components/Skeleton';
 import { EmptyState } from '../components/EmptyState';
+import Avatar from '../components/Avatar';
 import { PLATFORMS, getProfileUrl, getWebViewUrl } from '@devcard/shared';
-import { API_BASE_URL } from '../config';
+import { get, post, del } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useContacts } from '../hooks/useContacts';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/MainTabs';
@@ -93,26 +94,42 @@ const PLATFORM_BTN_COLOR: Record<string, string> = {
 export default function DevCardViewScreen({ navigation, route }: Props) {
   const { username } = route.params;
   const { token } = useAuth();
+  const { isContactSaved, saveContact, removeContact } = useContacts();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [followStates, setFollowStates] = useState<FollowState>({});
 
+  const isSaved = isContactSaved(username);
+
+  const handleSaveContact = async () => {
+    if (!profile) return;
+    if (isSaved) {
+      await removeContact(username);
+    } else {
+      await saveContact({
+        username: profile.username,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+        accentColor: profile.accentColor || COLORS.primary,
+        bio: profile.bio,
+        role: profile.role,
+        company: profile.company,
+        metAt: 'DevCard App',
+        note: null,
+      });
+      Alert.alert('Saved!', `${profile.displayName} has been added to your contacts.`);
+    }
+  };
+
   const fetchProfile = useCallback(async () => {
     try {
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      const res = await fetch(`${API_BASE_URL}/api/u/${username}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await get<ProfileData>(`/api/u/${username}`, token);
+      if (data) {
         setProfile(data);
         const initialFollowStates: FollowState = {};
         if (data.links) {
           data.links.forEach((link: any) => {
-            if (link.followed) {
-              initialFollowStates[link.id] = 'success';
-            }
+            if (link.followed) initialFollowStates[link.id] = 'success';
           });
         }
         setFollowStates(initialFollowStates);
@@ -150,30 +167,19 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         break;
 
       case 'webview':
-        setFollowStates(prev => ({ ...prev, [link.id]: 'loading' }));
-        try {
-          const res = await fetch(
-            `${API_BASE_URL}/api/follow/${link.platform}/${link.username}`,
-            {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
-          if (res.ok) {
-            const data = await res.json();
-            if (data.strategy === 'webview') {
+          setFollowStates(prev => ({ ...prev, [link.id]: 'loading' }));
+          try {
+            const data = await post<any>(`/api/follow/${link.platform}/${link.username}`, undefined, token);
+            setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
+            if (data?.strategy === 'webview') {
               handleWebViewConnect(link, data.url);
             } else {
               setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
             }
-          } else {
+          } catch {
+            setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
             handleWebViewConnect(link);
           }
-        } catch {
-          setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
-          handleWebViewConnect(link);
-        }
         break;
 
       case 'copy':
@@ -198,54 +204,31 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
   const handleApiFollow = async (link: PlatformLink) => {
     setFollowStates(prev => ({ ...prev, [link.id]: 'loading' }));
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/follow/${link.platform}/${link.username}`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (res.ok) {
-        setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
-      } else {
-        const data = await res.json();
-        if (data.requiresAuth) {
-          // Reset loading BEFORE opening fallback so button doesn't get stuck
-          setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
-          // For platforms without a webview URL (e.g. GitHub), open in system browser
-          const webViewUrl = getWebViewUrl(link.platform, link.username);
-          if (webViewUrl) {
-            handleWebViewConnect(link);
-          } else {
-            // Open GitHub / other API-only platforms in the default browser
-            const profileUrl = link.url || getProfileUrl(link.platform, link.username);
-            if (profileUrl) {
-              Linking.openURL(profileUrl).catch(() =>
-                Alert.alert('Error', `Could not open ${link.platform} profile`)
-              );
-            }
-          }
+      await post<any>(`/api/follow/${link.platform}/${link.username}`, undefined, token);
+      setFollowStates(prev => ({ ...prev, [link.id]: 'success' }));
+    } catch (err: any) {
+      const msg = (err && err.message) || '';
+      if (msg.includes('requiresAuth')) {
+        setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
+        const webViewUrl = getWebViewUrl(link.platform, link.username);
+        if (webViewUrl) {
+          handleWebViewConnect(link);
         } else {
-          setFollowStates(prev => ({ ...prev, [link.id]: 'error' }));
+          const profileUrl = link.url || getProfileUrl(link.platform, link.username);
+          if (profileUrl) Linking.openURL(profileUrl).catch(() => Alert.alert('Error', `Could not open ${link.platform} profile`));
         }
+      } else {
+        setFollowStates(prev => ({ ...prev, [link.id]: 'error' }));
       }
-    } catch {
-      setFollowStates(prev => ({ ...prev, [link.id]: 'error' }));
     }
   };
 
   // Reset a "Done" tile — clears follow log from backend and resets local state
   const handleResetFollowState = async (link: PlatformLink) => {
     try {
-      await fetch(
-        `${API_BASE_URL}/api/follow/${link.platform}/${link.username}/log`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      await del(`/api/follow/${link.platform}/${link.username}/log`, undefined, token);
     } catch {
-      // Ignore network errors — still reset local state
+      // ignore
     }
     setFollowStates(prev => ({ ...prev, [link.id]: 'idle' }));
   };
@@ -299,14 +282,14 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         <View style={styles.scrollContent}>
           {/* Header Skeleton */}
           <View style={[styles.premiumHeaderCard, { borderColor: COLORS.border }]}>
-            <View style={styles.cardTop}>
+              <View style={styles.cardTop}>
               <Skeleton width={100} height={12} />
               <Skeleton width={20} height={20} borderRadius={10} />
             </View>
             <View style={styles.cardMid}>
               <Skeleton width={70} height={70} borderRadius={35} />
               <View style={styles.mainInfo}>
-                <Skeleton width="80%" height={24} style={{ marginBottom: 8 }} />
+                <Skeleton width="80%" height={24} style={styles.skelMb8} />
                 <Skeleton width="60%" height={16} />
               </View>
             </View>
@@ -318,12 +301,12 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
 
           {/* Tiles Skeleton */}
           <View style={styles.tilesSection}>
-            <Skeleton width={120} height={14} style={{ marginBottom: 12 }} />
+            <Skeleton width={120} height={14} style={styles.skelMb12} />
             {[1, 2, 3].map(i => (
               <View key={i} style={styles.platformTile}>
                 <Skeleton width={44} height={44} borderRadius={12} />
-                <View style={[styles.tileInfo, { marginLeft: 16 }]}>
-                  <Skeleton width="50%" height={16} style={{ marginBottom: 6 }} />
+                <View style={[styles.tileInfo, styles.tileInfoMl16]}>
+                  <Skeleton width="50%" height={16} style={styles.skelMb6} />
                   <Skeleton width="30%" height={12} />
                 </View>
                 <Skeleton width={72} height={32} borderRadius={8} />
@@ -358,6 +341,19 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
         <Text style={styles.closeBtnText}>✕</Text>
       </TouchableOpacity>
 
+      {/* Save Contact Button */}
+      {profile && (
+        <TouchableOpacity 
+          style={styles.saveContactBtn} 
+          onPress={handleSaveContact}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.saveContactBtnText}>
+            {isSaved ? 'Saved' : 'Save'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Profile Card */}
         <View style={[styles.premiumHeaderCard, { borderColor: (profile.accentColor || COLORS.primary) + 'AA' }]}>
@@ -379,15 +375,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
           {/* Middle: avatar + name/role */}
           <View style={styles.cardMid}>
             <View style={[styles.avatarRing, { borderColor: (profile.accentColor || COLORS.primary) + '88' }]}>
-              {profile.avatarUrl ? (
-                <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: profile.accentColor || COLORS.primary }]}>
-                  <Text style={styles.avatarText}>
-                    {profile.displayName.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
+              <Avatar uri={profile.avatarUrl} name={profile.displayName} size={64} style={styles.avatar} />
             </View>
             <View style={styles.mainInfo}>
               <Text style={styles.profileName} numberOfLines={1}>{profile.displayName}</Text>
@@ -432,6 +420,9 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
             const state = followStates[link.id] || 'idle';
             const btnColor = getButtonColor(link, state);
             const isDone = state === 'success';
+            const tileIconDynamic = isDone
+              ? { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: COLORS.success }
+              : { backgroundColor: (platform?.color || COLORS.primary) + '22', borderColor: (platform?.color || COLORS.primary) + '66' };
             return (
               <TouchableOpacity
                 key={link.id}
@@ -457,18 +448,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
                 disabled={state === 'loading'}>
 
                 {/* Icon */}
-                <View style={[
-                  styles.tileIcon,
-                  styles.tileIconBorder,
-                  {
-                    backgroundColor: isDone
-                      ? 'rgba(34,197,94,0.12)'
-                      : (platform?.color || COLORS.primary) + '22',
-                    borderColor: isDone
-                      ? COLORS.success
-                      : (platform?.color || COLORS.primary) + '66',
-                  },
-                ]}>
+                <View style={[styles.tileIcon, styles.tileIconBorder, tileIconDynamic]}>
                   {isDone ? (
                     <Text style={styles.tileIconDoneText}>✓</Text>
                   ) : (
@@ -518,6 +498,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   closeBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.md },
+  saveContactBtn: {
+    position: 'absolute', top: 50, left: 20, zIndex: 10,
+    paddingHorizontal: SPACING.md, paddingVertical: 8, borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  saveContactBtnText: { color: COLORS.white, fontSize: FONT_SIZE.sm, fontWeight: '700' },
   scrollContent: { padding: SPACING.lg, paddingTop: SPACING.xxl },
   premiumHeaderCard: {
     backgroundColor: '#0B1120',
@@ -540,7 +527,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99,102,241,0.12)',
   },
   cardGlass: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(255,255,255,0.015)',
   },
   cardTop: {
@@ -626,6 +617,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  skelMb8: { marginBottom: 8 },
+  skelMb12: { marginBottom: 12 },
+  skelMb6: { marginBottom: 6 },
+  tileInfoMl16: { marginLeft: 16 },
 
   // ─── Error / Footer ───
   errorState: { flex: 1, alignItems: 'center', justifyContent: 'center' },

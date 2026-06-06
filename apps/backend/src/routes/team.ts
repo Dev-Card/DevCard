@@ -25,17 +25,15 @@ type TeamProfile = {
 }
 
 export async function teamRoutes(app:FastifyInstance){
-    app.post('/', async(request:FastifyRequest<{
+        app.post('/', { preHandler: [async (request, reply) => {
+            const server = request.server as any;
+            if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+            if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
+            try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+        }] }, async(request:FastifyRequest<{
         Body: {name: string, description? : string, avatarUrl?: string }
     }>, reply: FastifyReply) => {
-        let decoded; 
-        try {
-            decoded = await request.jwtVerify() as any; 
-        } catch (error) {
-            return reply.status(401).send({error : 'Unauthorized'})
-        }
-
-        const userId = decoded.id; 
+        const userId = (request.user as any).id;
         const parsed = createTeamScehma.safeParse(request.body); 
         if(!parsed.success){
             return reply.status(400).send({error: 'Bad request'})
@@ -159,15 +157,14 @@ export async function teamRoutes(app:FastifyInstance){
 
     })
 
-    app.post('/:slug/members', async(request: FastifyRequest<{Params: {slug:string}, Body:{username:string}}>, reply: FastifyReply) => {
+        app.post('/:slug/members', { preHandler: [async (request, reply) => {
+            const server = request.server as any;
+            if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+            if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
+            try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+        }] }, async(request: FastifyRequest<{Params: {slug:string}, Body:{username:string}}>, reply: FastifyReply) => {
         const paramsSlug = request.params.slug; 
-        let decoded; 
-        try {
-           decoded = await request.jwtVerify() as any;  
-        } catch (error) {
-            return reply.status(401).send({error : 'Unauthorized'})
-        }
-        const userId = decoded.id; 
+        const userId = (request.user as any).id;
         const parsed = inviteMembers.safeParse(request.body); 
         if(!parsed.success){
             return reply.status(400).send({error: 'Bad request'})
@@ -227,16 +224,10 @@ export async function teamRoutes(app:FastifyInstance){
         }
     })
 
-    app.delete('/:slug/members/:userId', async(request: FastifyRequest<{Params: {slug: string, userId: string}}>, reply: FastifyReply)  => {
-        let decoded; 
-        try {
-            decoded = await request.jwtVerify() as any
-        } catch (error) {
-            return reply.status(401).send({error : 'Unauthorized'})
-        }
+    app.delete('/:slug/members/:userId', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string, userId: string}}>, reply: FastifyReply)  => {
         const paramsSlug = request.params.slug 
         const paramsUserId = request.params.userId
-        const userID = decoded.id; 
+        const userID = (request.user as any).id; 
         const teamDetails = await app.prisma.team.findUnique(
             {where: {slug: paramsSlug},
             include: {
@@ -295,14 +286,8 @@ export async function teamRoutes(app:FastifyInstance){
         }
     })
 
-    app.patch('/:slug',async(request: FastifyRequest<{Params: {slug: string},Body: {description?:string, name?:string, avatarUrl?:string}}>, reply: FastifyReply) => {
-        let decoded; 
-        try {
-            decoded = await request.jwtVerify() as any
-        } catch (error) {
-            return reply.status(401).send({error : 'Unauthorized'})
-        }
-        const userId = decoded.id; 
+    app.patch('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string},Body: {description?:string, name?:string, avatarUrl?:string}}>, reply: FastifyReply) => {
+        const userId = (request.user as any).id; 
         const paramsSlug = request.params.slug; 
         const parsed = updateTeam.safeParse(request.body); 
         if(!parsed.success){
@@ -343,14 +328,8 @@ export async function teamRoutes(app:FastifyInstance){
         
     })
 
-    app.delete('/:slug',async(request:FastifyRequest<{Params:{slug: string}}>, reply:FastifyReply) => {
-        let decoded; 
-        try {
-            decoded = await request.jwtVerify() as any
-        } catch (error) {
-            return reply.status(401).send({error : 'Unauthorized'})
-        }
-        const userId = decoded.id; 
+    app.delete('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request:FastifyRequest<{Params:{slug: string}}>, reply:FastifyReply) => {
+        const userId = (request.user as any).id; 
         const paramsSlug = request.params.slug; 
 
 
