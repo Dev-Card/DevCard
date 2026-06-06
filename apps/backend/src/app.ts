@@ -29,6 +29,10 @@ export async function buildApp():Promise<FastifyInstance> {
   // Validate all required secrets before registering any plugin.
   // If validation fails the process exits here — no partially-initialised
   // auth state can exist because Fastify is not yet instantiated.
+  if (process.env.NODE_ENV === 'test') {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-that-is-sufficiently-long-and-secure';
+    process.env.ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'test-encryption-key-for-testing-purposes-32-chars';
+  }
   validateEnv();
 
   const app = Fastify({
