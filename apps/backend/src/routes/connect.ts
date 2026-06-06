@@ -1,6 +1,8 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
+
 import { encrypt } from '../utils/encryption.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -102,7 +104,9 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
       }
 
       // Consume the nonce -- one-time use only (if redis configured)
-      if (app.redis) await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+      if (app.redis) {
+        await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+      }
 
       const userId = decodedState.userId;
 
