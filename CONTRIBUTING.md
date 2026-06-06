@@ -13,7 +13,7 @@
 ### Prerequisites
 
 - **Node.js** >= 20
-- **pnpm** >= 9
+- **npm** >= 10 (bundled with Node.js)
 - **Docker** & Docker Compose
 - **React Native** dev environment — follow the [official setup guide](https://reactnative.dev/docs/environment-setup)
 
@@ -25,7 +25,11 @@ git clone https://github.com/Dev-Card/DevCard.git
 cd devcard
 
 # 2. Install dependencies
-pnpm install
+npm install                              # root (orchestrator)
+npm --prefix packages/shared install     # shared types/utils
+npm --prefix apps/backend install        # backend API
+npm --prefix apps/web install            # web app
+npm --prefix apps/mobile install         # mobile app (if working on mobile)
 
 # 3. Start PostgreSQL + Redis
 docker compose up -d
@@ -35,34 +39,34 @@ cp .env.example .env
 # Edit .env with your OAuth credentials
 
 # 5. Run database migrations and seed
-pnpm db:migrate
-pnpm db:seed
+npm run db:migrate
+npm run db:seed
 
 # 6. Start development
-pnpm dev:backend    # Backend API on :3000
-pnpm dev:mobile     # React Native app
+npm run dev:backend    # Backend API on :3000
+npm run dev:mobile     # React Native app
 ```
 
 ### Running Tests
 
-This project uses `pnpm` to run tests across different parts of the codebase.
+This project uses `npm` to run tests across different parts of the codebase.
 
 #### Run all tests
-To execute all available tests:
+To execute backend tests:
 ```bash
-pnpm -r test
+npm run test
 ```
 
 #### apps/backend
 The backend uses Vitest:
 ```bash
-pnpm --filter @devcard/backend test
-pnpm --filter @devcard/backend test:watch
+npm --prefix apps/backend run test
+npm --prefix apps/backend run test:watch
 ```
 #### apps/mobile
 The mobile app uses Jest:
 ```bash
-pnpm --filter @devcard/mobile test
+npm --prefix apps/mobile run test
 ```
 #### apps/web
 Currently, the web app does not define a test script.
@@ -84,7 +88,7 @@ devcard/
 ## Coding Standards
 
 - **TypeScript** for all new code
-- **ESLint + Prettier** for formatting (run `pnpm lint` before committing)
+- **ESLint + Prettier** for formatting (run `npm run lint` before committing)
 - **Conventional Commits** for commit messages (`feat:`, `fix:`, `docs:`, `chore:`)
 - Write tests for new features and bug fixes
 
@@ -92,8 +96,8 @@ devcard/
 
 1. Create a feature branch from `main`: `git checkout -b feat/your-feature`
 2. Make your changes with clear, descriptive commits
-3. Ensure all tests pass: `pnpm test`
-4. Ensure linting passes: `pnpm lint`
+3. Ensure all tests pass: `npm run test`
+4. Ensure linting passes: `npm run lint`
 5. Open a PR against `main` with a clear description of the change
 6. Wait for review — maintainers will respond within 48 hours
 

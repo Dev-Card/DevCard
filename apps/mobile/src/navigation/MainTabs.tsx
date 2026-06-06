@@ -3,10 +3,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, FONT_SIZE } from '../theme/tokens';
+import { useTheme } from '../context/ThemeContext';
 
 import HomeScreen from '../screens/HomeScreen';
 import LinksScreen from '../screens/LinksScreen';
 import CardsScreen from '../screens/CardsScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ScanScreen from '../screens/ScanScreen';
 import DevCardViewScreen from '../screens/DevCardViewScreen';
@@ -28,7 +30,7 @@ export type MainTabsParamList = {
   Contacts: undefined;
   Scan: undefined;
   Cards: undefined;
-  Settings: undefined;
+  Profile: undefined;
 };
 
 // Standalone type for WebViewConnect route params — exported for reuse in
@@ -54,6 +56,7 @@ export type RootStackParamList = {
   Teams: undefined;
   TeamDetail: { slug: string; name: string };
   Nfc: undefined;
+  Settings: undefined;
 };
 
 // ─── Tab Bar Icon ───
@@ -64,7 +67,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     Contacts: '📇',
     Scan: '📷',
     Cards: '💳',
-    Settings: '⚙️',
+    Profile: '👤',
   };
   return (
     <View style={styles.tabIcon}>
@@ -88,13 +91,15 @@ function ScanButton() {
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 function TabNavigator() {
+  const { colors } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarStyle: [styles.tabBar, { backgroundColor: colors.bgSecondary, borderTopColor: colors.border }],
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: styles.tabLabel,
         tabBarIcon: ({ focused }) => (
           <TabIcon name={route.name} focused={focused} />
@@ -111,7 +116,7 @@ function TabNavigator() {
         }}
       />
       <Tab.Screen name="Cards" component={CardsScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
@@ -150,6 +155,7 @@ export default function MainTabs() {
       <Stack.Screen name="Teams" component={TeamsScreen} />
       <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
       <Stack.Screen name="Nfc" component={NfcScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );
 }

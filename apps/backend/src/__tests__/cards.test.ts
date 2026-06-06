@@ -1,6 +1,9 @@
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify from 'fastify';
+
 import { cardRoutes } from '../routes/cards.js';
+
+import type { PrismaClient } from '@prisma/client';
 
 const USER_ID = 'user-123';
 const CARD_ID = 'card-abc';
@@ -43,15 +46,15 @@ const mockPrisma = {
 
 // Re-wire $transaction before every test so that it executes the callback
 // against the same mock client, preserving existing per-operation mocks.
-function wireTransaction() {
+function wireTransaction(): void {
   mockPrisma.$transaction.mockImplementation(
     async (callback: (tx: typeof mockPrisma) => Promise<unknown>) => callback(mockPrisma),
   );
 }
 
-async function buildApp() {
+async function buildApp():Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
-  app.decorate('prisma', mockPrisma);
+  app.decorate('prisma', mockPrisma as unknown as PrismaClient);
   app.decorate('authenticate', async (request: any) => {
     request.user = { id: USER_ID };
   });
