@@ -1,0 +1,52 @@
+.not-found-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.not-found-card {
+  text-align: center;
+  padding: 3.5rem 2.5rem;
+  border-radius: var(--radius-xl);
+  width: min(100%, 480px);
+}
+
+.not-found-icon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+}
+
+.not-found-card h1 {
+  font-size: clamp(4rem, 8vw, 6rem);
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.not-found-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  margin-bottom: 0.75rem;
+}
+
+.not-found-desc {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 520px) {
+  .not-found-card {
+    padding: 2.5rem 1.5rem;
+  }
+}

@@ -5,10 +5,13 @@ import { DEMO_TOKEN } from '../services/api';
 
 // ── Storage Keys ──────────────────────────────────────────────────────────
 
+// ── Storage Keys ──────────────────────────────────────────────────────────────
+
 const TOKEN_KEY = 'devcard.auth.token';
 const FIRST_LAUNCH_KEY = 'devcard.firstLaunch';
 
 // ── Types ────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface User {
   id: string;
@@ -37,6 +40,8 @@ interface AuthContextType {
 }
 
 // ── Context ───────────────────────────────────────────────────────────
+
+// ── Context ───────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -100,6 +105,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Logout ──
 
+
+  // ── Logout ──
+
   const logout = useCallback(async () => {
     setToken(null);
     setUser(null);
@@ -109,6 +117,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Failed to clear stored token:', error);
     }
   }, []);
+
+  // ── Refresh User ──
+
+
 
   // ── Refresh User ──
 

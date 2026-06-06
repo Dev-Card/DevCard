@@ -3,14 +3,22 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, FONT_SIZE } from '../theme/tokens';
+import { useTheme } from '../context/ThemeContext';
 
 import HomeScreen from '../screens/HomeScreen';
 import LinksScreen from '../screens/LinksScreen';
 import CardsScreen from '../screens/CardsScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ScanScreen from '../screens/ScanScreen';
 import DevCardViewScreen from '../screens/DevCardViewScreen';
 import WebViewScreen from '../screens/WebViewScreen';
+import ContactsScreen from '../screens/ContactsScreen';
+import EventsScreen from '../screens/EventsScreen';
+import EventDetailScreen from '../screens/EventDetailScreen';
+import TeamsScreen from '../screens/TeamsScreen';
+import TeamDetailScreen from '../screens/TeamDetailScreen';
+import NfcScreen from '../screens/NfcScreen';
 
 import { ConnectPlatformsScreen } from '../screens/ConnectPlatformsScreen';
 import { ViewsScreen } from '../screens/ViewsScreen';
@@ -19,10 +27,10 @@ import { ViewsScreen } from '../screens/ViewsScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
-  Links: undefined;
+  Contacts: undefined;
   Scan: undefined;
   Cards: undefined;
-  Settings: undefined;
+  Profile: undefined;
 };
 
 // Standalone type for WebViewConnect route params — exported for reuse in
@@ -42,6 +50,13 @@ export type RootStackParamList = {
   WebViewConnect: WebViewConnectParams;
   ConnectPlatforms: undefined;
   Views: undefined;
+  Links: undefined;
+  Events: undefined;
+  EventDetail: { slug: string; name: string };
+  Teams: undefined;
+  TeamDetail: { slug: string; name: string };
+  Nfc: undefined;
+  Settings: undefined;
 };
 
 // ─── Tab Bar Icon ───
@@ -49,10 +64,10 @@ export type RootStackParamList = {
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
     Home: '🏠',
-    Links: '🔗',
+    Contacts: '📇',
     Scan: '📷',
     Cards: '💳',
-    Settings: '⚙️',
+    Profile: '👤',
   };
   return (
     <View style={styles.tabIcon}>
@@ -63,39 +78,45 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   );
 }
 
+function ScanButton() {
+  return (
+    <View style={styles.scanButton}>
+      <Text style={styles.scanEmoji}>📷</Text>
+    </View>
+  );
+}
+
 // ─── Tab Navigator ───
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 function TabNavigator() {
+  const { colors } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarStyle: [styles.tabBar, { backgroundColor: colors.bgSecondary, borderTopColor: colors.border }],
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: styles.tabLabel,
         tabBarIcon: ({ focused }) => (
           <TabIcon name={route.name} focused={focused} />
         ),
       })}>
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Links" component={LinksScreen} />
+      <Tab.Screen name="Contacts" component={ContactsScreen} />
       <Tab.Screen
         name="Scan"
         component={ScanScreen}
         options={{
           tabBarLabel: '',
-          tabBarIcon: () => (
-            <View style={styles.scanButton}>
-              <Text style={styles.scanEmoji}>📷</Text>
-            </View>
-          ),
+          tabBarIcon: () => <ScanButton />,
         }}
       />
       <Tab.Screen name="Cards" component={CardsScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
@@ -128,6 +149,13 @@ export default function MainTabs() {
         component={ViewsScreen}
         options={{ title: 'Card Views Analytics', headerShown: true, headerStyle: { backgroundColor: COLORS.bgPrimary }, headerTintColor: COLORS.textPrimary }}
       />
+      <Stack.Screen name="Links" component={LinksScreen} />
+      <Stack.Screen name="Events" component={EventsScreen} />
+      <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+      <Stack.Screen name="Teams" component={TeamsScreen} />
+      <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
+      <Stack.Screen name="Nfc" component={NfcScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );
 }
