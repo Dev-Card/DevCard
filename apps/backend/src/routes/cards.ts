@@ -1,10 +1,10 @@
+import * as cardService from '../services/cardService'
 import { handleDbError } from '../utils/error.util.js';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
-import * as cardService from '../services/cardService'
 
+import type { CardResponse } from '../services/cardService';
 import type { Card } from '@devcard/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { CardResponse } from '../services/cardService';
 
 interface CreateCardBody {
   title: string;
@@ -38,7 +38,7 @@ interface CardLinkWithPlatform {
   platformLink: PlatformLink;
 }
 
-interface CardWithLinks {
+interface _CardWithLinks {
   id: string;
   userId: string;
   title: string;
@@ -53,7 +53,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     const server = request.server as any;
     if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
     if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-    try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+    try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
   });
 
   // ─── List Cards ───
@@ -81,7 +81,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       const card = await cardService.createCard(app, userId, parsed.data)
       return reply.status(201).send(card)
     } catch (error: any) {
-      if (error?.code === 'OWNERSHIP') return reply.status(403).send({ error: 'One or more links do not belong to your account' })
+      if (error?.code === 'OWNERSHIP') {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
       return handleDbError(error, request, reply)
     }
   });
@@ -94,12 +94,12 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
     try {
       const parsed = updateCardSchema.safeParse(request.body)
-      if (!parsed.success) return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() })
+      if (!parsed.success) {return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() })}
       const updated = await cardService.updateCard(app, userId, id, parsed.data)
-      if (!updated) return reply.status(404).send({ error: 'Card not found' })
+      if (!updated) {return reply.status(404).send({ error: 'Card not found' })}
       return updated
     } catch (error: any) {
-      if (error?.code === 'OWNERSHIP') return reply.status(403).send({ error: 'One or more links do not belong to your account' })
+      if (error?.code === 'OWNERSHIP') {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
       return handleDbError(error, request, reply)
     }
   });
@@ -111,7 +111,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params;
 
     try {
-      const res = await cardService.deleteCard(app, userId, id)
+      await cardService.deleteCard(app, userId, id)
       return reply.status(204).send()
     } catch (error:any) {
         if (error?.code === 'NOT_FOUND') {
@@ -135,7 +135,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
     try {
       const resp = await cardService.setDefaultCard(app, userId, id)
-      if (!resp) return reply.status(404).send({ error: 'Card not found' })
+      if (!resp) {return reply.status(404).send({ error: 'Card not found' })}
       return resp
     } catch (error) {
       return handleDbError(error, request, reply)
