@@ -1,10 +1,11 @@
+import { describe, it, expect, vi } from 'vitest';
+
+import { buildApp } from '../app';
+
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-that-is-long-enough-for-testing';
 process.env.ENCRYPTION_KEY = 'test-encryption-key-that-is-exactly-32-chars!!';
 process.env.PUBLIC_APP_URL = 'http://localhost:5173';
-
-import { describe, it, expect } from 'vitest';
-import { buildApp } from '../app';
 
 describe('GET /health', () => {
   it('should return status ok', async () => {
@@ -17,6 +18,22 @@ describe('GET /health', () => {
 
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body)).toEqual({ status: 'ok' });
+
+    await app.close();
+  });
+});
+
+describe('request logging hook', () => {
+  it('logs method and url for each request', async () => {
+    const app = await buildApp();
+    const spy = vi.spyOn(app.log, 'info');
+
+    await app.inject({ method: 'GET', url: '/health' });
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'GET', url: '/health' }),
+      'incoming request',
+    );
 
     await app.close();
   });
