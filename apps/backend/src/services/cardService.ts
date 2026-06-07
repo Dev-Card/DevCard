@@ -140,7 +140,7 @@ export async function deleteCard(app: FastifyInstance, userId: string, id: strin
 
     const userCardCount = await tx.card.count({ where: { userId } });
     if (userCardCount <= 1) {
-      return Object.assign(new Error('Cannot delete last card'), { code: 'LAST_CARD' });
+      throw Object.assign(new Error('Cannot delete last card'), { code: 'LAST_CARD' });
     }
 
     if (existing.isDefault) {
