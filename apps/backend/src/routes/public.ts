@@ -82,28 +82,70 @@ interface CardLinkWithPlatform {
   displayOrder: number;
   platformLink: PlatformLink;
 }
+function transformPublicProfileLink(
+  link: PlatformLink,
+  followed = false
+) {
+  return {
+    id: link.id,
+    platform: link.platform,
+    username: link.username,
+    url: link.url,
+    displayOrder: link.displayOrder,
+    followed,
+  };
+}
 
-// ── Internal Redis cache shape ────────────────────────────────────────────────
-// Extends the public response with the owner's DB id so that background view
-// tracking can still fire on cache-HIT requests without an extra DB read.
-type CachedProfileEntry = UsernamePublicProfileResponse & { _userId: string };
-
-
+function transformCardPlatformLink(
+  cl: CardLinkWithPlatform
+) {
+  return {
+    id: cl.platformLink.id,
+    platform: cl.platformLink.platform,
+    username: cl.platformLink.username,
+    url: cl.platformLink.url,
+  };
+}
+function transformCardLinkWithOrder(
+  cl: CardLinkWithPlatform
+) {
+  return {
+    ...transformCardPlatformLink(cl),
+    displayOrder: cl.displayOrder,
+  };
+}
+function transformOwnerProfile(user: {
+  username: string;
+  displayName: string;
+  bio: string | null;
+  pronouns?: string | null;
+  role?: string | null;
+  company?: string | null;
+  avatarUrl: string | null;
+  accentColor: string;
+}) {
+  return {
+    username: user.username,
+    displayName: user.displayName,
+    bio: user.bio,
+    pronouns: user.pronouns ?? null,
+    role: user.role ?? null,
+    company: user.company ?? null,
+    avatarUrl: user.avatarUrl,
+    accentColor: user.accentColor,
+  };
+}
 export async function publicRoutes(app: FastifyInstance) {
   // ─── Public Profile ───────────────────────────────────────────────────────
   // ─── Public Profile ───
- /**
-   * GET /api/u/:username
-   * Returns the public profile information for a user.
-   */
   app.get('/:username', {
     config: {
       rateLimit: {
         max: 100,
-        timeWindow: '1 minute',
-      },
-    },
-  }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
+        timeWindow: '1 minute'
+      }
+    } as FastifyContextConfig
+  }, async (request: FastifyRequest<{ Params: { username: string }; Querystring: { source?: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
     const cacheKey = `profile:${username}`;
 
@@ -120,6 +162,154 @@ export async function publicRoutes(app: FastifyInstance) {
       // ignored
     }
 
+    // ── Redis cache read ──────────────────────────────────────────────────
+    if (app.redis) {
+      try {
+        const cached = await app.redis.get(cacheKey);
+        if (cached) {
+          const { _userId, ...profileData }: CachedProfileEntry = JSON.parse(cached);
+
+          // Background view tracking still fires on cache HITs so analytics
+          // counts are not lost when the profile is served from cache.
+          if (viewerId && viewerId !== _userId) {
+            app.prisma.cardView.create({
+              data: {
+                ownerId: _userId,
+                cardId: null,
+                viewerId,
+                viewerIp: request.ip || null,
+                viewerAgent: request.headers['user-agent'] || null,
+                source: request.query?.source || 'link',
+              },
+            }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`));
+          }
+
+          reply
+            .header('X-Cache', 'HIT')
+            .header('Cache-Control', CACHE_CONTROL_HEADER);
+          return profileData;
+        }
+      } catch (err) {
+        // A Redis failure must not break the request — fall through to DB.
+        app.log.warn(`Redis cache read failed for ${cacheKey}: ${getErrorMessage(err)}`);
+      }
+    }
+
+    // ── DB fetch (cache MISS) ─────────────────────────────────────────────
+    const user = await app.prisma.user.findUnique({
+      where: { username },
+      include: {
+        platformLinks: {
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+
+    if (!user) {
+      return reply.status(404).send({ error: 'User not found' });
+    }
+
+    // Don't track if the owner is viewing their own profile
+    if (viewerId && viewerId !== user.id) {
+      // Background view tracking
+      app.prisma.cardView.create({
+        data: {
+          ownerId: user.id,
+          cardId: null, // this is a profile view, not a card view
+          viewerId,
+          viewerIp: request.ip || null,
+          viewerAgent: request.headers['user-agent'] || null,
+          source: request.query?.source || 'link',
+        },
+      }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`));
+    }
+
+    // Fetch viewer's successful follow logs for this profile's links
+    let followedLinkIds: string[] = [];
+    if (viewerId && user.platformLinks.length > 0) {
+      const successfulFollows = await app.prisma.followLog.findMany({
+        where: {
+          followerId: viewerId,
+          status: 'success',
+          OR: user.platformLinks.map((link: PlatformLink) => ({
+            platform: link.platform,
+            targetUsername: link.username,
+          })),
+        },
+        select: {
+          platform: true,
+          targetUsername: true,
+        },
+      });
+
+      followedLinkIds = user.platformLinks
+        .filter((link: PlatformLink) =>
+          successfulFollows.some((f: { platform: string; targetUsername: string }) =>
+            f.platform === link.platform &&
+            f.targetUsername.toLowerCase() === link.username.toLowerCase()
+          )
+        )
+        .map((link: PlatformLink) => link.id);
+    }
+
+    // Base link list without viewer-specific followed state — this is what we
+    // cache so the same Redis entry is valid for every caller.
+    const baseLinks = user.platformLinks.map((link: PlatformLink) => ({
+      id: link.id,
+      platform: link.platform,
+      username: link.username,
+      url: link.url,
+      displayOrder: link.displayOrder,
+      followed: false,
+    }));
+
+    // ── Populate Redis cache ──────────────────────────────────────────────
+    if (app.redis) {
+      const entry: CachedProfileEntry = {
+        _userId: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        bio: user.bio,
+        pronouns: user.pronouns,
+        role: user.role,
+        company: user.company,
+        avatarUrl: user.avatarUrl,
+        accentColor: user.accentColor,
+        links: baseLinks,
+      };
+      app.redis
+        .set(cacheKey, JSON.stringify(entry), 'EX', PROFILE_CACHE_TTL)
+        .catch((err: unknown) => app.log.warn(`Redis cache write failed for ${cacheKey}: ${getErrorMessage(err)}`));
+    }
+
+    const response: UsernamePublicProfileResponse = {
+      ...transformOwnerProfile(user),
+      links: user.platformLinks.map((link: PlatformLink) =>
+        transformPublicProfileLink(
+          link,
+          followedLinkIds.includes(link.id)
+        )),
+    }
+
+    return response; 
+      username: user.username,
+      displayName: user.displayName,
+      bio: user.bio,
+      pronouns: user.pronouns,
+      role: user.role,
+      company: user.company,
+      avatarUrl: user.avatarUrl,
+      accentColor: user.accentColor,
+      links: baseLinks.map((link) => ({
+        ...link,
+        followed: followedLinkIds.includes(link.id),
+      })),
+    };
+
+    reply
+      .header('X-Cache', 'MISS')
+      .header('Cache-Control', CACHE_CONTROL_HEADER);
+    return response;
     try {
       const result = await publicService.getPublicProfile(app, username, viewerId, request)
       if (!result) return reply.status(404).send({ error: 'User not found' })
@@ -157,23 +347,34 @@ export async function publicRoutes(app: FastifyInstance) {
       app.log.error({ err }, 'Failed to fetch shared card')
       return reply.status(500).send({ error: 'Internal server error' })
     }
+
+    const response: CardPublicProfileResponse = {
+      id: card.id,
+      title: card.title,
+      owner: transformOwnerProfile(card.user),
+      links: card.cardLinks.map(transformCardPlatformLink),
+    }
+
+    return response; 
+
+    
   });
 
   // ─── Public Card View ─────────────────────────────────────────────────────
   // ─── Public Card View ───
-  /**
-   * GET /api/u/:username/card/:cardId
-   * Returns full owner profile + specific card data.
-   * Used when viewing a card through username + cardId (e.g. QR code scans).
-   */
   app.get('/:username/card/:cardId', {
     config: {
       rateLimit: {
         max: 100,
-        timeWindow: '1 minute',
-      },
-    },
-  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
+        timeWindow: '1 minute'
+      }
+    } as FastifyContextConfig
+  }, async (request: FastifyRequest<{ Params: { username: string; cardId: string }; Querystring: { source?: string } }>, reply: FastifyReply) => {
+    /**
+     * GET /api/public/:username/card/:cardId
+     * Returns full owner profile + specific card data.
+     * Used when viewing a card through username + cardId (e.g. QR code scans).
+    */
     const { username, cardId } = request.params;
 
     let viewerId: string | null = null
@@ -186,14 +387,27 @@ export async function publicRoutes(app: FastifyInstance) {
       // ignored
     }
 
-    try {
-      const result = await publicService.getUserCard(app, username, cardId, viewerId, request)
-      if (result.notFound) return reply.status(404).send({ error: 'User or card not found' })
-      return result.data
-    } catch (err: any) {
-      app.log.error({ err }, 'Failed to fetch user card')
-      return reply.status(500).send({ error: 'Internal server error' })
+    if (viewerId && viewerId !== user.id) {
+      app.prisma.cardView.create({
+        data: {
+          ownerId: user.id,
+          cardId: card.id,
+          viewerId,
+          viewerIp: request.ip || null,
+          viewerAgent: request.headers['user-agent'] || null,
+          source: request.query?.source || 'qr',
+        },
+      }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`));
     }
+
+
+  const response: UsernameCardPublicProfileResponse = {
+    title: card.title,
+    owner: transformOwnerProfile(user),
+    links: card.cardLinks.map(transformCardLinkWithOrder),
+  }
+  return response;
+  // ─── QR Code Generation ───
   });
 
   // ─── QR Session ──────────────────────────────────────────────────────────
@@ -240,19 +454,8 @@ export async function publicRoutes(app: FastifyInstance) {
     Querystring: { format?: string; size?: string };
   }>, reply: FastifyReply) => {
     const { username } = request.params;
-    const format = (request.query as any).format || 'png';
-
-    // Parse and validate size before touching the DB or allocating any buffers.
-    // parseInt safely handles non-numeric strings (returns NaN) and ignores any
-    // trailing fractional part, so '400.9' → 400 which is within bounds.
-    const rawSize = (request.query as any).size;
-    const size = rawSize !== undefined ? parseInt(rawSize, 10) : 400;
-
-    if (!Number.isInteger(size) || size < MIN_QR_SIZE || size > MAX_QR_SIZE) {
-      return reply.status(400).send({
-        error: `QR size must be an integer between ${MIN_QR_SIZE} and ${MAX_QR_SIZE}`,
-      });
-    }
+    const format = request.query.format || 'png';
+    const size = parseInt(request.query.size || '400', 10);
 
     // Verify user exists
     const user = await app.prisma.user.findUnique({
@@ -265,6 +468,12 @@ export async function publicRoutes(app: FastifyInstance) {
 
     const profileUrl = `${process.env.PUBLIC_APP_URL}/u/${username}`;
 
+    if (format === 'svg') {
+      const svg = await generateQRSvg(profileUrl, { width: size });
+      return reply
+        .header('Content-Type', 'image/svg+xml')
+        .header('Content-Disposition', `inline; filename="devcard-${username}.svg"`)
+        .send(svg);
     try {
       if (format === 'svg') {
         const svg = await generateQRSvg(profileUrl, { width: size })
@@ -276,5 +485,11 @@ export async function publicRoutes(app: FastifyInstance) {
       app.log.error({ error, username, size, format }, 'QR generation failed')
       return reply.status(500).send({ error: 'QR code generation failed' })
     }
+
+    const png = await generateQRBuffer(profileUrl, { width: size });
+    return reply
+      .header('Content-Type', 'image/png')
+      .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
+      .send(png);
   });
 }
