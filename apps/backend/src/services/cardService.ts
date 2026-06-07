@@ -13,22 +13,30 @@ export async function listCards(app: FastifyInstance, userId: string) {
 }
 
 export async function createCard(app: FastifyInstance, userId: string, body: { title: string; linkIds: string[] }) {
+  // Ownership check runs before any write so a foreign linkId is always
+  // caught before the transaction begins.
   if (body.linkIds.length > 0) {
     const ownedLinks = await app.prisma.platformLink.findMany({ where: { id: { in: body.linkIds }, userId }, select: { id: true } })
     if (ownedLinks.length !== body.linkIds.length) throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' })
   }
 
-  const cardCount = await app.prisma.card.count({ where: { userId } })
-
-  const card = await app.prisma.card.create({
-    data: {
-      userId,
-      title: body.title,
-      isDefault: cardCount === 0,
-      cardLinks: { create: body.linkIds.map((linkId, index) => ({ platformLinkId: linkId, displayOrder: index })) },
-    },
-    include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
-  })
+  // The count check and card creation run inside a single serializable
+  // transaction so that two concurrent first-card requests cannot both
+  // observe count = 0 and both set isDefault = true. Serializable
+  // isolation causes the database to roll back the second conflicting
+  // transaction rather than allowing both to commit with isDefault = true.
+  const card = await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const cardCount = await tx.card.count({ where: { userId } })
+    return tx.card.create({
+      data: {
+        userId,
+        title: body.title,
+        isDefault: cardCount === 0,
+        cardLinks: { create: body.linkIds.map((linkId, index) => ({ platformLinkId: linkId, displayOrder: index })) },
+      },
+      include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
+    })
+  }, { isolationLevel: 'Serializable' })
 
   return { id: card.id, title: card.title, isDefault: card.isDefault, links: card.cardLinks.map((cl: any) => cl.platformLink) }
 }

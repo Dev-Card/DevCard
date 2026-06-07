@@ -3,7 +3,6 @@ import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 import * as cardService from '../services/cardService'
 
 import type { Card } from '@devcard/shared';
-import type { Prisma } from '@prisma/client';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 
