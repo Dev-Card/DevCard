@@ -135,7 +135,7 @@ export async function deleteCard(app: FastifyInstance, userId: string, id: strin
   return await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existing = await tx.card.findFirst({ where: { id, userId } });
     if (!existing) {
-      return Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' });
+      throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' });
     }
 
     const userCardCount = await tx.card.count({ where: { userId } });
