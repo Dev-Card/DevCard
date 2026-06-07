@@ -3,9 +3,8 @@ import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 import * as cardService from '../services/cardService'
 
 import type { Card } from '@devcard/shared';
-import type { Prisma } from '@prisma/client';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-
+import type { CardResponse } from '../services/cardService';
 
 interface CreateCardBody {
   title: string;
@@ -59,7 +58,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── List Cards ───
 
-  app.get('/', async (request: FastifyRequest, reply: FastifyReply): Promise<Card[] | void> => {
+  app.get('/', async (request: FastifyRequest, reply: FastifyReply): Promise<CardResponse[] | void> => {
     const userId = (request.user as { id: string }).id;
     try {
       return await cardService.listCards(app, userId)
@@ -89,7 +88,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Update Card ───
 
-  app.put('/:id', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply): Promise<Card | void> => {
+  app.put('/:id', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply): Promise<CardResponse> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
@@ -113,10 +112,17 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
     try {
       const res = await cardService.deleteCard(app, userId, id)
-      if (res && (res as any).code === 'NOT_FOUND') return reply.status(404).send({ error: 'Card not found' })
-      if (res && (res as any).code === 'LAST_CARD') return reply.status(400).send({ error: 'Cannot delete the last remaining card. A user must have at least one card.' })
       return reply.status(204).send()
-    } catch (error) {
+    } catch (error:any) {
+        if (error?.code === 'NOT_FOUND') {
+          return reply.status(404).send({ error: 'Card not found' });
+        }
+
+        if (error?.code === 'LAST_CARD') {
+          return reply.status(400).send({
+            error: 'Cannot delete the last remaining card. A user must have at least one card.',
+          });
+        }
       return handleDbError(error, request, reply)
     }
   });

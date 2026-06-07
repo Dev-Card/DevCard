@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 
 type CardLinkResponse = { platformLink: unknown };
 type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
-type CardResponse = { id: string; title: string; isDefault: boolean; links: unknown[] };
+export type CardResponse = { id: string; title: string; isDefault: boolean; links: unknown[] };
 
 function mapCard(card: RawCard): CardResponse {
   return {
