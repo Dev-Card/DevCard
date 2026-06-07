@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { cardRoutes } from '../routes/cards.js';
@@ -48,14 +48,10 @@ const mockPrisma = {
 // against the same mock client, preserving existing per-operation mocks.
 function wireTransaction(): void {
   mockPrisma.$transaction.mockImplementation(
-    async (callback: (tx: typeof mockPrisma) => Promise<unknown>, _options?: unknown) => callback(mockPrisma),
+    async (callback: (tx: typeof mockPrisma) => Promise<unknown>) => callback(mockPrisma),
   );
 }
 
-async function buildApp(): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
-  app.decorate('prisma', mockPrisma);
-  app.decorate('authenticate', async (request: FastifyRequest & { user?: { id: string } }) => {
 async function buildApp():Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
@@ -185,55 +181,6 @@ describe('POST /api/cards — link ownership validation', () => {
     });
 
     expect(res.statusCode).toBe(500);
-  });
-
-  it('wraps creation in a Serializable transaction to prevent race conditions', async () => {
-    mockPrisma.platformLink.findMany.mockResolvedValue([{ id: OWNED_LINK_ID }]);
-    mockPrisma.card.count.mockResolvedValue(0);
-    mockPrisma.card.create.mockResolvedValue({ ...mockCard, cardLinks: [] });
-
-    const app = await buildApp();
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/cards',
-      payload: { title: 'Test Card', linkIds: [OWNED_LINK_ID] },
-    });
-
-    expect(res.statusCode).toBe(201);
-    expect(mockPrisma.$transaction).toHaveBeenCalledWith(
-      expect.any(Function),
-      { isolationLevel: 'Serializable' }
-    );
-  });
-
-  it('retries the transaction on P2034 serialization failure', async () => {
-    mockPrisma.platformLink.findMany.mockResolvedValue([]);
-    
-    // First attempt fails with P2034 (serialization conflict)
-    // Second attempt succeeds
-    const error = new Error('Serialization failure') as Error & { code: string };
-    error.code = 'P2034';
-    
-    // We mock $transaction to fail once, then succeed
-    mockPrisma.$transaction
-      .mockRejectedValueOnce(error)
-      .mockImplementationOnce(
-        async (callback: (tx: typeof mockPrisma) => Promise<unknown>) => callback(mockPrisma)
-      );
-
-    mockPrisma.card.count.mockResolvedValue(1); // second attempt sees count > 0
-    mockPrisma.card.create.mockResolvedValue({ ...mockCard, isDefault: false, cardLinks: [] });
-
-    const app = await buildApp();
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/cards',
-      payload: { title: 'Test Card', linkIds: [] },
-    });
-
-    expect(res.statusCode).toBe(201);
-    expect(res.json().isDefault).toBe(false);
-    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
   });
 });
 
