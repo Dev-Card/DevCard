@@ -135,6 +135,7 @@ export interface AnalyticsOverview {
       title: string;
     } | null;
   }>;
+  viewsBySource: Record<string, number>;
 }
 
 export interface ConnectedPlatform {

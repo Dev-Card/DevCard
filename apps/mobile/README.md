@@ -66,7 +66,7 @@ This is one way to run your app — you can also build it directly from Android 
 
 Now that you have successfully run the app, let's make changes!
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
 
 When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
 
@@ -81,6 +81,50 @@ You've successfully run and modified your React Native App. :partying_face:
 
 - If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
 - If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+
+# Troubleshooting
+
+If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+
+## NFC Tag Writing
+
+The mobile app supports writing DevCard URLs to physical NFC tags.
+
+### iOS NFC Entitlement Setup
+
+NFC writing on iOS requires additional configuration:
+
+1. Open `ios/DevCard/Info.plist` and add the following entries:
+
+```xml
+<key>NFCReaderUsageDescription</key>
+<string>This app needs NFC access to write DevCard URLs to NFC tags.</string>
+```
+
+2. Enable the **Near Field Communication Tag Reading** capability in Xcode:
+   - Open `ios/DevCard.xcworkspace` in Xcode
+   - Select the DevCard target
+   - Go to **Signing & Capabilities**
+   - Click **+ Capability** and search for "Near Field Communication Tag Reading"
+   - Add it to the target
+
+3. Ensure your `ios/DevCard/DevCard.entitlements` file contains:
+
+```xml
+<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+<array/>
+```
+
+4. Build and run on a physical iPhone (NFC is not available on the iOS simulator):
+   ```bash
+   npm run ios -- --device
+   ```
+
+> **Note**: NFC writing requires iPhone XR/XS or newer running iOS 13+.
+
+### Android NFC Setup
+
+Android NFC writing works out of the box with `react-native-nfc-manager`. No additional configuration is needed beyond installing the dependency.
 
 # Troubleshooting
 

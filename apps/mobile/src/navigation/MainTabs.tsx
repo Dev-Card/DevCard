@@ -21,6 +21,7 @@ import TeamDetailScreen from '../screens/TeamDetailScreen';
 import NfcScreen from '../screens/NfcScreen';
 
 import { ConnectPlatformsScreen } from '../screens/ConnectPlatformsScreen';
+import NFCWriteScreen from '../screens/NFCWriteScreen';
 import { ViewsScreen } from '../screens/ViewsScreen';
 
 // ─── Types ───
@@ -49,6 +50,7 @@ export type RootStackParamList = {
   DevCardView: { username: string; followSuccessLinkId?: string };
   WebViewConnect: WebViewConnectParams;
   ConnectPlatforms: undefined;
+  NFCWrite: undefined;
   Views: undefined;
   Links: undefined;
   Events: undefined;
@@ -143,6 +145,11 @@ export default function MainTabs() {
         name="ConnectPlatforms"
         component={ConnectPlatformsScreen}
         options={{ title: 'Connected Platforms', headerShown: true, headerStyle: { backgroundColor: COLORS.bgPrimary }, headerTintColor: COLORS.textPrimary }}
+      />
+      <Stack.Screen
+        name="NFCWrite"
+        component={NFCWriteScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
         name="Views"

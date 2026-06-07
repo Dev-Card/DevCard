@@ -57,6 +57,17 @@ export function validateEnv(): void {
     );
   }
 
+  // ── PUBLIC_APP_URL ────────────────────────────────────────────────────────────
+  const publicAppUrl = process.env.PUBLIC_APP_URL;
+
+  if (!publicAppUrl) {
+    errors.push(
+      'PUBLIC_APP_URL is not set. NFC payloads, QR codes, and share links\n' +
+      '    will not work without it. Set it to the public-facing URL of the web app\n' +
+      '    (e.g. https://devcard.dev).',
+    );
+  }
+
   // ── Fail fast ───────────────────────────────────────────────────────────────
   if (errors.length === 0) {
     return;

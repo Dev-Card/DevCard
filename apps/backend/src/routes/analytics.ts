@@ -79,12 +79,25 @@ export async function analyticsRoutes(
 
       const uniqueViewers = Number(uniqueViewersQuery[0]?.count ?? 0);
 
+      // Break down views by source for analytics
+      const viewsBySourceRaw = await app.prisma.cardView.groupBy({
+        by: ['source'],
+        where: { ownerId: userId },
+        _count: { id: true },
+      });
+
+      const viewsBySource: Record<string, number> = {};
+      for (const entry of viewsBySourceRaw) {
+        viewsBySource[entry.source] = entry._count.id;
+      }
+
       return {
         totalViews,
         viewsToday,
         totalFollows,
         uniqueViewers,
         recentViews,
+        viewsBySource,
       };
     }
   );

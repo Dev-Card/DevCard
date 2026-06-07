@@ -99,8 +99,15 @@ export async function nfcRoutes(app: FastifyInstance) {
         }
       }
 
+const publicAppUrl = process.env.PUBLIC_APP_URL;
+if (!publicAppUrl) {
+  return reply.status(500).send({
+    error: 'Server configuration error: PUBLIC_APP_URL is not set',
+  });
+}
+
 const safeUsername = encodeURIComponent(username);
-const payloadUrl = `${process.env.PUBLIC_APP_URL}/${safeUsername}${
+const payloadUrl = `${publicAppUrl.replace(/\/+$/, '')}/u/${safeUsername}${
   cardId ? `?card=${encodeURIComponent(cardId)}` : ''
 }`;
       const response: NfcPayloadResponse = {

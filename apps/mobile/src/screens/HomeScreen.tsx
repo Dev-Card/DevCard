@@ -133,6 +133,9 @@ export default function HomeScreen({ navigation }: Props) {
           <TouchableOpacity style={themed.quickButton} onPress={() => (navigation as any).navigate('Contacts')}>
             <Text style={themed.quickButtonText}>Saved Cards</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={themed.quickButton} onPress={() => (navigation as any).navigate('Nfc')}>
+            <Text style={themed.quickButtonText}>Write NFC</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
