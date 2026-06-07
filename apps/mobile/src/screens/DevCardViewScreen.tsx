@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
+import { Skeleton } from '../components/Skeleton';
 import { PLATFORMS, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -175,7 +176,41 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ flex: 1 }} />
+        <View style={styles.scrollContent}>
+          {/* Header Skeleton */}
+          <View style={[styles.premiumHeaderCard, { borderColor: COLORS.border }]}>
+            <View style={styles.cardTop}>
+              <Skeleton width={100} height={12} />
+              <Skeleton width={20} height={20} borderRadius={10} />
+            </View>
+            <View style={styles.cardMid}>
+              <Skeleton width={70} height={70} borderRadius={35} />
+              <View style={styles.mainInfo}>
+                <Skeleton width="80%" height={24} style={{ marginBottom: 8 }} />
+                <Skeleton width="60%" height={16} />
+              </View>
+            </View>
+            <View style={styles.cardBottom}>
+              <Skeleton width="70%" height={10} />
+              <Skeleton width={60} height={16} />
+            </View>
+          </View>
+
+          {/* Tiles Skeleton */}
+          <View style={styles.tilesSection}>
+            <Skeleton width={120} height={14} style={{ marginBottom: 12 }} />
+            {[1, 2, 3].map(i => (
+              <View key={i} style={styles.platformTile}>
+                <Skeleton width={40} height={40} borderRadius={10} />
+                <View style={[styles.tileInfo, { marginLeft: 16 }]}>
+                  <Skeleton width="50%" height={16} style={{ marginBottom: 6 }} />
+                  <Skeleton width="30%" height={12} />
+                </View>
+                <Skeleton width={72} height={30} borderRadius={8} />
+              </View>
+            ))}
+          </View>
+        </View>
       </SafeAreaView>
     );
   }

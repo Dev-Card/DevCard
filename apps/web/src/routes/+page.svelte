@@ -28,287 +28,218 @@
   />
 </svelte:head>
 
+<div class="bg-glow"></div>
+
 <main class="landing">
+  <nav class="glass">
+    <div class="nav-content">
+      <div class="logo">⚡ <span class="gradient-text">DevCard</span></div>
+      <button
+        id="theme-toggle"
+        class="theme-toggle"
+        on:click={toggleTheme}
+        aria-label="Toggle theme"
+      >
+        {theme === 'light' ? '🌙' : '☀️'}
+      </button>
+    </div>
+  </nav>
+
   <section class="hero">
-    <button
-      id="theme-toggle"
-      class="theme-toggle"
-      on:click={toggleTheme}
-      aria-label="Toggle theme"
-    >
-      {theme === 'light' ? '🌙' : '☀️'}
-    </button>
-    <div class="logo">⚡</div>
-    <h1>DevCard</h1>
-    <p class="tagline">One Tap. Every Profile. Every Platform.</p>
+    <div class="hero-badge">GSSoC'26 Edition</div>
+    <h1 class="gradient-text">One Tap. Every Profile.<br/>Every Platform.</h1>
     <p class="description">
-      Stop sharing LinkedIn, GitHub, and Twitter one by one.<br />
-      DevCard puts every profile in one shareable QR code.
+      The open-source standard for developer networking. Put all your profiles—GitHub, LinkedIn, LeetCode, and more—into a single, high-impact digital card.
     </p>
     <div class="cta-group">
       <a
         href="https://github.com/Dev-Card/DevCard"
-        class="btn btn-primary"
+        class="btn-primary"
         target="_blank"
         rel="noopener"
       >
         ⭐ Star on GitHub
       </a>
-      <a href="#features" class="btn btn-secondary">Learn More ↓</a>
+      <a href="/u/devcard-demo" class="btn-secondary">View Demo Profile →</a>
     </div>
   </section>
 
   <section id="features" class="features">
-    <div class="feature-card">
+    <div class="feature-card glass">
       <div class="feature-icon">🔗</div>
-      <h3>One Card, All Profiles</h3>
-      <p>
-        GitHub, LinkedIn, Twitter/X, Devfolio, GitLab, LeetCode, and 10+ more —
-        all in one card.
-      </p>
+      <h3>Unified Identity</h3>
+      <p>Combine your fragmented online presence into a cohesive professional identity.</p>
     </div>
-    <div class="feature-card">
+    <div class="feature-card glass">
       <div class="feature-icon">⚡</div>
-      <h3>Hybrid Follow Engine</h3>
-      <p>
-        Follow on GitHub silently via API. Connect on LinkedIn with one tap in
-        WebView. No app switching.
-      </p>
+      <h3>Instant Follow</h3>
+      <p>Integrated APIs allow followers to connect with you instantly across platforms.</p>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">💳</div>
-      <h3>Context Cards</h3>
-      <p>
-        Share your "Professional" card at conferences and "Hackathon" card at
-        hack events. Same profiles, different contexts.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📱</div>
-      <h3>QR + AirDrop</h3>
-      <p>
-        Generate a QR code or share via AirDrop-style link. Works even if the
-        receiver doesn't have the app.
-      </p>
-    </div>
-    <div class="feature-card">
+    <div class="feature-card glass">
       <div class="feature-icon">🔒</div>
-      <h3>Privacy First</h3>
-      <p>
-        No data monetization. No tracking. Apache 2.0 licensed. You own your
-        data.
-      </p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">🌍</div>
-      <h3>Open Source</h3>
-      <p>
-        Community-driven development. Contribute, self-host, or extend with your
-        own platforms.
-      </p>
+      <h3>Private by Design</h3>
+      <p>No tracking, no data selling. Your information stays where it belongs: with you.</p>
     </div>
   </section>
 
   <footer class="footer">
-    <p>DevCard — Open Source Developer Profile Exchange</p>
-    <p>
-      Apache 2.0 License • <a
-        href="https://github.com/Dev-Card/DevCard"
-        target="_blank"
-        rel="noopener">GitHub</a
-      >
-    </p>
+    <p>© 2026 DevCard • Built for the Developer Community</p>
   </footer>
 </main>
 
 <style>
-  /* ── Theme toggle button ────────────────────────────────────────── */
-  .theme-toggle {
-    position: absolute;
-    top: 1.25rem;
-    right: 1.25rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 50%;
-    width: 2.75rem;
-    height: 2.75rem;
-    font-size: 1.3rem;
-    cursor: pointer;
+  .bg-glow {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 50% 0%, var(--primary-glow), transparent 40%),
+                radial-gradient(circle at 0% 100%, var(--accent-glow), transparent 30%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  nav {
+    position: sticky;
+    top: 1rem;
+    margin: 1rem auto;
+    width: calc(100% - 2rem);
+    max-width: 1100px;
+    border-radius: var(--radius-lg);
+    z-index: 100;
+    padding: 0.75rem 1.5rem;
+  }
+
+  .nav-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 1.5rem;
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition:
-      background 0.3s ease,
-      border-color 0.3s ease,
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    line-height: 1;
+    gap: 0.5rem;
+  }
+
+  .theme-toggle {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: transform 0.3s ease;
   }
 
   .theme-toggle:hover {
-    transform: scale(1.12) rotate(15deg);
-    border-color: var(--primary);
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-  }
-
-  .theme-toggle:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 3px;
+    transform: scale(1.1) rotate(10deg);
   }
 
   .landing {
-    max-width: 960px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 2rem;
-    position: relative;
+    padding: 0 1.5rem;
   }
 
   .hero {
     text-align: center;
-    padding: 6rem 0 4rem;
+    padding: 8rem 0 6rem;
   }
 
-  .logo {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    animation: float 3s ease-in-out infinite;
-  }
-
-  @keyframes float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-10px);
-    }
+  .hero-badge {
+    display: inline-block;
+    padding: 0.4rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    color: var(--primary);
   }
 
   h1 {
-    font-size: 3.5rem;
-    font-weight: 800;
-    letter-spacing: -2px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .tagline {
-    font-size: 1.25rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
+    font-size: 4.5rem;
+    font-weight: 900;
+    letter-spacing: -3px;
+    margin-bottom: 1.5rem;
   }
 
   .description {
-    font-size: 1.1rem;
-    color: var(--text-muted);
-    margin-top: 1.5rem;
-    line-height: 1.7;
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    max-width: 700px;
+    margin: 0 auto 3rem;
+    line-height: 1.6;
   }
 
   .cta-group {
     display: flex;
-    gap: 1rem;
+    gap: 1.5rem;
     justify-content: center;
-    margin-top: 2.5rem;
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius);
-    font-weight: 600;
-    font-size: 1rem;
-    transition: all 0.2s ease;
-  }
-
-  .btn-primary {
-    background: var(--primary);
-    color: white;
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
-  }
-
-  .btn-primary:hover {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
-    color: white;
   }
 
   .btn-secondary {
-    background: var(--bg-card);
-    color: var(--text-secondary);
+    padding: 0.8rem 1.6rem;
+    border-radius: var(--radius);
+    font-weight: 600;
     border: 1px solid var(--border);
+    background: var(--bg-card);
+    transition: all 0.2s;
   }
 
   .btn-secondary:hover {
-    background: var(--bg-elevated);
-    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border-color: var(--primary);
   }
 
   .features {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
-    padding: 3rem 0;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    padding: 4rem 0;
   }
 
   .feature-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 2rem;
-    transition:
-      transform 0.2s ease,
-      border-color 0.2s ease;
+    padding: 2.5rem;
+    border-radius: var(--radius-xl);
+    transition: transform 0.3s ease;
   }
 
   .feature-card:hover {
-    transform: translateY(-4px);
-    border-color: var(--primary);
+    transform: translateY(-10px);
   }
 
   .feature-icon {
-    font-size: 2rem;
-    margin-bottom: 1rem;
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
   }
 
-  .feature-card h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
+  h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
   }
 
   .feature-card p {
     color: var(--text-secondary);
-    font-size: 0.9rem;
     line-height: 1.6;
   }
 
   .footer {
     text-align: center;
-    padding: 3rem 0 2rem;
+    padding: 6rem 0 3rem;
+    border-top: 1px solid var(--border);
     color: var(--text-muted);
-    font-size: 0.85rem;
   }
 
-  .footer p + p {
-    margin-top: 0.5rem;
-  }
-
-  @media (max-width: 600px) {
-    h1 {
-      font-size: 2.5rem;
-    }
-    .hero {
-      padding: 3rem 0 2rem;
-    }
-    .cta-group {
-      flex-direction: column;
-      align-items: center;
-    }
+  @media (max-width: 768px) {
+    h1 { font-size: 3rem; letter-spacing: -1px; }
+    .hero { padding: 4rem 0 3rem; }
+    .cta-group { flex-direction: column; align-items: stretch; }
   }
 </style>
