@@ -30,8 +30,8 @@ export async function authRoutes(app: FastifyInstance) {
   // GitHub OAuth start
   app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
-    const clientState = (request.query as any).state || '';
-    const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
+    const clientState = (request.query as { state?: string }).state || '';
+    const mobileRedirectUri = (request.query as { mobile_redirect_uri?: string }).mobile_redirect_uri || '';
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
     reply.setCookie('oauth_state', state, {
@@ -79,22 +79,22 @@ export async function authRoutes(app: FastifyInstance) {
         }),
       });
 
-      const tokenData = (await tokenRes.json()) as any;
+      const tokenData = (await tokenRes.json()) as Record<string, unknown>;
       if (tokenData.error) {
         app.log.error({ tokenData }, 'GitHub token error');
         return reply.status(400).send({ error: 'Failed to authenticate with GitHub' });
       }
 
       const userRes = await fetch(GITHUB_USER_URL, { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
-      const githubUser = (await userRes.json()) as any;
+      const githubUser = (await userRes.json()) as Record<string, unknown>;
 
-      let email = githubUser.email;
+      let email = githubUser.email as string | undefined;
       if (!email) {
         const emailsRes = await fetch('https://api.github.com/user/emails', {
           headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
-        const emails = (await emailsRes.json()) as any[];
-        const primary = emails.find((e: any) => e.primary && e.verified);
+        const emails = (await emailsRes.json()) as Array<{ primary?: boolean; verified?: boolean; email?: string }>;
+        const primary = emails.find((e) => e.primary && e.verified);
         email = primary?.email || emails[0]?.email;
       }
 
@@ -102,23 +102,23 @@ export async function authRoutes(app: FastifyInstance) {
         where: { provider_providerId: { provider: 'github', providerId: String(githubUser.id) } },
         update: {
           email: email || `${githubUser.login}@github.local`,
-          displayName: githubUser.name || githubUser.login,
-          avatarUrl: githubUser.avatar_url,
+          displayName: (githubUser.name as string) || (githubUser.login as string),
+          avatarUrl: githubUser.avatar_url as string,
         },
         create: {
           email: email || `${githubUser.login}@github.local`,
-          username: githubUser.login,
-          displayName: githubUser.name || githubUser.login,
-          bio: githubUser.bio,
-          company: githubUser.company,
-          avatarUrl: githubUser.avatar_url,
+          username: githubUser.login as string,
+          displayName: (githubUser.name as string) || (githubUser.login as string),
+          bio: githubUser.bio as string | undefined,
+          company: githubUser.company as string | undefined,
+          avatarUrl: githubUser.avatar_url as string,
           provider: 'github',
           providerId: String(githubUser.id),
         },
       });
 
       try {
-        const encryptedToken = encrypt(tokenData.access_token);
+        const encryptedToken = encrypt(tokenData.access_token as string);
         await app.prisma.oAuthToken.upsert({
           where: { userId_platform: { userId: user.id, platform: 'github' } },
           update: { accessToken: encryptedToken, scopes: 'read:user user:email' },
@@ -153,8 +153,8 @@ export async function authRoutes(app: FastifyInstance) {
   // Google OAuth start
   app.get('/google', async (request: FastifyRequest, reply: FastifyReply) => {
     const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
-    const clientState = (request.query as any).state || '';
-    const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
+    const clientState = (request.query as { state?: string }).state || '';
+    const mobileRedirectUri = (request.query as { mobile_redirect_uri?: string }).mobile_redirect_uri || '';
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
     reply.setCookie('oauth_state', state, {
@@ -206,27 +206,31 @@ export async function authRoutes(app: FastifyInstance) {
         }),
       });
 
-      const tokenData = (await tokenRes.json()) as any;
+      const tokenData = (await tokenRes.json()) as Record<string, unknown>;
       if (tokenData.error) {
         app.log.error({ tokenData }, 'Google token error');
         return reply.status(400).send({ error: 'Failed to authenticate with Google' });
       }
 
       const userRes = await fetch(GOOGLE_USER_URL, { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
-      const googleUser = (await userRes.json()) as any;
+      const googleUser = (await userRes.json()) as Record<string, unknown>;
 
-      const baseUsername = googleUser.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
+      const baseUsername = (googleUser.email as string).split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
 
       const user = await app.prisma.user.upsert({
-        where: { provider_providerId: { provider: 'google', providerId: googleUser.id } },
-        update: { email: googleUser.email, displayName: googleUser.name || baseUsername, avatarUrl: googleUser.picture },
+        where: { provider_providerId: { provider: 'google', providerId: googleUser.id as string } },
+        update: {
+          email: googleUser.email as string,
+          displayName: (googleUser.name as string) || baseUsername,
+          avatarUrl: googleUser.picture as string,
+        },
         create: {
-          email: googleUser.email,
+          email: googleUser.email as string,
           username: `${baseUsername}_${Date.now().toString(36)}`,
-          displayName: googleUser.name || baseUsername,
-          avatarUrl: googleUser.picture,
+          displayName: (googleUser.name as string) || baseUsername,
+          avatarUrl: googleUser.picture as string,
           provider: 'google',
-          providerId: googleUser.id,
+          providerId: googleUser.id as string,
         },
       });
 
@@ -254,12 +258,12 @@ export async function authRoutes(app: FastifyInstance) {
 
   // Current user
   app.get('/me', { preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+      const server = request.server as FastifyInstance;
+      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return; }
+      if (typeof app.authenticate === 'function') { await app.authenticate(request, reply); return; }
+      try { await request.jwtVerify(); } catch { reply.status(401).send({ error: 'Unauthorized' }); }
     }] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = (request.user as { id: string }).id;
     const user = await app.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -286,7 +290,7 @@ export async function authRoutes(app: FastifyInstance) {
     return { ...userData, connectedPlatforms: oauthTokens };
   });
 
-  app.post('/logout', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/logout', async (_request: FastifyRequest, reply: FastifyReply) => {
     reply.clearCookie('token', { path: '/' });
     return { message: 'Logged out' };
   });

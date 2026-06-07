@@ -1,10 +1,10 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-
 }
 
 model User {
@@ -23,15 +23,14 @@ model User {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  platformLinks PlatformLink[]
-  cards         Card[]
-  oauthTokens   OAuthToken[]
-  ownedViews    CardView[]     @relation("cardOwner")
-  viewedCards   CardView[]     @relation("cardViewer")
-  followLogs    FollowLog[]
-  organizer     Event[]    
-  attendedEvents EventAttendee[] 
-
+  platformLinks  PlatformLink[]
+  cards          Card[]
+  oauthTokens    OAuthToken[]
+  ownedViews     CardView[]        @relation("cardOwner")
+  viewedCards    CardView[]        @relation("cardViewer")
+  followLogs     FollowLog[]
+  organizer      Event[]
+  attendedEvents EventAttendee[]
   ownedTeams       Team[]          @relation("TeamOwner")
   teamMemberships  TeamMember[]    @relation("TeamMember")
 
@@ -40,13 +39,13 @@ model User {
 }
 
 model PlatformLink {
-  id           String     @id @default(uuid())
-  userId       String     @map("user_id")
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
   platform     String
   username     String
   url          String
-  displayOrder Int        @default(0) @map("display_order")
-  createdAt    DateTime   @default(now()) @map("created_at")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   cardLinks CardLink[]
@@ -55,12 +54,12 @@ model PlatformLink {
 }
 
 model Card {
-  id        String     @id @default(uuid())
-  userId    String     @map("user_id")
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
   title     String
-  isDefault Boolean    @default(false) @map("is_default")
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   cardLinks CardLink[]
@@ -101,17 +100,17 @@ model OAuthToken {
 
 model CardView {
   id          String   @id @default(uuid())
-  cardId      String?  @map("card_id")       // null = default profile view
-  ownerId     String   @map("owner_id")      // card/profile owner
-  viewerId    String?  @map("viewer_id")     // null = anonymous web viewer
-  viewerIp    String?  @map("viewer_ip")
+  cardId      String?  @map("card_id") // null = default profile view
+  ownerId     String   @map("owner_id") // card/profile owner
+  viewerId    String?  @map("viewer_id") // null = anonymous web viewer
+  viewerIp    String?  @map("viewer_ip") // SHA-256 hash of viewer IP
   viewerAgent String?  @map("viewer_agent")
-  source      String   @default("qr")        // "qr" | "link" | "web" | "app"
+  source      String   @default("qr") // "qr" | "link" | "web" | "app"
   createdAt   DateTime @default(now()) @map("created_at")
 
-  card    Card? @relation(fields: [cardId], references: [id], onDelete: SetNull)
-  owner   User  @relation("cardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  viewer  User? @relation("cardViewer", fields: [viewerId], references: [id], onDelete: SetNull)
+  card   Card? @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  owner  User  @relation("cardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  viewer User? @relation("cardViewer", fields: [viewerId], references: [id], onDelete: SetNull)
 
   @@map("card_views")
 }
@@ -121,8 +120,8 @@ model FollowLog {
   followerId     String   @map("follower_id")
   targetUsername String   @map("target_username")
   platform       String
-  status         String   @default("success")    // "success" | "error"
-  layer          String                          // "api" | "webview" | "link"
+  status         String   @default("success") // "success" | "error"
+  layer          String // "api" | "webview" | "link"
   createdAt      DateTime @default(now()) @map("created_at")
 
   follower User @relation(fields: [followerId], references: [id], onDelete: Cascade)
@@ -131,29 +130,29 @@ model FollowLog {
 }
 
 model Event {
-  id      String @id @default(uuid())
-  name    String
-  slug    String @unique
-  location String
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  location    String
   description String?
-  organizerId String 
-  startDate DateTime 
-  endDate DateTime
-  isPublic Boolean @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  attendees EventAttendee[]
+  organizerId String
+  startDate   DateTime
+  endDate     DateTime
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  attendees   EventAttendee[]
 
   organizer User @relation(fields: [organizerId], references: [id])
 }
 
 model EventAttendee {
-  id    String @id @default(uuid())
-  userId String  
-  eventId String   
-  joinedAt DateTime 
+  id       String   @id @default(uuid())
+  userId   String
+  eventId  String
+  joinedAt DateTime
 
-  event Event @relation(fields: [eventId] , references: [id])
-  user User @relation(fields: [userId],references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
 
   @@unique([userId, eventId])
 }
@@ -164,32 +163,32 @@ enum TeamRole {
   MEMBER
 }
 
-model Team{
-  id String @id @default(uuid())
-  name String 
-  slug String @unique
-  description String? 
-  avatarUrl String? 
-  ownerId String 
-  createdAt DateTime @default(now()) 
-  updatedAt DateTime @updatedAt
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  avatarUrl   String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  owner User @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner   User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members TeamMember[] @relation("TeamMember")
 
   @@map("teams")
   @@index([slug])
 }
 
-model TeamMember{
-  id String @id @default(uuid())
-  teamId String
-  userId String
-  role TeamRole
-  joinedAt DateTime 
+model TeamMember {
+  id       String   @id @default(uuid())
+  teamId   String
+  userId   String
+  role     TeamRole
+  joinedAt DateTime
 
-  team Team @relation("TeamMember",fields: [teamId] , references: [id], onDelete: Cascade)
-  user User @relation("TeamMember",fields: [userId] , references: [id])
+  team Team @relation("TeamMember", fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation("TeamMember", fields: [userId], references: [id])
 
   @@unique([userId, teamId])
   @@index([userId])
