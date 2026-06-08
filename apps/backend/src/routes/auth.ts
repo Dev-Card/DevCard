@@ -1,6 +1,11 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { encrypt } from '../utils/encryption.js';
 import { buildOAuthState, getMobileRedirectUri } from '../services/authService.js';
+import { encrypt } from '../utils/encryption.js';
+
+import type {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+} from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -14,7 +19,9 @@ interface OAuthCallbackQuery {
   state?: string;
 }
 
-export async function authRoutes(app: FastifyInstance) {
+export async function authRoutes(
+  app: FastifyInstance
+): Promise<void> {
   // Developer login bypass (development only)
   if (process.env.NODE_ENV !== 'production') {
     app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -289,13 +296,34 @@ if (existingUser) {
   });
 
   // Current user
-  app.get('/me', { preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
-    }] }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get(
+  '/me',
+  {
+    preHandler: [
+      async (request, reply): Promise<void> => {
+        const server = request.server as any;
+
+        if (typeof server?.authenticate === 'function') {
+          await server.authenticate(request, reply);
+          return;
+        }
+
+        if (typeof (app as any).authenticate === 'function') {
+          await (app as any).authenticate(request, reply);
+          return;
+        }
+
+        try {
+          await request.jwtVerify();
+        } catch {
+          reply.status(401).send({ error: 'Unauthorized' });
+        }
+      },
+    ],
+  },
+  async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
+
     const user = await app.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -310,20 +338,28 @@ if (existingUser) {
         avatarUrl: true,
         accentColor: true,
         createdAt: true,
-        oauthTokens: { select: { platform: true, scopes: true, createdAt: true } },
+        oauthTokens: {
+          select: {
+            platform: true,
+            scopes: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
     if (!user) {
-      return reply.status(404).send({ error: 'User not found' });
+      return reply.status(404).send({
+        error: 'User not found',
+      });
     }
 
     const { oauthTokens, ...userData } = user;
-    return { ...userData, connectedPlatforms: oauthTokens };
-  });
 
-  app.post('/logout', async (request: FastifyRequest, reply: FastifyReply) => {
-    reply.clearCookie('token', { path: '/' });
-    return { message: 'Logged out' };
-  });
+    return {
+      ...userData,
+      connectedPlatforms: oauthTokens,
+    };
+  }
+);
 }
