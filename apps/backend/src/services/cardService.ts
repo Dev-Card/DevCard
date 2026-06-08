@@ -1,9 +1,10 @@
+import type { PlatformLink } from '@devcard/shared';
 import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
-type CardLinkResponse = { platformLink: unknown };
+type CardLinkResponse = { platformLink: PlatformLink };
 type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
-type CardResponse = { id: string; title: string; isDefault: boolean; links: unknown[] };
+type CardResponse = { id: string; title: string; isDefault: boolean; links: PlatformLink[] };
 
 function mapCard(card: RawCard): CardResponse {
   return {
