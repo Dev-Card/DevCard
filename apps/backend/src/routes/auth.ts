@@ -98,24 +98,38 @@ export async function authRoutes(app: FastifyInstance) {
         email = primary?.email || emails[0]?.email;
       }
 
-      const user = await app.prisma.user.upsert({
-        where: { provider_providerId: { provider: 'github', providerId: String(githubUser.id) } },
-        update: {
-          email: email || `${githubUser.login}@github.local`,
-          displayName: githubUser.name || githubUser.login,
-          avatarUrl: githubUser.avatar_url,
-        },
-        create: {
-          email: email || `${githubUser.login}@github.local`,
-          username: githubUser.login,
-          displayName: githubUser.name || githubUser.login,
-          bio: githubUser.bio,
-          company: githubUser.company,
-          avatarUrl: githubUser.avatar_url,
-          provider: 'github',
-          providerId: String(githubUser.id),
-        },
-      });
+      let user = await app.prisma.user.findUnique({
+  where: {
+    email: email || `${githubUser.login}@github.local`,
+  },
+});
+
+if (user) {
+  user = await app.prisma.user.update({
+    where: {
+      email: email || `${githubUser.login}@github.local`,
+    },
+    data: {
+      provider: 'github',
+      providerId: String(githubUser.id),
+      displayName: githubUser.name || githubUser.login,
+      avatarUrl: githubUser.avatar_url,
+    },
+  });
+} else {
+  user = await app.prisma.user.create({
+    data: {
+      email: email || `${githubUser.login}@github.local`,
+      username: githubUser.login,
+      displayName: githubUser.name || githubUser.login,
+      bio: githubUser.bio,
+      company: githubUser.company,
+      avatarUrl: githubUser.avatar_url,
+      provider: 'github',
+      providerId: String(githubUser.id),
+    },
+  });
+}
 
       try {
         const encryptedToken = encrypt(tokenData.access_token);
@@ -215,20 +229,42 @@ export async function authRoutes(app: FastifyInstance) {
       const userRes = await fetch(GOOGLE_USER_URL, { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
       const googleUser = (await userRes.json()) as any;
 
-      const baseUsername = googleUser.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
+     const baseUsername = googleUser.email
+  .split('@')[0]
+  .replace(/[^a-zA-Z0-9_-]/g, '');
 
-      const user = await app.prisma.user.upsert({
-        where: { provider_providerId: { provider: 'google', providerId: googleUser.id } },
-        update: { email: googleUser.email, displayName: googleUser.name || baseUsername, avatarUrl: googleUser.picture },
-        create: {
-          email: googleUser.email,
-          username: `${baseUsername}_${Date.now().toString(36)}`,
-          displayName: googleUser.name || baseUsername,
-          avatarUrl: googleUser.picture,
-          provider: 'google',
-          providerId: googleUser.id,
-        },
-      });
+const existingUser = await app.prisma.user.findUnique({
+  where: {
+    email: googleUser.email,
+  },
+});
+
+let user;
+
+if (existingUser) {
+  user = await app.prisma.user.update({
+    where: {
+      email: googleUser.email,
+    },
+    data: {
+      provider: 'google',
+      providerId: googleUser.id,
+      displayName: googleUser.name || baseUsername,
+      avatarUrl: googleUser.picture,
+    },
+  });
+} else {
+  user = await app.prisma.user.create({
+    data: {
+      email: googleUser.email,
+      username: `${baseUsername}_${Date.now().toString(36)}`,
+      displayName: googleUser.name || baseUsername,
+      avatarUrl: googleUser.picture,
+      provider: 'google',
+      providerId: googleUser.id,
+    },
+  });
+}
 
       const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
 

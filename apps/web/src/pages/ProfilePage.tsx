@@ -181,7 +181,7 @@ export default function ProfilePage() {
         <div className="get-your-own">
           <p>Want a card like this?</p>
           <div className="profile-actions">
-            <Link to="/" className="gradient-text get-devcard-link">
+            <Link to="/create" className="gradient-text get-devcard-link">
               Create your DevCard ⚡
             </Link>
             <button

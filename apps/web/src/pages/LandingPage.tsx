@@ -41,7 +41,7 @@ export default function LandingPage() {
             Twitter, and every other profile with a single NFC tap — beautifully.
           </p>
           <div className="cta-group">
-            <Link to="/" className="btn-primary" id="cta-get-started">
+            <Link to="/login" className="btn-primary" id="cta-get-started">
               Get Started Free
             </Link>
             <a

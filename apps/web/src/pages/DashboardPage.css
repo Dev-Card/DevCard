@@ -1,0 +1,55 @@
+.dashboard-page {
+  min-height: 100vh;
+  background: #0f172a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+.dashboard-card {
+  width: 100%;
+  max-width: 500px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 2.5rem;
+  color: white;
+  text-align: center;
+}
+
+.dashboard-avatar {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 1rem;
+}
+
+.username {
+  color: #a5b4fc;
+  margin-top: 0.5rem;
+}
+
+.email {
+  color: #cbd5e1;
+  margin-top: 0.5rem;
+}
+
+.bio {
+  margin-top: 1rem;
+  color: #e2e8f0;
+  line-height: 1.6;
+}
+
+.logout-btn {
+  margin-top: 2rem;
+  border: none;
+  background: #ef4444;
+  color: white;
+  padding: 0.9rem 1.4rem;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}

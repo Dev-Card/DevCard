@@ -47,11 +47,13 @@ export async function buildApp():Promise<FastifyInstance> {
     done();
   });
 
+  await app.register(cookie);
+
   // ─── Core Plugins ───
-  await app.register(cors, {
-    origin: process.env.PUBLIC_APP_URL || 'http://localhost:5173',
-    credentials: true,
-  });
+  app.register(cors, {
+  origin: 'http://localhost:5174',
+  credentials: true,
+});
 
   await app.register(helmet, {
     contentSecurityPolicy: {
@@ -71,11 +73,16 @@ export async function buildApp():Promise<FastifyInstance> {
   });
 
   await app.register(jwt, {
-    // validateEnv() above guarantees JWT_SECRET is present and safe.
-    secret: process.env.JWT_SECRET!,
-  });
-
-  await app.register(cookie);
+  secret: process.env.JWT_SECRET!,
+  sign: {
+    expiresIn: '30d',
+  },
+  cookie: {
+    cookieName: 'token',
+    signed: false,
+  },
+});
+  
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
   await app.register(rateLimit, {
     max: 100,
