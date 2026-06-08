@@ -1,7 +1,6 @@
-import { randomBytes } from 'node:crypto';
-
 import { encrypt } from '../utils/encryption.js';
 import { extractRawJwt, blocklistKey } from '../utils/jwt.js';
+import { buildOAuthState, getMobileRedirectUri } from '../utils/oauth.js';
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
@@ -290,6 +289,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   // Legacy endpoint kept for backward compatibility with existing clients.
   // Cookie-only logout — use DELETE /auth/logout for token revocation.
   app.post('/logout', async (_request: FastifyRequest, reply: FastifyReply) => {
+    app.log.info('Legacy cookie-only logout called — token not blocklisted');
     reply.clearCookie('token', { path: '/' });
     return { message: 'Logged out' };
   });
@@ -322,7 +322,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
             await app.redis.set(blocklistKey(raw), '1', 'EX', ttl);
           } catch (err) {
             // Non-fatal: log and continue. The token will expire on its own.
-            app.log.warn({ err }, 'Redis blocklist write failed during logout — token will expire naturally');
+            app.log.warn({ err, userId: (request.user as any)?.id }, 'Redis blocklist write failed during logout — token will expire naturally');
           }
         }
       } else {
@@ -342,32 +342,3 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 }
 
-function generateState(): string {
-  return randomBytes(32).toString('hex');
-}
-
-function buildOAuthState(clientState: string, mobileRedirectUri: string): string {
-  if (!clientState) {
-    return generateState();
-  }
-  if (clientState.startsWith('mobile_') && mobileRedirectUri) {
-    const encodedRedirect = Buffer.from(mobileRedirectUri, 'utf8').toString('base64url');
-    return `${clientState}.${encodedRedirect}.${generateState()}`;
-  }
-  return `${clientState}.${generateState()}`;
-}
-
-function getMobileRedirectUri(state?: string): string | null {
-  if (!state?.startsWith('mobile_')) {
-    return null;
-  }
-  const encodedRedirect = state.split('.')[1];
-  if (!encodedRedirect) {
-    return null;
-  }
-  try {
-    return Buffer.from(encodedRedirect, 'base64url').toString('utf8');
-  } catch {
-    return null;
-  }
-}
