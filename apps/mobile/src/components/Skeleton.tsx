@@ -13,7 +13,8 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   width,
   height,
   borderRadius = 4,
-  style,
+  style = {} as ViewStyle,
+
 }) => {
   const opacity = useRef(new Animated.Value(0.3)).current;
 

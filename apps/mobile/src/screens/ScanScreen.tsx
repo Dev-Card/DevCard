@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+
 import {
   View,
   Text,
@@ -7,6 +8,8 @@ import {
   TextInput,
   StatusBar,
   Alert,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -32,6 +35,7 @@ const LAST_SELECTED_CARD_KEY = 'devcard.lastSelectedCardId';
 export default function ScanScreen({ navigation }: Props) {
   const { token, user } = useAuth();
   const [manualUrl, setManualUrl] = useState('');
+  const scanAnim = useRef(new Animated.Value(0)).current;
   const [cards, setCards] = useState<Card[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [storedCardId, setStoredCardId] = useState<string | null>(null);
@@ -84,27 +88,43 @@ export default function ScanScreen({ navigation }: Props) {
   );
 
   useEffect(() => {
-    const loadStoredCardId = async () => {
-      try {
-        const value = await AsyncStorage.getItem(LAST_SELECTED_CARD_KEY);
-        setStoredCardId(value);
-      } catch {
-        setStoredCardId(null);
-      } finally {
-        setHasLoadedStoredCard(true);
-      }
-    };
-
-    loadStoredCardId();
-  }, []);
-
-  useEffect(() => {
-    if (!hasLoadedStoredCard) return;
-
-    if (!cards.length) {
-      setSelectedCardId(null);
-      return;
+  const loadStoredCardId = async () => {
+    try {
+      const value = await AsyncStorage.getItem(LAST_SELECTED_CARD_KEY);
+      setStoredCardId(value);
+    } catch {
+      setStoredCardId(null);
+    } finally {
+      setHasLoadedStoredCard(true);
     }
+  };
+
+  loadStoredCardId();
+}, []);
+
+useEffect(() => {
+  Animated.loop(
+    Animated.timing(scanAnim, {
+  toValue: 1,
+  duration: 2000,
+  easing: Easing.linear,
+  useNativeDriver: true,
+})
+  ).start();
+}, []);
+
+const translateY = scanAnim.interpolate({
+  inputRange: [0, 1],
+  outputRange: [0, 220],
+});
+
+useEffect(() => {
+  if (!hasLoadedStoredCard) return;
+
+  if (!cards.length) {
+    setSelectedCardId(null);
+    return;
+  }
 
     const currentValid = selectedCardId && cards.some(card => card.id === selectedCardId);
     if (currentValid && hasUserSelected) return;
@@ -185,15 +205,31 @@ export default function ScanScreen({ navigation }: Props) {
             {loadingCards ? (
               <View style={styles.qrSkeleton}>
                 <Skeleton width={200} height={200} borderRadius={BORDER_RADIUS.md} />
-                <Skeleton width={140} height={14} borderRadius={8} style={styles.qrSkeletonText} />
+                <Skeleton
+                  width={140}
+                  height={14}
+                  borderRadius={8}
+                  style={styles.qrSkeletonText}
+                />
               </View>
             ) : qrUrl ? (
-              <QRCode
-                value={qrUrl}
-                size={200}
-                color={COLORS.textPrimary}
-                backgroundColor={COLORS.bgCard}
-              />
+              <View style={styles.qrWrapper}>
+                <QRCode
+                  value={qrUrl}
+                  size={200}
+                  color={COLORS.textPrimary}
+                  backgroundColor={COLORS.bgCard}
+                />
+
+                <Animated.View
+                  style={[
+                    styles.scanLine,
+                    {
+                      transform: [{ translateY }],
+                    },
+                  ]}
+                />
+              </View>
             ) : (
               <EmptyState
                 title="No card to share"
@@ -209,6 +245,14 @@ export default function ScanScreen({ navigation }: Props) {
         {/* Camera Placeholder */}
         <View style={styles.cameraArea}>
           <View style={styles.cameraPlaceholder}>
+          <Animated.View
+  style={[
+    styles.scanLine,
+    {
+      transform: [{ translateY }],
+    },
+  ]}
+/>
             <Text style={styles.cameraEmoji}>📷</Text>
             <Text style={styles.cameraText}>Camera QR Scanner</Text>
             <Text style={styles.cameraSubtext}>
@@ -269,6 +313,19 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     gap: SPACING.md,
   },
+  scanLine: {
+  position: 'absolute',
+  top: 0,
+  left: 20,
+  right: 20,
+  height: 3,
+  backgroundColor: '#00ff99',
+  shadowColor: '#00ff99',
+  shadowOpacity: 0.8,
+  shadowRadius: 10,
+  elevation: 8,
+  borderRadius: 10,
+},
   shareHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -304,10 +361,16 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   cameraArea: {
-    flex: 1, maxHeight: 350,
-    backgroundColor: COLORS.bgCard, borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden', marginBottom: SPACING.lg, position: 'relative',
-  },
+  flex: 1,
+  maxHeight: 350,
+  width: '100%',
+  alignSelf: 'center',
+  backgroundColor: COLORS.bgCard,
+  borderRadius: BORDER_RADIUS.lg,
+  overflow: 'hidden',
+  marginBottom: SPACING.lg,
+  position: 'relative',
+},
   cameraPlaceholder: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
   },
