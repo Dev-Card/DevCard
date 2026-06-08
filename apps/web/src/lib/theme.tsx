@@ -1,19 +1,17 @@
 import {
-  createContext,
-  useContext,
   useEffect,
   useState,
   type ReactNode,
 } from 'react';
 
-import { getInitialTheme, type Theme } from './theme.utils';
+import {
+  ThemeContext,
+} from './theme.context';
 
-interface ThemeContextValue {
-  theme: Theme;
-  toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+import {
+  getInitialTheme,
+  type Theme,
+} from './theme.utils';
 
 export function ThemeProvider({
   children,
@@ -35,22 +33,16 @@ export function ThemeProvider({
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+    setTheme((prev) => (
+      prev === 'dark' ? 'light' : 'dark'
+    ));
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, toggleTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-
-  if (!ctx) {
-    throw new Error('useTheme must be used within ThemeProvider');
-  }
-
-  return ctx;
 }

@@ -18,17 +18,14 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
+ 
   const [copyMessage, setCopyMessage] = useState('');
   const [copyStatus, setCopyStatus] = useState<'success' | 'error'>('success');
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
+  
   useEffect(() => {
     if (!username) return;
-    setLoading(true);
+
     apiFetch<PublicProfile>(`/api/u/${username}?source=web`)
       .then((data) => {
         setProfile(data);
@@ -107,7 +104,7 @@ export default function ProfilePage() {
         className="bg-gradient"
         style={{ '--accent': profile.accentColor || '#6366f1' } as React.CSSProperties}
       />
-      <main className={`profile-container ${mounted ? 'loaded' : ''}`}>
+      <main className="profile-container loaded">
         <div
           className="profile-card glass"
           style={{ '--accent': profile.accentColor } as React.CSSProperties}

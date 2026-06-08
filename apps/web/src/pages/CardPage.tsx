@@ -24,7 +24,7 @@ export default function CardPage() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
+    
     apiFetch<PublicCard>(`/api/u/card/${id}`)
       .then((data) => {
         setCard(data);

@@ -54,16 +54,20 @@ function wireTransaction(): void {
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
-  app.decorate('prisma', mockPrisma);
-  app.decorate('authenticate', async (request: FastifyRequest & { user?: { id: string } }) => {
-async function buildApp():Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
+
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
-  app.decorate('authenticate', async (request: any) => {
-    request.user = { id: USER_ID };
-  });
+
+  app.decorate(
+    'authenticate',
+    async (request: FastifyRequest & { user?: { id: string } }) => {
+      request.user = { id: USER_ID };
+    }
+  );
+
   app.register(cardRoutes, { prefix: '/api/cards' });
+
   await app.ready();
+
   return app;
 }
 

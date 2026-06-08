@@ -2,7 +2,7 @@ import { handleDbError } from '../utils/error.util.js';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 import * as cardService from '../services/cardService'
 
-import type { Card } from '@devcard/shared';
+import type { CardResponse } from '../services/cardService.js';
 import type { Prisma } from '@prisma/client';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
@@ -59,7 +59,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── List Cards ───
 
-  app.get('/', async (request: FastifyRequest, reply: FastifyReply): Promise<Card[] | void> => {
+  app.get('/', async (request: FastifyRequest, reply: FastifyReply): Promise<CardResponse[] | void> => {
     const userId = (request.user as { id: string }).id;
     try {
       return await cardService.listCards(app, userId)
@@ -70,7 +70,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Create Card ───
 
-  app.post('/', async (request: FastifyRequest<{ Body: CreateCardBody }>, reply: FastifyReply): Promise<Card | void> => {
+  app.post('/', async (request: FastifyRequest<{ Body: CreateCardBody }>, reply: FastifyReply): Promise<CardResponse | void> => {
     const userId = (request.user as { id: string }).id;
     const parsed = createCardSchema.safeParse(request.body);
 
@@ -89,7 +89,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Update Card ───
 
-  app.put('/:id', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply): Promise<Card | void> => {
+  app.put('/:id', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply): Promise<CardResponse | void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
