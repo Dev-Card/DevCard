@@ -36,7 +36,7 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
       if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
       try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
     }],
-  }, async (request: FastifyRequest) => {
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
 
     const tokens = await app.prisma.oAuthToken.findMany({
