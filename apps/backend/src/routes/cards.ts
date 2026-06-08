@@ -2,9 +2,9 @@ import * as cardService from '../services/cardService'
 import { handleDbError } from '../utils/error.util.js';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 
-import type { CardResponse } from '../services/cardService';
 import type { Card } from '@devcard/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
 
 interface CreateCardBody {
   title: string;
@@ -20,33 +20,6 @@ interface CardParams {
   id: string;
 }
 
-interface PlatformLink {
-  id: string;
-  userId: string;
-  platform: string;
-  username: string;
-  url: string;
-  displayOrder: number;
-  createdAt: Date;
-}
-
-interface CardLinkWithPlatform {
-  id: string;
-  cardId: string;
-  platformLinkId: string;
-  displayOrder: number;
-  platformLink: PlatformLink;
-}
-
-interface _CardWithLinks {
-  id: string;
-  userId: string;
-  title: string;
-  isDefault: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  cardLinks: CardLinkWithPlatform[];
-}
 
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', async (request, reply) => {
@@ -58,7 +31,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── List Cards ───
 
-  app.get('/', async (request: FastifyRequest, reply: FastifyReply): Promise<CardResponse[] | void> => {
+  app.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as { id: string }).id;
     try {
       return await cardService.listCards(app, userId)
@@ -88,7 +61,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Update Card ───
 
-  app.put('/:id', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply): Promise<CardResponse> => {
+  app.put('/:id', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply) => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
@@ -113,16 +86,9 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     try {
       await cardService.deleteCard(app, userId, id)
       return reply.status(204).send()
-    } catch (error:any) {
-        if (error?.code === 'NOT_FOUND') {
-          return reply.status(404).send({ error: 'Card not found' });
-        }
-
-        if (error?.code === 'LAST_CARD') {
-          return reply.status(400).send({
-            error: 'Cannot delete the last remaining card. A user must have at least one card.',
-          });
-        }
+    } catch (error: any) {
+      if (error?.code === 'NOT_FOUND') {return reply.status(404).send({ error: 'Card not found' })}
+      if (error?.code === 'LAST_CARD') {return reply.status(400).send({ error: 'Cannot delete the last remaining card. A user must have at least one card.' })}
       return handleDbError(error, request, reply)
     }
   });

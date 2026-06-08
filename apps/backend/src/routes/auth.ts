@@ -1,6 +1,7 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { buildOAuthState, getMobileRedirectUri, isAllowedMobileRedirectUri } from '../services/authService.js';
 import { encrypt } from '../utils/encryption.js';
-import { buildOAuthState, getMobileRedirectUri } from '../services/authService.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -8,6 +9,7 @@ const GITHUB_USER_URL = 'https://api.github.com/user';
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USER_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
+const INVALID_MOBILE_REDIRECT_ERROR = 'Invalid mobile redirect URI';
 
 interface OAuthCallbackQuery {
   code: string;
@@ -32,6 +34,9 @@ export async function authRoutes(app: FastifyInstance) {
     const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
     const clientState = (request.query as any).state || '';
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
+    if (clientState.startsWith('mobile_') && mobileRedirectUri && !isAllowedMobileRedirectUri(mobileRedirectUri)) {
+      return reply.status(400).send({ error: INVALID_MOBILE_REDIRECT_ERROR });
+    }
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
     reply.setCookie('oauth_state', state, {
@@ -65,6 +70,10 @@ export async function authRoutes(app: FastifyInstance) {
 
     if (!code) {
       return reply.status(400).send({ error: 'Missing authorization code' });
+    }
+    const mobileRedirect = state?.startsWith('mobile_') ? getMobileRedirectUri(state) : null;
+    if (state?.startsWith('mobile_') && !mobileRedirect) {
+      return reply.status(400).send({ error: INVALID_MOBILE_REDIRECT_ERROR });
     }
 
     try {
@@ -131,7 +140,6 @@ export async function authRoutes(app: FastifyInstance) {
       const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
 
       if (request.query.state?.startsWith('mobile_')) {
-        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
@@ -155,6 +163,9 @@ export async function authRoutes(app: FastifyInstance) {
     const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
     const clientState = (request.query as any).state || '';
     const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
+    if (clientState.startsWith('mobile_') && mobileRedirectUri && !isAllowedMobileRedirectUri(mobileRedirectUri)) {
+      return reply.status(400).send({ error: INVALID_MOBILE_REDIRECT_ERROR });
+    }
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
     reply.setCookie('oauth_state', state, {
@@ -191,6 +202,10 @@ export async function authRoutes(app: FastifyInstance) {
 
     if (!code) {
       return reply.status(400).send({ error: 'Missing authorization code' });
+    }
+    const mobileRedirect = state?.startsWith('mobile_') ? getMobileRedirectUri(state) : null;
+    if (state?.startsWith('mobile_') && !mobileRedirect) {
+      return reply.status(400).send({ error: INVALID_MOBILE_REDIRECT_ERROR });
     }
 
     try {
@@ -233,7 +248,6 @@ export async function authRoutes(app: FastifyInstance) {
       const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
 
       if (request.query.state?.startsWith('mobile_')) {
-        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
@@ -257,7 +271,7 @@ export async function authRoutes(app: FastifyInstance) {
       const server = request.server as any;
       if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
       if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+      try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
     }] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const user = await app.prisma.user.findUnique({
