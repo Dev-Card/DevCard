@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
+import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { connectRoutes } from '../routes/connect.js';
-import type { PrismaClient } from '@prisma/client';
 import { encrypt } from '../utils/encryption.js';
+
+import type { PrismaClient } from '@prisma/client';
 
 process.env.PUBLIC_APP_URL = 'http://localhost:3000';
 process.env.BACKEND_URL = 'http://localhost:3001';
@@ -29,7 +31,7 @@ const mockPrisma = {
 
 global.fetch = vi.fn();
 
-async function buildApp() {
+async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify();
   await app.register(jwt, { secret: 'test-secret' });
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
@@ -38,7 +40,7 @@ async function buildApp() {
   app.decorate('authenticate', async (request: any, reply: any) => {
     try {
       await request.jwtVerify();
-    } catch (err) {
+    } catch {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
@@ -48,7 +50,7 @@ async function buildApp() {
   return app;
 }
 
-function authHeader(app: any) {
+function authHeader(app: any): { authorization: string } {
   return { authorization: `Bearer ${app.jwt.sign({ id: 'user-1' })}` };
 }
 
