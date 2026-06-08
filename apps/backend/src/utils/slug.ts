@@ -30,13 +30,13 @@ export async function generateUniqueSlug(
     if (!(await slugExists(candidate))) {
       return candidate;
     }
-    const suffix = Math.random().toString(36).substring(2, 6);
+    const suffix = Math.random().toString(36).slice(2, 6);
     candidate = `${cleanSlug}-${suffix}`;
   }
 
   // Last-ditch: append a longer random suffix to maximise the chance of a
   // unique value while keeping a deterministic upper bound on retries.
-  const fallback = `${cleanSlug}-${Math.random().toString(36).substring(2, 10)}`;
+  const fallback = `${cleanSlug}-${Math.random().toString(36).slice(2, 10)}`;
   if (!(await slugExists(fallback))) {
     return fallback;
   }

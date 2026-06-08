@@ -1,6 +1,7 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createEventSchema } from '../validations/event.validation.js';
 import { generateUniqueSlug } from '../utils/slug.js';
+import { createEventSchema } from '../validations/event.validation.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const MAX_CREATE_ATTEMPTS = 5;
 
@@ -59,7 +60,7 @@ type EventWithAttendees = {
 export async function eventRoutes(app: FastifyInstance) {
   app.post(
     '/',
-    { preHandler: [app.authenticate] },
+    { preHandler: [(req, reply) => app.authenticate(req, reply)] },
     async (
       request: FastifyRequest<{
         Body: {
@@ -166,7 +167,7 @@ export async function eventRoutes(app: FastifyInstance) {
 
   app.post(
     '/:slug/join',
-    { preHandler: [app.authenticate] },
+    { preHandler: [(req, reply) => app.authenticate(req, reply)] },
     async (request: FastifyRequest<{ Params: { slug: string } }>, reply: FastifyReply) => {
       const userId = (request.user as { id: string }).id;
       const paramsSlug = request.params.slug;
@@ -197,7 +198,7 @@ export async function eventRoutes(app: FastifyInstance) {
 
   app.delete(
     '/:slug/leave',
-    { preHandler: [app.authenticate] },
+    { preHandler: [(req, reply) => app.authenticate(req, reply)] },
     async (request: FastifyRequest<{ Params: { slug: string } }>, reply: FastifyReply) => {
       const userId = (request.user as { id: string }).id;
       const paramsSlug = request.params.slug;

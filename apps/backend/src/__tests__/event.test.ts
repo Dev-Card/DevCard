@@ -1,7 +1,10 @@
+import Fastify from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Fastify, { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+
 import { eventRoutes } from '../routes/event.js';
+
+import type { PrismaClient } from '@prisma/client';
+import type { FastifyInstance } from 'fastify';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -320,7 +323,7 @@ describe('Events API', () => {
       let callCount = 0;
       prismaMock.event.create.mockImplementation(async (args: any) => {
         callCount++;
-        if (callCount % 2 === 1) throw conflictError; // odd calls fail
+        if (callCount % 2 === 1) { throw conflictError; } // odd calls fail
         return { ...MOCK_EVENT, slug: args.data.slug };
       });
 
@@ -800,7 +803,7 @@ describe('Events API', () => {
       let callCount = 0;
       prismaMock.event.create.mockImplementation(async (args: any) => {
         callCount++;
-        if (callCount === 1) throw conflictError;
+        if (callCount === 1) { throw conflictError; }
         return { ...MOCK_EVENT, slug: args.data.slug };
       });
 
