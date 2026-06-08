@@ -1,5 +1,6 @@
-import type { PlatformLink } from '@devcard/shared';
 import type { Prisma } from '@prisma/client';
+
+import type { PlatformLink } from '@devcard/shared';
 import type { FastifyInstance } from 'fastify';
 
 type CardLinkResponse = { platformLink: PlatformLink };
