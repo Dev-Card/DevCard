@@ -1,17 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify from 'fastify';
-import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
-import { authRoutes } from '../routes/auth.js';
-import type { PrismaClient } from '@prisma/client';
+import jwt from '@fastify/jwt';
+import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-process.env.NODE_ENV = 'test';
-process.env.PUBLIC_APP_URL = 'http://localhost:3000';
-process.env.BACKEND_URL = 'http://localhost:3001';
-process.env.MOBILE_REDIRECT_URI = 'devcard://auth';
-process.env.GOOGLE_CLIENT_ID = 'test-google-id';
-process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
-process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
+import { authRoutes } from '../routes/auth.js';
+
+import type { PrismaClient } from '@prisma/client';
 
 const mockPrisma = {
   user: {
@@ -23,7 +17,8 @@ const mockPrisma = {
   },
 };
 
-global.fetch = vi.fn();
+const originalEnv = process.env;
+const originalFetch = global.fetch;
 
 async function buildApp() {
   const app = Fastify();
@@ -39,6 +34,21 @@ async function buildApp() {
 describe('GET /auth/google/callback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env = { ...originalEnv };
+    process.env.NODE_ENV = 'test';
+    process.env.PUBLIC_APP_URL = 'http://localhost:3000';
+    process.env.BACKEND_URL = 'http://localhost:3001';
+    process.env.MOBILE_REDIRECT_URI = 'devcard://auth';
+    process.env.GOOGLE_CLIENT_ID = 'test-google-id';
+    process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
+    process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
+    
+    global.fetch = vi.fn();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    global.fetch = originalFetch;
   });
 
   it('persists Google OAuthToken upon successful login', async () => {
@@ -91,6 +101,51 @@ describe('GET /auth/google/callback', () => {
           scopes: 'openid email profile',
         }),
       })
+    );
+  });
+
+  it('allows authentication to succeed even if token persistence fails', async () => {
+    const mockUser = { id: 'user-123', username: 'testuser' };
+    mockPrisma.user.upsert.mockResolvedValue(mockUser);
+    
+    // Simulate upsert failure
+    mockPrisma.oAuthToken.upsert.mockRejectedValue(new Error('DB Error'));
+
+    (global.fetch as any)
+      .mockResolvedValueOnce({
+        json: vi.fn().mockResolvedValue({
+          access_token: 'fake-google-token',
+        }),
+      })
+      .mockResolvedValueOnce({
+        json: vi.fn().mockResolvedValue({
+          id: 'google-id-123',
+          email: 'test@gmail.com',
+          name: 'Test User',
+        }),
+      });
+
+    const app = await buildApp();
+    
+    // Spy on app.log.error to ensure it gets logged
+    const logSpy = vi.spyOn(app.log, 'error');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/google/callback?code=fake-code&state=fake-state',
+      cookies: {
+        oauth_state: 'fake-state',
+      },
+    });
+
+    // Should still succeed and redirect to dashboard
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe('http://localhost:3000/dashboard');
+    
+    // Verify the error was logged
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-123' }),
+      'Failed to persist Google OAuth token — authentication proceeds'
     );
   });
 });
