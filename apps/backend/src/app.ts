@@ -42,6 +42,12 @@ export async function buildApp():Promise<FastifyInstance> {
     },
   });
 
+  // Log method + path for every incoming request.
+  app.addHook('onRequest', (request, _reply, done) => {
+    app.log.info({ method: request.method, url: request.url }, 'incoming request');
+    done();
+  });
+
   // ─── Core Plugins ───
   await app.register(cors, {
     origin: process.env.PUBLIC_APP_URL || 'http://localhost:5173',

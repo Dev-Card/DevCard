@@ -13,6 +13,7 @@ const deriveTestFiles = (files) => {
   });
 };
 
+
 module.exports = async ({ github, context, core }) => {
   const owner = context.repo.owner;
   const repo = context.repo.repo;
@@ -23,6 +24,7 @@ module.exports = async ({ github, context, core }) => {
   const backendFiles = [];
   const mobileFiles = [];
   const webFiles = [];
+  const dbFiles = [];
 
   try {
     if (prState === 'closed') {
@@ -52,16 +54,21 @@ module.exports = async ({ github, context, core }) => {
         mobileFiles.push(fileName);
       } else if (fileName.startsWith('apps/web/')) {
         webFiles.push(fileName);
+      }else if(fileName.startsWith('apps/backend/prisma')){
+        dbFiles.push(fileName)
+      }else if(fileName.includes('schema.prisma') || fileName.includes('/migrations/')){
+        dbFiles.push(fileName)
       }
     });
 
     const strippedBackend = backendFiles.map(f => f.replace('apps/backend/', ''));
     const strippedMobile  = mobileFiles.map(f => f.replace('apps/mobile/', ''));
 
-    console.log({ backendFiles, mobileFiles, webFiles });
+    console.log({ backendFiles, mobileFiles, webFiles, dbFiles });
 
     core.setOutput('backendFiles',     strippedBackend.join(' '));
     core.setOutput('mobileFiles',      strippedMobile.join(' '));
+    core.setOutput('dbFiles', dbFiles.join(' '));
     core.setOutput('webFiles',         webFiles.map(f => f.replace('apps/web/', '')).join(' '));
     core.setOutput('backendTestFiles', deriveTestFiles(strippedBackend).join(' '));
     core.setOutput('mobileTestFiles',  deriveTestFiles(strippedMobile).join(' '));
