@@ -132,6 +132,12 @@ export async function updateCard(
 }
 
 export async function deleteCard(app: FastifyInstance, userId: string, id: string): Promise<null> {
+  // Run the ownership check, last-card guard, optional default promotion, and
+  // the delete inside a single serializable transaction.  Without serializable
+  // isolation two concurrent requests can both observe count > 1, both pass the
+  // guard, and both proceed to delete — leaving the user with zero cards.
+  // Serializable isolation causes the database to roll back the second
+  // conflicting transaction rather than allowing both to commit.
   return await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existing = await tx.card.findFirst({ where: { id, userId } });
     if (!existing) {
@@ -156,7 +162,7 @@ export async function deleteCard(app: FastifyInstance, userId: string, id: strin
 
     await tx.card.delete({ where: { id } });
     return null;
-  });
+  }, { isolationLevel: 'Serializable' });
 }
 
 export async function setDefaultCard(app: FastifyInstance, userId: string, id: string): Promise<{ message: string } | null> {
