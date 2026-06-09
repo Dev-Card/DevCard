@@ -18,12 +18,19 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const [copyMessage, setCopyMessage] = useState('');
   const [copyStatus, setCopyStatus] = useState<'success' | 'error'>('success');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!username) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
     apiFetch<PublicProfile>(`/api/u/${username}?source=web`)
       .then((data) => {
         setProfile(data);
