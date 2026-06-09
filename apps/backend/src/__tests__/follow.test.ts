@@ -1,4 +1,4 @@
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, expect, it, vi, beforeAll, beforeEach, afterAll } from 'vitest';
 
 import { followRoutes } from '../routes/follow.js';

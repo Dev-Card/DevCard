@@ -11,10 +11,12 @@
  * flow so the two records are independent and can never overwrite each other.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { connectRoutes } from '../routes/connect.js';
 import { followRoutes } from '../routes/follow.js';
+
 import type { PrismaClient } from '@prisma/client';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────

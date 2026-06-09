@@ -29,7 +29,7 @@ export async function teamRoutes(app:FastifyInstance){
             const server = request.server as any;
             if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
             if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-            try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+            try { const payload = await request.jwtVerify(); if (payload) {(request as any).user = payload;} } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
         }] }, async(request:FastifyRequest<{
         Body: {name: string, description? : string, avatarUrl?: string }
     }>, reply: FastifyReply) => {
@@ -161,7 +161,7 @@ export async function teamRoutes(app:FastifyInstance){
             const server = request.server as any;
             if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
             if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-            try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+            try { const payload = await request.jwtVerify(); if (payload) {(request as any).user = payload;} } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
         }] }, async(request: FastifyRequest<{Params: {slug:string}, Body:{username:string}}>, reply: FastifyReply) => {
         const paramsSlug = request.params.slug; 
         const userId = (request.user as any).id;
