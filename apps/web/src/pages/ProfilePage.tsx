@@ -18,17 +18,12 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const [mounted] = useState(true);
   const [copyMessage, setCopyMessage] = useState('');
   const [copyStatus, setCopyStatus] = useState<'success' | 'error'>('success');
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
     if (!username) return;
-    setLoading(true);
     apiFetch<PublicProfile>(`/api/u/${username}?source=web`)
       .then((data) => {
         setProfile(data);
