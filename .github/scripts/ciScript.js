@@ -73,9 +73,6 @@ module.exports = async ({ github, context, core }) => {
     core.setOutput('backendTestFiles', deriveTestFiles(strippedBackend).join(' '));
     core.setOutput('mobileTestFiles',  deriveTestFiles(strippedMobile).join(' '));
     core.setOutput('backendChanged',   backendFiles.length > 0);
-    core.setOutput('mobileChanged',    mobileFiles.length > 0);
-    core.setOutput('webChanged',       webFiles.length > 0);
-
   } catch (error) {
     console.error(error);
 
