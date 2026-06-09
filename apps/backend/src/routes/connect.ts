@@ -1,5 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { randomBytes } from 'crypto';
+
+import { randomBytes } from 'node:crypto';
+
 import { encrypt } from '../utils/encryption.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
@@ -30,9 +32,9 @@ export async function connectRoutes(app: FastifyInstance) {
       const server = request.server as any;
       if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
       if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+      try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
     }],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest, _reply: FastifyReply) => {
     const userId = (request.user as any).id;
 
     const tokens = await app.prisma.oAuthToken.findMany({
@@ -50,7 +52,7 @@ export async function connectRoutes(app: FastifyInstance) {
       const server = request.server as any;
       if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
       if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+      try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
     }],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
@@ -160,9 +162,9 @@ export async function connectRoutes(app: FastifyInstance) {
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=github`);
 
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      app.log.error({ error, message }, 'GitHub connect error');
+    } catch (_error) {
+      const message = _error instanceof Error ? _error.message : String(_error);
+      app.log.error({ error: _error, message }, 'GitHub connect error');
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
     }
   });
@@ -175,15 +177,15 @@ export async function connectRoutes(app: FastifyInstance) {
       const server = request.server as any;
       if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
       if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+      try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
     }],
-  }, async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { platform: string } }>, _reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const { platform } = request.params;
 
     const SUPPORTED_PLATFORMS = ['github', 'google', 'twitter', 'linkedin', GITHUB_FOLLOW_PLATFORM];
     if (!SUPPORTED_PLATFORMS.includes(platform)) {
-      return reply.status(400).send({ error: `Unsupported platform: ${platform}` });
+      return _reply.status(400).send({ error: `Unsupported platform: ${platform}` });
     }
 
     try {
@@ -197,7 +199,7 @@ export async function connectRoutes(app: FastifyInstance) {
         });
 
         if (result.count === 0) {
-          return reply.status(404).send({ error: 'Connection not found' });
+          return _reply.status(404).send({ error: 'Connection not found' });
         }
       } else {
         await app.prisma.oAuthToken.delete({
@@ -210,8 +212,8 @@ export async function connectRoutes(app: FastifyInstance) {
         });
       }
       return { success: true };
-    } catch (error) {
-      return reply.status(404).send({ error: 'Connection not found' });
+    } catch (_error) {
+      return _reply.status(404).send({ error: 'Connection not found' });
     }
   });
 }
@@ -225,7 +227,7 @@ function parseOAuthState(state: string): ParsedOAuthState | null {
       return null;
     }
     return decoded;
-  } catch {
+  } catch (_e) {
     return null;
   }
 }

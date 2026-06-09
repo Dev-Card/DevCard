@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { connectRoutes } from '../routes/connect.js';
 import type { PrismaClient } from '@prisma/client';
 
@@ -37,7 +37,7 @@ async function buildApp() {
   app.decorate('authenticate', async (request: any, reply: any) => {
     try {
       await request.jwtVerify();
-    } catch (err) {
+    } catch (_err) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });

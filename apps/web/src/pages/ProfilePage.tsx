@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { PLATFORMS, getProfileUrl } from '../shared';
 import type { PublicProfile } from '../shared';
@@ -18,12 +18,15 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const [mounted] = useState(true);
   const [copyMessage, setCopyMessage] = useState('');
   const [copyStatus, setCopyStatus] = useState<'success' | 'error'>('success');
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    setMounted(true);
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -31,14 +34,22 @@ export default function ProfilePage() {
     setLoading(true);
     apiFetch<PublicProfile>(`/api/u/${username}?source=web`)
       .then((data) => {
-        setProfile(data);
-        setError(null);
+        if (mountedRef.current) {
+          setProfile(data);
+          setError(null);
+        }
       })
       .catch(() => {
-        setProfile(null);
-        setError('User not found');
+        if (mountedRef.current) {
+          setProfile(null);
+          setError('User not found');
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+      });
   }, [username]);
 
   async function copyProfileUrl() {
