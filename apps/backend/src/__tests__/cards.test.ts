@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { cardRoutes } from '../routes/cards.js';
@@ -53,10 +53,6 @@ function wireTransaction(): void {
 }
 
 async function buildApp(): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
-  app.decorate('prisma', mockPrisma);
-  app.decorate('authenticate', async (request: FastifyRequest & { user?: { id: string } }) => {
-async function buildApp():Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
   app.decorate('authenticate', async (request: any) => {

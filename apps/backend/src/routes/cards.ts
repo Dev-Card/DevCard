@@ -112,11 +112,11 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params;
 
     try {
-      const res = await cardService.deleteCard(app, userId, id)
-      if (res && (res as any).code === 'NOT_FOUND') return reply.status(404).send({ error: 'Card not found' })
-      if (res && (res as any).code === 'LAST_CARD') return reply.status(400).send({ error: 'Cannot delete the last remaining card. A user must have at least one card.' })
+      await cardService.deleteCard(app, userId, id)
       return reply.status(204).send()
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.code === 'NOT_FOUND') return reply.status(404).send({ error: 'Card not found' })
+      if (error?.code === 'LAST_CARD') return reply.status(400).send({ error: 'Cannot delete the last remaining card. A user must have at least one card.' })
       return handleDbError(error, request, reply)
     }
   });
