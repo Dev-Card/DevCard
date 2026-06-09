@@ -43,7 +43,7 @@ describe('GET /auth/google/callback', () => {
     process.env.GOOGLE_CLIENT_ID = 'test-google-id';
     process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
     process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
-    
+
     global.fetch = vi.fn();
   });
 
@@ -103,12 +103,14 @@ describe('GET /auth/google/callback', () => {
         }),
       })
     );
+
+    await app.close();
   });
 
   it('allows authentication to succeed even if token persistence fails', async () => {
     const mockUser = { id: 'user-123', username: 'testuser' };
     mockPrisma.user.upsert.mockResolvedValue(mockUser);
-    
+
     // Simulate upsert failure
     mockPrisma.oAuthToken.upsert.mockRejectedValue(new Error('DB Error'));
 
@@ -127,7 +129,7 @@ describe('GET /auth/google/callback', () => {
       });
 
     const app = await buildApp();
-    
+
     // Spy on app.log.error to ensure it gets logged
     const logSpy = vi.spyOn(app.log, 'error');
 
@@ -142,11 +144,13 @@ describe('GET /auth/google/callback', () => {
     // Should still succeed and redirect to dashboard
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe('http://localhost:3000/dashboard');
-    
+
     // Verify the error was logged
     expect(logSpy).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user-123' }),
       'Failed to persist Google OAuth token — authentication proceeds'
     );
+
+    await app.close();
   });
 });
