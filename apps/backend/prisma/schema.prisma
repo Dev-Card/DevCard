@@ -121,12 +121,14 @@ model FollowLog {
   followerId     String   @map("follower_id")
   targetUsername String   @map("target_username")
   platform       String
-  status         String   @default("success")    // "success" | "error"
-  layer          String                          // "api" | "webview" | "link"
+  status         String   @default("success")    // "success" | "failed" | "pending"
+  layer          String                          // "foreground" | "background"
   createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   follower User @relation(fields: [followerId], references: [id], onDelete: Cascade)
 
+  @@unique([followerId, targetUsername, platform])
   @@map("follow_logs")
 }
 

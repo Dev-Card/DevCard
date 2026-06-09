@@ -1,16 +1,18 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
+
 import { decrypt } from '../utils/encryption.js';
 import { getErrorMessage } from '../utils/error.util.js';
-import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 import { followLogSchema } from '../validations/follow.validation.js';
 
-export async function followRoutes(app: FastifyInstance) {
-    app.addHook('preHandler', async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
-    });
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
+export async function followRoutes(app: FastifyInstance): Promise<void> {
+  app.addHook('preHandler', async (request, reply) => {
+    const server = request.server as any;
+    if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return; }
+    if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return; }
+    try { const payload = await request.jwtVerify(); if (payload) { (request as any).user = payload; } } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }); }
+  });
 
   // ─── Follow via API (Layer 1) ───
   // Currently supports: GitHub
@@ -70,10 +72,23 @@ export async function followRoutes(app: FastifyInstance) {
           });
       }
 
-      // Log only genuine successes — not based on reply.statusCode default
+      // Log only genuine successes — not based on reply.statusCode default.
+      // Upsert ensures repeated follows (double-click, retry) don't create
+      // duplicate analytics records.
       if (succeeded) {
-        app.prisma.followLog.create({
-          data: {
+        app.prisma.followLog.upsert({
+          where: {
+            followerId_targetUsername_platform: {
+              followerId: userId,
+              targetUsername,
+              platform,
+            },
+          },
+          update: {
+            status: 'success',
+            layer: 'api',
+          },
+          create: {
             followerId: userId,
             targetUsername,
             platform,
@@ -84,11 +99,22 @@ export async function followRoutes(app: FastifyInstance) {
       }
 
       return result.response;
-    } catch (err: unknown) { 
+    } catch (err: unknown) {
       app.log.error(`Follow error for ${platform}: ${getErrorMessage(err)}`);
-      
-      app.prisma.followLog.create({
-        data: {
+
+      app.prisma.followLog.upsert({
+        where: {
+          followerId_targetUsername_platform: {
+            followerId: userId,
+            targetUsername,
+            platform,
+          },
+        },
+        update: {
+          status: 'error',
+          layer: 'api',
+        },
+        create: {
           followerId: userId,
           targetUsername,
           platform,
@@ -109,6 +135,10 @@ export async function followRoutes(app: FastifyInstance) {
   // status and layer are analytics-impacting fields: they drive totalFollows counters
   // and the follower-state dashboard.  Both are validated against a strict allowlist
   // before any database write — arbitrary client values are rejected with 400.
+  //
+  // Upsert on (followerId, targetUsername, platform) means repeated calls from the
+  // same user for the same target only produce one record — analytics stay accurate
+  // regardless of retries, double-taps, or concurrent requests.
   app.post('/:platform/:targetUsername/log', async (
     request: FastifyRequest<{
       Params: { platform: string; targetUsername: string };
@@ -127,8 +157,19 @@ export async function followRoutes(app: FastifyInstance) {
     const { status, layer } = parsed.data;
 
     try {
-      const log = await app.prisma.followLog.create({
-        data: {
+      const log = await app.prisma.followLog.upsert({
+        where: {
+          followerId_targetUsername_platform: {
+            followerId: userId,
+            targetUsername,
+            platform,
+          },
+        },
+        update: {
+          status,
+          layer,
+        },
+        create: {
           followerId: userId,
           targetUsername,
           platform,

@@ -1,7 +1,9 @@
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify from 'fastify';
 import { describe, expect, it, vi, beforeAll, beforeEach, afterAll } from 'vitest';
 
 import { followRoutes } from '../routes/follow.js';
+
+import type { FastifyInstance } from 'fastify';
 
 vi.mock('../utils/encryption.js', () => ({
   decrypt: vi.fn(() => 'fake-access-token'),
@@ -32,7 +34,7 @@ function buildApp(overrides: {
       ...overrides.oAuthToken,
     },
     followLog: {
-      create: vi.fn(),
+      upsert: vi.fn(),
       deleteMany: vi.fn(),
       ...overrides.followLog,
     },
@@ -102,12 +104,12 @@ describe('POST /api/follow/:platform/:targetUsername — API follow', () => {
 
 describe('POST /api/follow/:platform/:targetUsername/log — follow log validation', () => {
   let app: FastifyInstance;
-  let createLog: ReturnType<typeof vi.fn>;
+  let upsertLog: ReturnType<typeof vi.fn>;
 
   // One app instance shared across all log tests; mock reset between each test.
   beforeAll(async () => {
-    createLog = vi.fn();
-    app = await makeApp({ followLog: { create: createLog } });
+    upsertLog = vi.fn();
+    app = await makeApp({ followLog: { upsert: upsertLog } });
   });
 
   afterAll(async () => {
@@ -115,8 +117,8 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
   });
 
   beforeEach(() => {
-    createLog.mockReset();
-    createLog.mockResolvedValue({ id: 'log-uuid-001' });
+    upsertLog.mockReset();
+    upsertLog.mockResolvedValue({ id: 'log-uuid-001' });
   });
 
   // ── Valid payloads ────────────────────────────────────────────────────────
@@ -130,8 +132,8 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
 
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ status: 'success', logId: 'log-uuid-001' });
-    expect(createLog).toHaveBeenCalledOnce();
-    expect(createLog.mock.calls[0][0].data.status).toBe('success');
+    expect(upsertLog).toHaveBeenCalledOnce();
+    expect(upsertLog.mock.calls[0][0].create.status).toBe('success');
   });
 
   it('200 — accepts status: failed', async () => {
@@ -142,8 +144,8 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(200);
-    expect(createLog).toHaveBeenCalledOnce();
-    expect(createLog.mock.calls[0][0].data.status).toBe('failed');
+    expect(upsertLog).toHaveBeenCalledOnce();
+    expect(upsertLog.mock.calls[0][0].create.status).toBe('failed');
   });
 
   it('200 — accepts status: pending, layer: background', async () => {
@@ -154,9 +156,9 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(200);
-    expect(createLog).toHaveBeenCalledOnce();
-    expect(createLog.mock.calls[0][0].data.status).toBe('pending');
-    expect(createLog.mock.calls[0][0].data.layer).toBe('background');
+    expect(upsertLog).toHaveBeenCalledOnce();
+    expect(upsertLog.mock.calls[0][0].create.status).toBe('pending');
+    expect(upsertLog.mock.calls[0][0].create.layer).toBe('background');
   });
 
   // ── Valid layer values ────────────────────────────────────────────────────
@@ -169,7 +171,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(200);
-    expect(createLog.mock.calls[0][0].data.layer).toBe('foreground');
+    expect(upsertLog.mock.calls[0][0].create.layer).toBe('foreground');
   });
 
   it('200 — accepts layer: background', async () => {
@@ -180,7 +182,77 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(200);
-    expect(createLog.mock.calls[0][0].data.layer).toBe('background');
+    expect(upsertLog.mock.calls[0][0].create.layer).toBe('background');
+  });
+
+  // ── Idempotency — repeated calls must not create duplicate records ────────
+
+  it('idempotency — second call for same user/target/platform upserts, not inserts', async () => {
+    // First follow
+    await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/alice/log',
+      payload: { status: 'success', layer: 'foreground' },
+    });
+
+    // Second follow — same user, same target, same platform
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/alice/log',
+      payload: { status: 'success', layer: 'foreground' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    // Two calls, but upsert's where clause includes the unique key — DB enforces one row
+    expect(upsertLog).toHaveBeenCalledTimes(2);
+    const whereKey = upsertLog.mock.calls[0][0].where.followerId_targetUsername_platform;
+    expect(whereKey).toMatchObject({
+      followerId: MOCK_USER_ID,
+      targetUsername: 'alice',
+      platform: 'linkedin',
+    });
+  });
+
+  it('idempotency — upsert carries correct where key for dedup lookup', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/follow/twitter/bob/log',
+      payload: { status: 'success', layer: 'background' },
+    });
+
+    const call = upsertLog.mock.calls[0][0];
+    expect(call.where.followerId_targetUsername_platform).toMatchObject({
+      followerId: MOCK_USER_ID,
+      targetUsername: 'bob',
+      platform: 'twitter',
+    });
+    expect(call.update).toMatchObject({ status: 'success', layer: 'background' });
+    expect(call.create).toMatchObject({
+      followerId: MOCK_USER_ID,
+      targetUsername: 'bob',
+      platform: 'twitter',
+      status: 'success',
+      layer: 'background',
+    });
+  });
+
+  it('idempotency — different target produces separate upsert calls', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/alice/log',
+      payload: { status: 'success', layer: 'foreground' },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/charlie/log',
+      payload: { status: 'success', layer: 'foreground' },
+    });
+
+    expect(upsertLog).toHaveBeenCalledTimes(2);
+    const targets = upsertLog.mock.calls.map((c: any) => c[0].where.followerId_targetUsername_platform.targetUsername);
+    expect(targets).toContain('alice');
+    expect(targets).toContain('charlie');
   });
 
   // ── Invalid status values — analytics integrity ───────────────────────────
@@ -195,7 +267,18 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: 'Invalid follow log payload' });
     // DB must NOT be written — this is the analytics integrity guarantee
-    expect(createLog).not.toHaveBeenCalled();
+    expect(upsertLog).not.toHaveBeenCalled();
+  });
+
+  it('400 — rejects fabricated status "admin_override"', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: 'admin_override', layer: 'foreground' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(upsertLog).not.toHaveBeenCalled();
   });
 
   it('400 — rejects arbitrary status string injection', async () => {
@@ -206,7 +289,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(400);
-    expect(createLog).not.toHaveBeenCalled();
+    expect(upsertLog).not.toHaveBeenCalled();
   });
 
   // ── Invalid layer values — analytics integrity ────────────────────────────
@@ -223,7 +306,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
 
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: 'Invalid follow log payload' });
-    expect(createLog).not.toHaveBeenCalled();
+    expect(upsertLog).not.toHaveBeenCalled();
   });
 
   it('400 — rejects invalid layer "api"', async () => {
@@ -234,7 +317,18 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(400);
-    expect(createLog).not.toHaveBeenCalled();
+    expect(upsertLog).not.toHaveBeenCalled();
+  });
+
+  it('400 — rejects arbitrary layer string injection', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: 'success', layer: 'superuser' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(upsertLog).not.toHaveBeenCalled();
   });
 
   // ── Malformed / missing payloads ──────────────────────────────────────────
@@ -247,7 +341,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(400);
-    expect(createLog).not.toHaveBeenCalled();
+    expect(upsertLog).not.toHaveBeenCalled();
   });
 
   it('400 — rejects missing layer field', async () => {
@@ -258,7 +352,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(400);
-    expect(createLog).not.toHaveBeenCalled();
+    expect(upsertLog).not.toHaveBeenCalled();
   });
 
   it('400 — rejects empty body', async () => {
@@ -269,7 +363,29 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(400);
-    expect(createLog).not.toHaveBeenCalled();
+    expect(upsertLog).not.toHaveBeenCalled();
+  });
+
+  it('400 — rejects null values for both fields', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: null, layer: null },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(upsertLog).not.toHaveBeenCalled();
+  });
+
+  it('400 — rejects numeric value for status', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/follow/linkedin/testuser/log',
+      payload: { status: 1, layer: 'foreground' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(upsertLog).not.toHaveBeenCalled();
   });
 
   // ── Correct data persisted to DB ──────────────────────────────────────────
@@ -282,9 +398,9 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
     });
 
     expect(res.statusCode).toBe(200);
-    expect(createLog).toHaveBeenCalledOnce();
+    expect(upsertLog).toHaveBeenCalledOnce();
 
-    const written = createLog.mock.calls[0][0].data;
+    const written = upsertLog.mock.calls[0][0].create;
     expect(written).toMatchObject({
       followerId: MOCK_USER_ID,
       targetUsername: 'janedoe',
@@ -305,6 +421,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
 
     expect(res.statusCode).toBe(400);
     const body = res.json();
+    // Must not expose Zod issue paths, internal type names, or stack traces
     expect(body).not.toHaveProperty('issues');
     expect(body).not.toHaveProperty('stack');
     expect(Object.keys(body)).toEqual(['error']);
@@ -313,7 +430,7 @@ describe('POST /api/follow/:platform/:targetUsername/log — follow log validati
   // ── DB failure after valid payload ────────────────────────────────────────
 
   it('500 — returns 500 when DB write fails after successful validation', async () => {
-    createLog.mockRejectedValueOnce(new Error('DB connection lost'));
+    upsertLog.mockRejectedValueOnce(new Error('DB connection lost'));
 
     const res = await app.inject({
       method: 'POST',
