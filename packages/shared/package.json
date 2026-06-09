@@ -13,5 +13,8 @@
   "devDependencies": {
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "devcard": "file:../.."
   }
 }

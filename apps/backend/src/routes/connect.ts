@@ -181,20 +181,34 @@ export async function connectRoutes(app: FastifyInstance) {
     const userId = (request.user as any).id;
     const { platform } = request.params;
 
-    const SUPPORTED_PLATFORMS = ['github', 'google', 'twitter', 'linkedin'];
+    const SUPPORTED_PLATFORMS = ['github', 'google', 'twitter', 'linkedin', GITHUB_FOLLOW_PLATFORM];
     if (!SUPPORTED_PLATFORMS.includes(platform)) {
       return reply.status(400).send({ error: `Unsupported platform: ${platform}` });
     }
 
     try {
-      await app.prisma.oAuthToken.delete({
-        where: {
-          userId_platform: {
+      if (platform === 'github') {
+        // When disconnecting GitHub, also remove the follow-capable token if it exists
+        const result = await app.prisma.oAuthToken.deleteMany({
+          where: {
             userId,
-            platform,
+            platform: { in: ['github', GITHUB_FOLLOW_PLATFORM] },
           },
-        },
-      });
+        });
+
+        if (result.count === 0) {
+          return reply.status(404).send({ error: 'Connection not found' });
+        }
+      } else {
+        await app.prisma.oAuthToken.delete({
+          where: {
+            userId_platform: {
+              userId,
+              platform,
+            },
+          },
+        });
+      }
       return { success: true };
     } catch (error) {
       return reply.status(404).send({ error: 'Connection not found' });
