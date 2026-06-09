@@ -10,6 +10,6 @@ export default defineConfig({
     globals: true,
   },
   resolve: {
-    conditions: ['mode=test', 'browser'],
+    conditions: ['browser', 'svelte'],
   },
 });

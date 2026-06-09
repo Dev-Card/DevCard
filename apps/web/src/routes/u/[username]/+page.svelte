@@ -1,5 +1,6 @@
 <script lang="ts">
-  export let data: { profile?: { displayName: string; avatarUrl: string }; error?: string };
+  import type { PageData } from './$types';
+  export let data: PageData;
 </script>
 
 {#if data?.error}
