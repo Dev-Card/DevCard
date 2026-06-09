@@ -232,6 +232,19 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         },
       });
 
+      try {
+        const encryptedToken = encrypt(tokenData.access_token);
+        const scopes = tokenData.scope || 'openid email profile';
+        const platform = 'google' as const;
+        await app.prisma.oAuthToken.upsert({
+          where: { userId_platform: { userId: user.id, platform } },
+          update: { accessToken: encryptedToken, scopes },
+          create: { userId: user.id, platform, accessToken: encryptedToken, scopes },
+        });
+      } catch (err) {
+        app.log.error({ err, userId: user.id }, 'Failed to persist Google OAuth token — authentication proceeds');
+      }
+
       const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
 
       if (request.query.state?.startsWith('mobile_')) {
