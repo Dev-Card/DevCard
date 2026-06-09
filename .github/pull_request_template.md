@@ -43,10 +43,10 @@ Closes #
 
 ## Checklist
 
-- [ ] My code follows the project's coding style (`pnpm -r run lint` passes).
-- [ ] TypeScript compiles without errors (`pnpm -r run typecheck`).
+- [ ] My code follows the project's coding style (`npm --prefix apps/backend run lint` passes).
+- [ ] TypeScript compiles without errors (`npm --prefix apps/backend run typecheck`).
 - [ ] I have added or updated tests for the changes I made.
-- [ ] All tests pass locally (`pnpm -r run test`).
+- [ ] All tests pass locally (`npm --prefix apps/backend run test`).
 - [ ] I have updated documentation where necessary.
 - [ ] No new `console.log` or debug statements left in the code.
 - [ ] Breaking changes are documented in this PR description.
