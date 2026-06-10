@@ -1,6 +1,20 @@
 import { createHash } from 'node:crypto';
 
-import type { FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+
+
+
+export function signAccessToken(app: FastifyInstance, user: {id:string, username:string}){
+  return app.jwt.sign(
+    {
+    id: user.id, 
+    username: user.username
+  },{
+    expiresIn: '15m'
+  }
+
+)
+}
 
 /**
  * Extract the raw JWT string from a Fastify request.
@@ -10,7 +24,7 @@ import type { FastifyRequest } from 'fastify';
 export function extractRawJwt(request: FastifyRequest): string | null {
   const auth = request.headers.authorization;
   if (auth?.startsWith('Bearer ')) { return auth.slice(7) || null; }
-  return request.cookies?.token || null;
+  return request.cookies?.access_Token || null;
 }
 
 /**
