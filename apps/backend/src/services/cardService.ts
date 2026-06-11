@@ -77,7 +77,7 @@ export async function createCard(app: FastifyInstance, userId: string, body: { t
   throw new Error('Failed to create card after retrying serialization conflicts');
 }
 
-export async function updateCard(app: FastifyInstance, userId: string, id: string, body: { title?: string; linkIds?: string[] }) {
+export async function updateCard(app: FastifyInstance, userId: string, id: string, body: { title?: string; linkIds?: string[] }): Promise<CardResponse | null> {
   const existing = await app.prisma.card.findFirst({ where: { id, userId } })
   if (!existing) {
     return null
@@ -151,7 +151,7 @@ export async function deleteCard(app: FastifyInstance, userId: string, id: strin
   });
 }
 
-export async function setDefaultCard(app: FastifyInstance, userId: string, id: string) {
+export async function setDefaultCard(app: FastifyInstance, userId: string, id: string): Promise<{ message: string } | null> {
   const existing = await app.prisma.card.findFirst({ where: { id, userId } })
   if (!existing) {
     return null
