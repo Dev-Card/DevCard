@@ -20,7 +20,7 @@ export async function listCards(app: FastifyInstance, userId: string): Promise<C
     take: 50,
     include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
     orderBy: { createdAt: 'asc' },
-  }) as unknown as RawCard[];
+  })) as unknown as RawCard[];
 
   return cards.map(mapCard);
 }

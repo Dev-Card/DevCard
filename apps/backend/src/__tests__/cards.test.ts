@@ -440,7 +440,6 @@ describe('PUT /api/cards/:id/default', () => {
     expect(mockPrisma.card.updateMany).toHaveBeenCalled();
     expect(mockPrisma.card.update).toHaveBeenCalled();
   });
-<<<<<<< Updated upstream
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -559,9 +558,3 @@ describe('PUT /api/cards/:id — atomicity of combined title + linkIds update', 
     expect(mockPrisma.cardLink.createMany).toHaveBeenCalled()
   })
 })
-<<<<<<< HEAD
-=======
-=======
-});
->>>>>>> Stashed changes
->>>>>>> 3d9c705 (fixed)
