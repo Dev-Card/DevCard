@@ -1,11 +1,38 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Prisma } from '@prisma/client';
+
+import type { FastifyReply, FastifyRequest } from 'fastify';
+
+interface GoogleTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  expires_in: number;
+  token_type: string;
+  scope?: string;
+}
+
+interface GoogleTokenErrorResponse {
+  error: string;
+  error_description?: string;
+}
+
+export interface GitHubTokenResponse {
+  access_token: string;
+  token_type: string;
+  scope: string;
+}
+
+export interface GitHubTokenErrorResponse {
+  error: string;
+  error_description?: string;
+}
+
+
 
 export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export function handleDbError(error: unknown, request: FastifyRequest, reply: FastifyReply) {
+export function handleDbError(error: unknown, request: FastifyRequest, reply: FastifyReply): FastifyReply {
   request.log.error(error);
   
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -29,4 +56,16 @@ export function handleDbError(error: unknown, request: FastifyRequest, reply: Fa
   }
   
   return reply.status(500).send({ error: 'Internal Server Error' });
+}
+
+export function isGoogleTokenError(
+  data: GoogleTokenResponse | GoogleTokenErrorResponse,
+): data is GoogleTokenErrorResponse {
+  return 'error' in data;
+}
+
+export function isGitHubTokenError(
+  data: GitHubTokenResponse | GitHubTokenErrorResponse,
+): data is GitHubTokenErrorResponse {
+  return 'error' in data;
 }
