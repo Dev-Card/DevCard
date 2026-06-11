@@ -36,6 +36,14 @@ async function buildApp() {
   await app.register(cookie);
   await app.register(jwt, { secret: 'test-secret-for-unit-tests-only' });
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
+  app.decorate('authenticate', async (request: any, reply: any) => {
+    try {
+      const payload = await request.jwtVerify();
+      request.user = payload;
+    } catch (err) {
+      reply.status(401).send({ error: 'Unauthorized' });
+    }
+  });
   await app.register(authRoutes, { prefix: '/auth' });
   await app.ready();
   return app;
