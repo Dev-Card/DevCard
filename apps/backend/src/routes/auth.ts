@@ -646,7 +646,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/logout', async (_request: FastifyRequest, reply: FastifyReply) => {
     app.log.info('Legacy cookie-only logout called — token not blocklisted');
     reply.clearCookie('access_Token', { path: '/' });
-    return { message: 'Logged out' };
+    return reply.status(200).send({message: 'Logged out',});
   });
 
   // ─── Secure Logout — blocklists the token in Redis ───
@@ -686,7 +686,6 @@ export async function authRoutes(app: FastifyInstance) {
         // server (we always pass expiresIn), but log a warning so it is
         // visible if a custom or third-party token ever reaches this path.
         app.log.warn(
-          { userId: (request.user as any)?.id },
           'JWT missing exp claim — skipping Redis blocklist; token cannot be actively revoked',
         );
       }
@@ -702,8 +701,10 @@ export async function authRoutes(app: FastifyInstance) {
         where: { tokenHash: hash },
         data: { revokedAt: new Date() },
       });
-      return { message: 'Logged out' };
+      return reply.status(200).send({message: 'Logged out',});
     }
+
+    return reply.status(200).send({ message: 'Logged out' });
   });
 }
 

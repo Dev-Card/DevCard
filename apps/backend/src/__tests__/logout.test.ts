@@ -46,7 +46,7 @@ async function buildTestApp(mockRedis: MockRedis): Promise<FastifyInstance> {
   // in app.ts so that both Authorization header and token cookie are accepted.
   await app.register(jwtPlugin as any, {
     secret: TEST_JWT_SECRET,
-    cookie: { cookieName: 'token', signed: false },
+    cookie: { cookieName: 'access_Token', signed: false },
   });
 
   // Minimal Prisma stub. The logout route does not touch the database, but
@@ -264,7 +264,7 @@ describe('DELETE /auth/logout', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/auth/logout',
-      headers: { Cookie: `token=${token}` },
+      headers: { Cookie: `access_Token=${token}` },
     });
 
     expect(res.statusCode).toBe(200);
@@ -284,7 +284,7 @@ describe('DELETE /auth/logout', () => {
       url: '/auth/logout',
       headers: {
         Authorization: `Bearer ${headerToken}`,
-        Cookie: `token=${cookieToken}`,
+        Cookie: `access_Token=${cookieToken}`,
       },
     });
 
@@ -309,7 +309,7 @@ describe('DELETE /auth/logout', () => {
     const raw = res.headers['set-cookie'] as string | string[];
     const cookieStr = Array.isArray(raw) ? raw.join('; ') : (raw ?? '');
     // Value must be emptied.
-    expect(cookieStr).toMatch(/token=;/);
+    expect(cookieStr).toMatch(/access_Token=;/);
     // Path must be explicit so the browser clears the cookie on all routes.
     expect(cookieStr).toMatch(/Path=\//i);
     // Browser must be told to delete the cookie immediately.
@@ -350,7 +350,7 @@ describe('DELETE /auth/logout', () => {
     expect(mockRedis.set).not.toHaveBeenCalled();
     expect(warnMock).toHaveBeenCalledOnce();
     // Verify the message identifies the root cause clearly.
-    const [, message] = warnMock.mock.calls[0] as [unknown, string];
+    const [message] = warnMock.mock.calls[0] as [string];
     expect(message).toMatch(/missing exp/i);
   });
 
@@ -471,7 +471,7 @@ describe('authenticate middleware', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { Cookie: `token=${token}` },
+      headers: { Cookie: `access_Token=${token}` },
     });
 
     expect(res.statusCode).toBe(200);
@@ -574,7 +574,7 @@ describe('revocation flow — end-to-end', () => {
     const logout = await app.inject({
       method: 'DELETE',
       url: '/auth/logout',
-      headers: { Cookie: `token=${token}` },
+      headers: { Cookie: `access_Token=${token}` },
     });
     expect(logout.statusCode).toBe(200);
     expect(mockRedis.set).toHaveBeenCalledOnce();
@@ -588,7 +588,7 @@ describe('revocation flow — end-to-end', () => {
     const after = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { Cookie: `token=${token}` },
+       headers: { Cookie: `access_Token=${token}` },
     });
     expect(after.statusCode).toBe(401);
     expect(after.json().error).toBe('Token has been revoked');
@@ -637,14 +637,14 @@ describe('extractRawJwt', () => {
   });
 
   it('returns token from cookie when no Authorization header', () => {
-    const req = makeRequest({ cookies: { token: 'cookie.jwt.token' } });
+    const req = makeRequest({ cookies: { access_Token: 'cookie.jwt.token' } });
     expect(extractRawJwt(req)).toBe('cookie.jwt.token');
   });
 
   it('prefers Authorization header over cookie', () => {
     const req = makeRequest({
       authorization: 'Bearer header.jwt.token',
-      cookies: { token: 'cookie.jwt.token' },
+      cookies: { access_Token: 'cookie.jwt.token' },
     });
     expect(extractRawJwt(req)).toBe('header.jwt.token');
   });
@@ -666,7 +666,7 @@ describe('extractRawJwt', () => {
   });
 
   it('returns null when the token cookie value is empty', () => {
-    const req = makeRequest({ cookies: { token: '' } });
+    const req = makeRequest({ cookies: { access_Token: '' } });
     // || null normalises the empty string to null, matching the return type.
     expect(extractRawJwt(req)).toBeNull();
   });
