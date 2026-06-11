@@ -56,6 +56,36 @@ html.dark {
   box-sizing: border-box;
 }
 
+
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition:
+    background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    background       0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    color            0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color     0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow       0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    fill             0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    stroke           0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+
+@keyframes icon-hide {
+  0%   { transform: scale(1)    rotate(0deg);   opacity: 1; }
+  100% { transform: scale(0)    rotate(-90deg); opacity: 0; }
+}
+
+@keyframes icon-show {
+  0%   { transform: scale(0)    rotate(90deg);  opacity: 0; }
+  100% { transform: scale(1)    rotate(0deg);   opacity: 1; }
+}
+@keyframes toggle-glow {
+  0%   { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.55); }
+  50%  { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.18); }
+  100% { box-shadow: 0 0 0 14px rgba(99, 102, 241, 0); }
+}
+
 body {
   font-family: 'Inter', sans-serif;
   background:
@@ -191,7 +221,10 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  html.theme-transitioning *,
+  html.theme-transitioning *::before,
+  html.theme-transitioning *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
