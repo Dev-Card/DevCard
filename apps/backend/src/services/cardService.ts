@@ -1,18 +1,18 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 
-export async function listCards(app: FastifyInstance, userId: string) {
-  const cards = await app.prisma.card.findMany({
+export async function listCards(app: FastifyInstance, userId: string): Promise<CardResponse[]> {
+  const cards = (await app.prisma.card.findMany({
     where: { userId },
     take: 50,
     include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
     orderBy: { createdAt: 'asc' },
-  })
+  })) as unknown as RawCard[];
 
-  return cards.map((card: any) => ({ id: card.id, title: card.title, isDefault: card.isDefault, links: card.cardLinks.map((cl: any) => cl.platformLink) }))
+  return cards.map(mapCard);
 }
 
-export async function createCard(app: FastifyInstance, userId: string, body: { title: string; linkIds: string[] }) {
+export async function createCard(app: FastifyInstance, userId: string, body: { title: string; linkIds: string[] }): Promise<CardResponse> {
   if (body.linkIds.length > 0) {
     const ownedLinks = await app.prisma.platformLink.findMany({ where: { id: { in: body.linkIds }, userId }, select: { id: true } })
     if (ownedLinks.length !== body.linkIds.length) {
@@ -20,19 +20,48 @@ export async function createCard(app: FastifyInstance, userId: string, body: { t
     }
   }
 
-  const cardCount = await app.prisma.card.count({ where: { userId } })
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const card = (await app.prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const cardCount = await tx.card.count({ where: { userId } });
 
-  const card = await app.prisma.card.create({
-    data: {
-      userId,
-      title: body.title,
-      isDefault: cardCount === 0,
-      cardLinks: { create: body.linkIds.map((linkId, index) => ({ platformLinkId: linkId, displayOrder: index })) },
-    },
-    include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
-  })
+          return tx.card.create({
+            data: {
+              userId,
+              title: body.title,
+              isDefault: cardCount === 0,
+              cardLinks: {
+                create: body.linkIds.map((linkId, index) => ({ platformLinkId: linkId, displayOrder: index })),
+              },
+            },
+            include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
+          });
+        },
+        {
+          isolationLevel: 'Serializable',
+        },
+      )) as unknown as RawCard;
 
-  return { id: card.id, title: card.title, isDefault: card.isDefault, links: card.cardLinks.map((cl: any) => cl.platformLink) }
+      return mapCard(card);
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code: string }).code === 'P2034' &&
+        attempt < maxRetries
+      ) {
+        continue;
+      }
+
+      app.log.error(error);
+      throw error;
+    }
+  }
+
+  throw new Error('Failed to create card after retrying serialization conflicts');
 }
 
 export async function updateCard(app: FastifyInstance, userId: string, id: string, body: { title?: string; linkIds?: string[] }) {
@@ -79,7 +108,7 @@ export async function updateCard(app: FastifyInstance, userId: string, id: strin
   return { id: updated!.id, title: updated!.title, isDefault: updated!.isDefault, links: updated!.cardLinks.map((cl: any) => cl.platformLink) }
 }
 
-export async function deleteCard(app: FastifyInstance, userId: string, id: string) {
+export async function deleteCard(app: FastifyInstance, userId: string, id: string): Promise<null> {
   return await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existing = await tx.card.findFirst({ where: { id, userId } })
     if (!existing) {
@@ -92,15 +121,19 @@ export async function deleteCard(app: FastifyInstance, userId: string, id: strin
     }
 
     if (existing.isDefault) {
-      const oldestRemainingCard = await tx.card.findFirst({ where: { userId, id: { not: id } }, orderBy: { createdAt: 'asc' } })
+      const oldestRemainingCard = await tx.card.findFirst({
+        where: { userId, id: { not: id } },
+        orderBy: { createdAt: 'asc' },
+      });
+
       if (oldestRemainingCard) {
-        await tx.card.update({ where: { id: oldestRemainingCard.id }, data: { isDefault: true } })
+        await tx.card.update({ where: { id: oldestRemainingCard.id }, data: { isDefault: true } });
       }
     }
 
-    await tx.card.delete({ where: { id } })
-    return null
-  })
+    await tx.card.delete({ where: { id } });
+    return null;
+  });
 }
 
 export async function setDefaultCard(app: FastifyInstance, userId: string, id: string) {
@@ -110,9 +143,9 @@ export async function setDefaultCard(app: FastifyInstance, userId: string, id: s
   }
 
   await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    await tx.card.updateMany({ where: { userId }, data: { isDefault: false } })
-    await tx.card.update({ where: { id }, data: { isDefault: true } })
-  })
+    await tx.card.updateMany({ where: { userId }, data: { isDefault: false } });
+    await tx.card.update({ where: { id }, data: { isDefault: true } });
+  });
 
   return { message: 'Default card updated' }
 }
