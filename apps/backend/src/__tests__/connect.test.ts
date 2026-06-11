@@ -129,6 +129,29 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
       method: 'GET',
       url: `/api/connect/github/callback?code=gh_code&state=${VALID_STATE}`,
     });
+    mockPrisma.oAuthToken.upsert.mockResolvedValue({});
+
+    const app = await buildApp();
+    const validState = Buffer.from(JSON.stringify({ userId: 'user-1', nonce: 'web_nonce-123' })).toString('base64');
+    
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/connect/github/callback?code=testcode&state=${validState}`,
+    });
+    
+    // Nonce should be deleted immediately
+    expect(mockRedis.del).toHaveBeenCalledWith('oauth:nonce:web_nonce-123');
+    
+    // Code exchange should be triggered
+    expect(global.fetch).toHaveBeenCalledWith('https://github.com/login/oauth/access_token', expect.objectContaining({
+      method: 'POST',
+      body: expect.stringContaining('testcode')
+    }));
+
+    // Upsert should be called
+    expect(mockPrisma.oAuthToken.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId_platform: { userId: 'user-1', platform: 'github_follow' } }
+    }));
 
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toContain('connected=github');
@@ -177,6 +200,7 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
       method: 'GET',
       url: '/api/connect/github/callback?code=gh_code&state=not_valid_base64!!!',
     });
+    mockPrisma.oAuthToken.upsert.mockResolvedValue({});
 
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toContain('error=connect_failed');
