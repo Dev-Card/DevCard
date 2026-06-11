@@ -129,7 +129,7 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
       method: 'GET',
       url: `/api/connect/github/callback?code=gh_code&state=${VALID_STATE}`,
     });
-
+  
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toContain('connected=github');
     expect(mockRedis.del).toHaveBeenCalledWith(`oauth:nonce:${VALID_NONCE}`);
