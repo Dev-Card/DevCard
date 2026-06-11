@@ -72,7 +72,7 @@ export async function authRoutes(app: FastifyInstance) {
     if(!clientId){
       return reply.status(400).send()
     }
-    //Need to add zod validation here too
+    //TODO: Add zod validation here
     const { state: clientState = '', mobile_redirect_uri: mobileRedirectUri = '' } = request.query
     
     if (
@@ -108,6 +108,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   // GitHub OAuth callback
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+    //TODO: Add zod validation here
     const { code, state } = request.query;
     const storedState = request.cookies?.oauth_state;
     if (!state || !storedState || state !== storedState) {
@@ -197,24 +198,42 @@ export async function authRoutes(app: FastifyInstance) {
           },
         });
       }else{
-        user = await app.prisma.user.create({
-          data: {
-            email, 
-            username: `${baseUsername}_${Date.now().toString(36)}`,
-            displayName: githubUser.name || baseUsername,
-            avatarUrl: githubUser.avatar_url,
-            emailVerified: true, 
-            isActive: true, 
-            lastSignInAt: new Date(),
-  
-            identities: {
-              create: {
-                provider: 'github',
-                providerId: githubUser.id.toString()
-              }
-            }
+
+        const existingAccount = await app.prisma.user.findUnique({
+          where: {
+            email: email
           }
         })
+
+        if(existingAccount){
+          await app.prisma.userIdentity.create({
+            data: {
+              userId: existingAccount.id, 
+              provider: 'github',
+              providerId: githubUser.id.toString()
+            }
+          })
+          user = existingAccount; 
+        }else{
+          user = await app.prisma.user.create({
+            data: {
+              email, 
+              username: `${baseUsername}_${Date.now().toString(36)}`,
+              displayName: githubUser.name || baseUsername,
+              avatarUrl: githubUser.avatar_url,
+              emailVerified: true, 
+              isActive: true, 
+              lastSignInAt: new Date(),
+    
+              identities: {
+                create: {
+                  provider: 'github',
+                  providerId: githubUser.id.toString()
+                }
+              }
+            }
+          })
+        }
       }
       
       const accessToken = signAccessToken(app, user)
@@ -276,7 +295,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(400).send()
     }
     const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
-    //Need to add zod validation here too
+    //TODO: Add zod validation here 
     const { state: clientState = '', mobile_redirect_uri: mobileRedirectUri = '' } = request.query
     
     if (
@@ -313,7 +332,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   // Google callback
   app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
-    //Need to add zod validation
+    //TODO: Add zod validation here
     const { code, state } = request.query;
 
     const storedState = request.cookies?.oauth_state;
@@ -378,24 +397,43 @@ export async function authRoutes(app: FastifyInstance) {
           },
         });
       }else{
-        user = await app.prisma.user.create({
-          data: {
-            email: googleUser.email, 
-            username: `${baseUsername}_${Date.now().toString(36)}`,
-            displayName: googleUser.name || baseUsername,
-            avatarUrl: googleUser.picture,
-            emailVerified: true, 
-            isActive: true, 
-            lastSignInAt: new Date(),
-  
-            identities: {
-              create: {
-                provider: 'google',
-                providerId: googleUser.id
-              }
-            }
+        const existingAccount = await app.prisma.user.findUnique({
+          where: {
+            email: googleUser.email
           }
         })
+
+        if(existingAccount){
+          await app.prisma.userIdentity.create({
+            data: {
+              userId: existingAccount.id, 
+              provider: 'google', 
+              providerId: googleUser.id
+            }
+          })
+
+          user = existingAccount
+        }else{
+          user = await app.prisma.user.create({
+            data: {
+              email: googleUser.email, 
+              username: `${baseUsername}_${Date.now().toString(36)}`,
+              displayName: googleUser.name || baseUsername,
+              avatarUrl: googleUser.picture,
+              emailVerified: true, 
+              isActive: true, 
+              lastSignInAt: new Date(),
+    
+              identities: {
+                create: {
+                  provider: 'google',
+                  providerId: googleUser.id
+                }
+              }
+            }
+          })
+
+        }
       }
       
       const accessToken = signAccessToken(app, user)

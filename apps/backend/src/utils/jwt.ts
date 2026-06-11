@@ -4,16 +4,15 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 
 
-export function signAccessToken(app: FastifyInstance, user: {id:string, username:string}){
+export function signAccessToken(app: FastifyInstance, user: {id:string, username:string}):string{
   return app.jwt.sign(
-    {
-    id: user.id, 
-    username: user.username
-  },{
-    expiresIn: '15m'
-  }
-
-)
+      {
+      id: user.id, 
+      username: user.username
+    },{
+      expiresIn: '15m'
+    }
+  )
 }
 
 /**

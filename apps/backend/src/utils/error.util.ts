@@ -1,5 +1,6 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Prisma } from '@prisma/client';
+
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 interface GoogleTokenResponse {
   access_token: string;
@@ -31,7 +32,7 @@ export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export function handleDbError(error: unknown, request: FastifyRequest, reply: FastifyReply) {
+export function handleDbError(error: unknown, request: FastifyRequest, reply: FastifyReply): FastifyReply {
   request.log.error(error);
   
   if (error instanceof Prisma.PrismaClientKnownRequestError) {

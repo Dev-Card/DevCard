@@ -1,10 +1,10 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
-export function generateRefreshToken() {
+export function generateRefreshToken():string {
   return crypto.randomBytes(64).toString('hex');
 }
 
-export function hashRefreshToken(token: string) {
+export function hashRefreshToken(token: string):string {
   return crypto
     .createHash('sha256')
     .update(token)
