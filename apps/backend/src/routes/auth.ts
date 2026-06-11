@@ -1,4 +1,3 @@
-import { encrypt } from '../utils/encryption.js';
 import { handleDbError, isGitHubTokenError, isGoogleTokenError } from '../utils/error.util.js';
 import { extractRawJwt, blocklistKey, signAccessToken  } from '../utils/jwt.js';
 import { buildOAuthState, getMobileRedirectUri } from '../utils/oauth.js';
@@ -53,7 +52,7 @@ interface GitHubUserResponse {
 }
 
 
-export async function authRoutes(app: FastifyInstance) {
+export async function authRoutes(app: FastifyInstance): Promise<void> {
   // Developer login bypass (development only)
   if (process.env.NODE_ENV !== 'production') {
     app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -201,7 +200,7 @@ export async function authRoutes(app: FastifyInstance) {
 
         const existingAccount = await app.prisma.user.findUnique({
           where: {
-            email: email
+            email
           }
         })
 
