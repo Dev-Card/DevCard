@@ -14,8 +14,8 @@ function mapCard(card: RawCard): CardResponse {
   };
 }
 
-export async function listCards(app: FastifyInstance, userId: string) {
-  const cards = await app.prisma.card.findMany({
+export async function listCards(app: FastifyInstance, userId: string): Promise<CardResponse[]> {
+  const cards = (await app.prisma.card.findMany({
     where: { userId },
     take: 50,
     include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
