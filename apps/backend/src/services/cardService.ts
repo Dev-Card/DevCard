@@ -119,7 +119,7 @@ export async function updateCard(app: FastifyInstance, userId: string, id: strin
     include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
   })) as unknown as RawCard | null;
 
-  if (!updated) return null;
+  if (!updated) {return null;}
   return mapCard(updated);
 }
 
