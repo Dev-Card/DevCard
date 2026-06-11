@@ -588,7 +588,7 @@ describe('revocation flow — end-to-end', () => {
     const after = await app.inject({
       method: 'GET',
       url: '/protected',
-       headers: { Cookie: `access_Token=${token}` },
+      headers: { Cookie: `access_Token=${token}` },
     });
     expect(after.statusCode).toBe(401);
     expect(after.json().error).toBe('Token has been revoked');
