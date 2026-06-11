@@ -1,6 +1,8 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
+
 import { encrypt } from '../utils/encryption.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -30,9 +32,9 @@ export async function connectRoutes(app: FastifyInstance) {
       const server = request.server as any;
       if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
       if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+      try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
     }],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest, _reply: FastifyReply) => {
     const userId = (request.user as any).id;
 
     const tokens = await app.prisma.oAuthToken.findMany({
@@ -50,7 +52,7 @@ export async function connectRoutes(app: FastifyInstance) {
       const server = request.server as any;
       if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
       if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+      try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
     }],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
@@ -93,16 +95,23 @@ export async function connectRoutes(app: FastifyInstance) {
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
-      // Verify nonce was issued by this server -- prevents CSRF
-      const storedUserId = app.redis ? await app.redis.get(`oauth:nonce:${decodedState.nonce}`) : null;
+      // Hard-fail when Redis is unavailable: proceeding without nonce
+      // verification would allow CSRF — an attacker could craft a valid-looking
+      // state for any userId and have a token stored under their target's account.
+      if (!app.redis || app.redis.status !== 'ready') {
+        app.log.error('OAuth CSRF check skipped: Redis unavailable — aborting callback');
+        return reply.status(503).send({ error: 'Service temporarily unavailable. Please try again.' });
+      }
 
-      if (app.redis && (!storedUserId || storedUserId !== decodedState.userId)) {
-        app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed: nonce mismatch');
+      const storedUserId = await app.redis.get(`oauth:nonce:${decodedState.nonce}`);
+
+      if (!storedUserId || storedUserId !== decodedState.userId) {
+        app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed: nonce mismatch or nonce not found');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
       }
 
-      // Consume the nonce -- one-time use only (if redis configured)
-      if (app.redis) await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+      // Consume the nonce — one-time use, prevents replay attacks
+      await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
 
       const userId = decodedState.userId;
 
@@ -175,7 +184,7 @@ export async function connectRoutes(app: FastifyInstance) {
       const server = request.server as any;
       if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
       if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
+      try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
     }],
   }, async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
     const userId = (request.user as any).id;
@@ -196,7 +205,7 @@ export async function connectRoutes(app: FastifyInstance) {
         },
       });
       return { success: true };
-    } catch (error) {
+    } catch (_error) {
       return reply.status(404).send({ error: 'Connection not found' });
     }
   });

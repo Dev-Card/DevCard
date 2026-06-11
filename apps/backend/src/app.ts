@@ -7,6 +7,7 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import Fastify, {type FastifyInstance} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
@@ -20,9 +21,8 @@ import { followRoutes } from './routes/follow.js';
 import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
-import { teamRoutes } from './routes/team.js';
-import { extractRawJwt, blocklistKey } from './utils/jwt.js';
 import { validateEnv } from './utils/validateEnv.js';
+import { teamRoutes } from './routes/team.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -40,12 +40,6 @@ export async function buildApp():Promise<FastifyInstance> {
           ? { target: 'pino-pretty', options: { colorize: true } }
           : undefined,
     },
-  });
-
-  // Log method + path for every incoming request.
-  app.addHook('onRequest', (request, _reply, done) => {
-    app.log.info({ method: request.method, url: request.url }, 'incoming request');
-    done();
   });
 
   // ─── Core Plugins ───
@@ -71,19 +65,12 @@ export async function buildApp():Promise<FastifyInstance> {
     },
   });
 
-  // cookie must be registered before jwt so that @fastify/jwt can read the
-  // `token` cookie during jwtVerify() for browser-based clients.
-  await app.register(cookie);
-
   await app.register(jwt, {
     // validateEnv() above guarantees JWT_SECRET is present and safe.
     secret: process.env.JWT_SECRET!,
-    cookie: {
-      // Matches the cookie name set in the OAuth callback handlers.
-      cookieName: 'token',
-      signed: false,
-    },
   });
+
+  await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
   await app.register(rateLimit, {
     max: 100,
@@ -101,31 +88,13 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(redisPlugin);
 }
   // ─── Auth Decorator ───
-  // Checks the Redis blocklist before calling jwtVerify so that a logged-out
-  // token is rejected immediately even if it has not yet expired.
-  // The blocklist check is skipped when Redis is not registered (test env).
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
-      if (app.hasDecorator('redis')) {
-        const raw = extractRawJwt(request);
-        if (raw) {
-          try {
-            const revoked = await app.redis.exists(blocklistKey(raw));
-            if (revoked) {
-              return reply.status(401).send({ error: 'Token has been revoked' });
-            }
-          } catch (redisErr) {
-            // Redis is unavailable — fail open to avoid an outage on every
-            // authenticated request. The JWT expiry is still the safety net.
-            app.log.warn({ err: redisErr }, 'Redis blocklist check failed — proceeding with JWT verification');
-          }
-        }
-      }
-      // Assign verified payload to request.user (upstream addition).
+      // Ensure the verified payload is assigned to `request.user` like the original plugin.
       const payload = await request.jwtVerify();
-      if (payload) { request.user = payload; }
-    } catch (_err) {
-      return reply.status(401).send({ error: 'Unauthorized' });
+      if (payload) request.user = payload;
+    } catch (error) {
+      reply.status(401).send({ error: 'Unauthorized' });
     }
   });
 

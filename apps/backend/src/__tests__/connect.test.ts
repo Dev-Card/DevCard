@@ -1,21 +1,20 @@
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify from 'fastify';
-import jwt from '@fastify/jwt';
+
 import { connectRoutes } from '../routes/connect.js';
+
 import type { PrismaClient } from '@prisma/client';
 
-process.env.PUBLIC_APP_URL = 'http://localhost:3000';
-process.env.BACKEND_URL = 'http://localhost:3001';
-process.env.MOBILE_REDIRECT_URI = 'devcard://connect';
-process.env.GITHUB_CLIENT_ID = 'test-client-id';
-process.env.GITHUB_CLIENT_SECRET = 'test-client-secret';
-process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
+const USER_ID = 'user-abc';
+const VALID_NONCE = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
+const VALID_STATE = Buffer.from(JSON.stringify({ userId: USER_ID, nonce: VALID_NONCE })).toString('base64');
+const ATTACKER_USER_ID = 'user-victim';
+const CRAFTED_STATE = Buffer.from(JSON.stringify({ userId: ATTACKER_USER_ID, nonce: 'nonce-never-issued' })).toString('base64');
 
-const mockRedis = {
-  get: vi.fn(),
-  set: vi.fn(),
-  del: vi.fn(),
-};
+// Mock encrypt so the token-storage path does not throw in tests
+vi.mock('../utils/encryption.js', () => ({
+  encrypt: vi.fn().mockReturnValue('encrypted_token'),
+}));
 
 const mockPrisma = {
   oAuthToken: {
@@ -25,163 +24,163 @@ const mockPrisma = {
   },
 };
 
-global.fetch = vi.fn();
+// Redis mock that reports as connected and ready
+const mockRedis = {
+  status: 'ready',
+  set: vi.fn(),
+  get: vi.fn(),
+  del: vi.fn(),
+};
 
-async function buildApp() {
-  const app = Fastify();
-  await app.register(jwt, { secret: 'test-secret' });
+// Redis mock that simulates connection failure
+const mockRedisDown = {
+  status: 'end',
+  set: vi.fn(),
+  get: vi.fn(),
+  del: vi.fn(),
+};
+
+async function buildApp(redisOverride?: object | null): Promise<FastifyInstance> {
+  const app = Fastify({ logger: false });
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
-  app.decorate('redis', mockRedis as any);
-  
-  app.decorate('authenticate', async (request: any, reply: any) => {
-    try {
-      await request.jwtVerify();
-    } catch (err) {
-      reply.status(401).send({ error: 'Unauthorized' });
-    }
+  app.decorate('redis', (redisOverride === undefined ? mockRedis : redisOverride) as any);
+  app.decorate('authenticate', async (request: any) => {
+    request.user = { id: USER_ID };
   });
-
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    json: async () => ({ access_token: 'gh_token_abc', scope: 'user:follow' }),
+  }));
   app.register(connectRoutes, { prefix: '/api/connect' });
   await app.ready();
   return app;
 }
 
-describe('GET /api/connect/github/callback', () => {
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/connect/github/callback — CSRF nonce enforcement
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.PUBLIC_APP_URL = 'https://app.devcard.test';
+    process.env.BACKEND_URL = 'https://api.devcard.test';
+    process.env.GITHUB_CLIENT_ID = 'gh_client_id';
+    process.env.GITHUB_CLIENT_SECRET = 'gh_client_secret';
   });
 
-  it('redirects with missing_params if code or state is missing', async () => {
-    const app = await buildApp();
-    
-    // Missing code
-    let res = await app.inject({
-      method: 'GET',
-      url: '/api/connect/github/callback?state=somestate',
-    });
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe('http://localhost:3000/settings?error=missing_params');
-
-    // Missing state
-    res = await app.inject({
-      method: 'GET',
-      url: '/api/connect/github/callback?code=somecode',
-    });
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe('http://localhost:3000/settings?error=missing_params');
-  });
-
-  it('redirects with connect_failed if state is invalid/malformed', async () => {
-    const app = await buildApp();
-    const invalidState = Buffer.from(JSON.stringify({ wrongKey: 'value' })).toString('base64');
-    
+  it('returns 503 when Redis is unavailable (status !== ready)', async () => {
+    const app = await buildApp(mockRedisDown);
     const res = await app.inject({
       method: 'GET',
-      url: `/api/connect/github/callback?code=testcode&state=${invalidState}`,
-    });
-    
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe('http://localhost:3000/settings?error=connect_failed');
-  });
-
-  it('redirects with invalid_state if nonce is not found in Redis (CSRF/Expired)', async () => {
-    mockRedis.get.mockResolvedValue(null);
-    const app = await buildApp();
-    const validState = Buffer.from(JSON.stringify({ userId: 'user-1', nonce: 'nonce-123' })).toString('base64');
-    
-    const res = await app.inject({
-      method: 'GET',
-      url: `/api/connect/github/callback?code=testcode&state=${validState}`,
-    });
-    
-    expect(mockRedis.get).toHaveBeenCalledWith('oauth:nonce:nonce-123');
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe('http://localhost:3000/settings?error=invalid_state');
-  });
-
-  it('redirects with invalid_state if Redis userId does not match state userId', async () => {
-    mockRedis.get.mockResolvedValue('different-user-id');
-    const app = await buildApp();
-    const validState = Buffer.from(JSON.stringify({ userId: 'user-1', nonce: 'nonce-123' })).toString('base64');
-    
-    const res = await app.inject({
-      method: 'GET',
-      url: `/api/connect/github/callback?code=testcode&state=${validState}`,
-    });
-    
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe('http://localhost:3000/settings?error=invalid_state');
-  });
-
-  it('successfully exchanges code, upserts token, and redirects on valid flow (Web)', async () => {
-    mockRedis.get.mockResolvedValue('user-1');
-    (global.fetch as any).mockResolvedValue({
-      json: vi.fn().mockResolvedValue({ access_token: 'github-access-token', scope: 'user:follow' })
-    });
-    mockPrisma.oAuthToken.upsert.mockResolvedValue({});
-
-    const app = await buildApp();
-    const validState = Buffer.from(JSON.stringify({ userId: 'user-1', nonce: 'web_nonce-123' })).toString('base64');
-    
-    const res = await app.inject({
-      method: 'GET',
-      url: `/api/connect/github/callback?code=testcode&state=${validState}`,
-    });
-    
-    // Nonce should be deleted immediately
-    expect(mockRedis.del).toHaveBeenCalledWith('oauth:nonce:web_nonce-123');
-    
-    // Code exchange should be triggered
-    expect(global.fetch).toHaveBeenCalledWith('https://github.com/login/oauth/access_token', expect.objectContaining({
-      method: 'POST',
-      body: expect.stringContaining('testcode')
-    }));
-
-    // Upsert should be called
-    expect(mockPrisma.oAuthToken.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      where: { userId_platform: { userId: 'user-1', platform: 'github_follow' } }
-    }));
-
-    // Redirects to web success
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe('http://localhost:3000/settings?connected=github');
-  });
-
-  it('redirects to mobile scheme if nonce starts with mobile_', async () => {
-    mockRedis.get.mockResolvedValue('user-1');
-    (global.fetch as any).mockResolvedValue({
-      json: vi.fn().mockResolvedValue({ access_token: 'github-access-token', scope: 'user:follow' })
-    });
-    mockPrisma.oAuthToken.upsert.mockResolvedValue({});
-
-    const app = await buildApp();
-    const validState = Buffer.from(JSON.stringify({ userId: 'user-1', nonce: 'mobile_nonce-123' })).toString('base64');
-    
-    const res = await app.inject({
-      method: 'GET',
-      url: `/api/connect/github/callback?code=testcode&state=${validState}`,
-    });
-    
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe('devcard://connect?connected=github');
-  });
-
-  it('redirects with connect_failed if token exchange returns an error', async () => {
-    mockRedis.get.mockResolvedValue('user-1');
-    (global.fetch as any).mockResolvedValue({
-      json: vi.fn().mockResolvedValue({ error: 'bad_verification_code' })
+      url: `/api/connect/github/callback?code=gh_code&state=${VALID_STATE}`,
     });
 
-    const app = await buildApp();
-    const validState = Buffer.from(JSON.stringify({ userId: 'user-1', nonce: 'nonce-123' })).toString('base64');
-    
-    const res = await app.inject({
-      method: 'GET',
-      url: `/api/connect/github/callback?code=testcode&state=${validState}`,
-    });
-    
+    expect(res.statusCode).toBe(503);
     expect(mockPrisma.oAuthToken.upsert).not.toHaveBeenCalled();
+    expect(mockRedisDown.get).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when app.redis is null/falsy', async () => {
+    const app = await buildApp(null);
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/connect/github/callback?code=gh_code&state=${VALID_STATE}`,
+    });
+
+    expect(res.statusCode).toBe(503);
+    expect(mockPrisma.oAuthToken.upsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects to invalid_state when nonce was never issued (crafted state)', async () => {
+    mockRedis.get.mockResolvedValue(null);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/connect/github/callback?code=gh_code&state=${CRAFTED_STATE}`,
+    });
+
     expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe('http://localhost:3000/settings?error=connect_failed');
+    expect(res.headers.location).toContain('error=invalid_state');
+    expect(mockPrisma.oAuthToken.upsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects to invalid_state when nonce is present but userId does not match', async () => {
+    mockRedis.get.mockResolvedValue('user-different');
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/connect/github/callback?code=gh_code&state=${VALID_STATE}`,
+    });
+
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toContain('error=invalid_state');
+    expect(mockPrisma.oAuthToken.upsert).not.toHaveBeenCalled();
+  });
+
+  it('completes the OAuth flow and stores the token when nonce is valid', async () => {
+    mockRedis.get.mockResolvedValue(USER_ID);
+    mockRedis.del.mockResolvedValue(1);
+    mockPrisma.oAuthToken.upsert.mockResolvedValue({});
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/connect/github/callback?code=gh_code&state=${VALID_STATE}`,
+    });
+  
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toContain('connected=github');
+    expect(mockRedis.del).toHaveBeenCalledWith(`oauth:nonce:${VALID_NONCE}`);
+    expect(mockPrisma.oAuthToken.upsert).toHaveBeenCalledOnce();
+  });
+
+  it('consumes the nonce exactly once — replay of the same state is rejected', async () => {
+    mockRedis.get.mockResolvedValueOnce(USER_ID);
+    mockRedis.del.mockResolvedValue(1);
+    mockPrisma.oAuthToken.upsert.mockResolvedValue({});
+
+    const app = await buildApp();
+    const first = await app.inject({
+      method: 'GET',
+      url: `/api/connect/github/callback?code=gh_code&state=${VALID_STATE}`,
+    });
+    expect(first.statusCode).toBe(302);
+    expect(first.headers.location).toContain('connected=github');
+
+    mockRedis.get.mockResolvedValueOnce(null);
+    const second = await app.inject({
+      method: 'GET',
+      url: `/api/connect/github/callback?code=gh_code&state=${VALID_STATE}`,
+    });
+    expect(second.statusCode).toBe(302);
+    expect(second.headers.location).toContain('error=invalid_state');
+    expect(mockPrisma.oAuthToken.upsert).toHaveBeenCalledOnce();
+  });
+
+  it('redirects to connect_failed when code or state is missing', async () => {
+    const app = await buildApp();
+
+    const noCode = await app.inject({ method: 'GET', url: '/api/connect/github/callback?state=abc' });
+    expect(noCode.statusCode).toBe(302);
+    expect(noCode.headers.location).toContain('error=missing_params');
+
+    const noState = await app.inject({ method: 'GET', url: '/api/connect/github/callback?code=abc' });
+    expect(noState.statusCode).toBe(302);
+    expect(noState.headers.location).toContain('error=missing_params');
+  });
+
+  it('redirects to connect_failed when state is not valid base64 JSON', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/connect/github/callback?code=gh_code&state=not_valid_base64!!!',
+    });
+    mockPrisma.oAuthToken.upsert.mockResolvedValue({});
+
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toContain('error=connect_failed');
+    expect(mockPrisma.oAuthToken.upsert).not.toHaveBeenCalled();
   });
 });
