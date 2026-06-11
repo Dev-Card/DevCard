@@ -1,13 +1,26 @@
-import type { Prisma } from '@prisma/client'
-import type { FastifyInstance } from 'fastify'
+import type { Prisma } from '@prisma/client';
+import type { FastifyInstance } from 'fastify';
 
-export async function listCards(app: FastifyInstance, userId: string): Promise<CardResponse[]> {
-  const cards = (await app.prisma.card.findMany({
+type CardLinkResponse = { platformLink: unknown };
+type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
+export type CardResponse = { id: string; title: string; isDefault: boolean; links: unknown[] };
+
+function mapCard(card: RawCard): CardResponse {
+  return {
+    id: card.id,
+    title: card.title,
+    isDefault: card.isDefault,
+    links: card.cardLinks.map((cardLink) => cardLink.platformLink),
+  };
+}
+
+export async function listCards(app: FastifyInstance, userId: string) {
+  const cards = await app.prisma.card.findMany({
     where: { userId },
     take: 50,
     include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
     orderBy: { createdAt: 'asc' },
-  })) as unknown as RawCard[];
+  }) as unknown as RawCard[];
 
   return cards.map(mapCard);
 }
@@ -101,23 +114,25 @@ export async function updateCard(app: FastifyInstance, userId: string, id: strin
     }
   })
 
-  const updated = await app.prisma.card.findUnique({
+  const updated = (await app.prisma.card.findUnique({
     where: { id },
     include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
-  })
-  return { id: updated!.id, title: updated!.title, isDefault: updated!.isDefault, links: updated!.cardLinks.map((cl: any) => cl.platformLink) }
+  })) as unknown as RawCard | null;
+
+  if (!updated) return null;
+  return mapCard(updated);
 }
 
 export async function deleteCard(app: FastifyInstance, userId: string, id: string): Promise<null> {
   return await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existing = await tx.card.findFirst({ where: { id, userId } })
     if (!existing) {
-      return Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' })
+      throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' })
     }
 
     const userCardCount = await tx.card.count({ where: { userId } })
     if (userCardCount <= 1) {
-      return Object.assign(new Error('Cannot delete last card'), { code: 'LAST_CARD' })
+      throw Object.assign(new Error('Cannot delete last card'), { code: 'LAST_CARD' })
     }
 
     if (existing.isDefault) {
