@@ -1,5 +1,5 @@
-import type { AuthResponse } from '@devcard/shared';
-import { apiRequest } from './apiClient';
+import type { AuthResponse } from '../shared/types';
+import { apiFetch } from './api';
 
 const TOKEN_KEY = 'devcard_token';
 
@@ -7,7 +7,6 @@ export function getStoredToken(): string | null {
   if (typeof localStorage === 'undefined') {
     return null;
   }
-
   return localStorage.getItem(TOKEN_KEY);
 }
 
@@ -25,7 +24,7 @@ export async function signup(payload: {
   username: string;
   displayName: string;
 }) {
-  const response = await apiRequest<AuthResponse>('/auth/signup', {
+  const response = await apiFetch<AuthResponse>('/auth/signup', {
     method: 'POST',
     body: payload,
   });
@@ -34,7 +33,7 @@ export async function signup(payload: {
 }
 
 export async function login(payload: { email: string; password: string }) {
-  const response = await apiRequest<AuthResponse>('/auth/login', {
+  const response = await apiFetch<AuthResponse>('/auth/login', {
     method: 'POST',
     body: payload,
   });
