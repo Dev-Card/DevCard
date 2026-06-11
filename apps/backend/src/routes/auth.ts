@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { encrypt } from '../utils/encryption.js';
 import { buildOAuthState, getMobileRedirectUri } from '../services/authService.js';
+import { loginSchema, signupSchema } from '../utils/validators.js';
+import { hashPassword, verifyPassword } from '../utils/password.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -14,7 +16,124 @@ interface OAuthCallbackQuery {
   state?: string;
 }
 
+const authUserSelect = {
+  id: true,
+  email: true,
+  username: true,
+  displayName: true,
+  bio: true,
+  pronouns: true,
+  role: true,
+  company: true,
+  avatarUrl: true,
+  accentColor: true,
+  createdAt: true,
+};
+
+function setAuthCookie(reply: FastifyReply, token: string) {
+  reply.setCookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 30 * 24 * 60 * 60,
+  });
+}
+
+function getDuplicateAuthError(error: any): string {
+  const fields = Array.isArray(error?.meta?.target) ? error.meta.target : [];
+  if (fields.includes('username')) {
+    return 'Username already taken';
+  }
+  return 'Email already registered';
+}
+
 export async function authRoutes(app: FastifyInstance) {
+  app.post('/signup', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = signupSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
+    }
+
+    const { email, password, username, displayName } = parsed.data;
+
+    const existing = await app.prisma.user.findFirst({
+      where: { OR: [{ email }, { username }] },
+      select: { email: true, username: true },
+    });
+
+    if (existing?.email === email) {
+      return reply.status(409).send({ error: 'Email already registered' });
+    }
+
+    if (existing?.username === username) {
+      return reply.status(409).send({ error: 'Username already taken' });
+    }
+
+    try {
+      const passwordHash = await hashPassword(password);
+      const user = await app.prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            email,
+            username,
+            displayName,
+            provider: 'password',
+            providerId: email,
+            passwordHash,
+          },
+          select: authUserSelect,
+        });
+
+        await tx.card.create({
+          data: {
+            userId: createdUser.id,
+            title: 'Main DevCard',
+            isDefault: true,
+          },
+        });
+
+        return createdUser;
+      });
+
+      const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
+      setAuthCookie(reply, token);
+
+      return reply.status(201).send({ token, user });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        return reply.status(409).send({ error: getDuplicateAuthError(error) });
+      }
+
+      app.log.error({ error }, 'Email signup failed');
+      return reply.status(500).send({ error: 'Signup failed' });
+    }
+  });
+
+  app.post('/login', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = loginSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
+    }
+
+    const { email, password } = parsed.data;
+    const user = await app.prisma.user.findUnique({
+      where: { email },
+      select: { ...authUserSelect, passwordHash: true },
+    });
+
+    const passwordMatches = await verifyPassword(password, user?.passwordHash ?? null);
+    if (!user || !passwordMatches) {
+      return reply.status(401).send({ error: 'Invalid email or password' });
+    }
+
+    const { passwordHash, ...safeUser } = user;
+    const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
+    setAuthCookie(reply, token);
+
+    return { token, user: safeUser };
+  });
+
   // Developer login bypass (development only)
   if (process.env.NODE_ENV !== 'production') {
     app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -136,13 +255,7 @@ export async function authRoutes(app: FastifyInstance) {
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
-      reply.setCookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 30 * 24 * 60 * 60,
-      });
+      setAuthCookie(reply, token);
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (error) {
@@ -237,13 +350,7 @@ export async function authRoutes(app: FastifyInstance) {
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
 
-      reply.setCookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 30 * 24 * 60 * 60,
-      });
+      setAuthCookie(reply, token);
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (error) {

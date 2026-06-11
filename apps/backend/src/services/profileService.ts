@@ -14,7 +14,7 @@ export async function getOwnProfile(app: FastifyInstance, userId: string) {
 
   if (!user) return null
 
-  const { provider, providerId, ...profileData } = user as any
+  const { provider, providerId, passwordHash, ...profileData } = user as any
   return { ...profileData, defaultCardId: user.cards[0]?.id || null }
 }
 

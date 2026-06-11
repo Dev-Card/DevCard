@@ -1,3 +1,59 @@
+<script lang="ts">
+  const highlights = [
+    { title: 'One QR', text: 'Share GitHub, LinkedIn, X, portfolio, and more from one public profile.' },
+    { title: 'Live Links', text: 'Update your dashboard once and every scan opens the latest profile links.' },
+    { title: 'Mobile Ready', text: 'Clean public pages are built for conference floors, meetups, and quick intros.' },
+  ];
+</script>
+
+<svelte:head>
+  <title>DevCard | Share every developer profile with one QR</title>
+  <meta
+    name="description"
+    content="Create a DevCard account, add your developer links, and share one QR code."
+  />
+</svelte:head>
+
+<div class="bg-glow"></div>
+
+<nav class="glass" aria-label="Primary navigation">
+  <div class="nav-content">
+    <a class="logo" href="/">DevCard</a>
+    <div class="nav-actions">
+      <a href="/login" class="btn-secondary">Log in</a>
+      <a href="/signup" class="btn-primary">Create card</a>
+    </div>
+  </div>
+</nav>
+
+<main class="landing">
+  <section class="hero">
+    <div class="hero-badge">Developer profile sharing</div>
+    <h1>One QR for every profile you want people to find.</h1>
+    <p class="description">
+      DevCard turns your developer links into a single public page that is quick to update,
+      easy to scan, and ready for real-world conversations.
+    </p>
+    <div class="cta-group">
+      <a href="/signup" class="btn-primary">Build your DevCard</a>
+      <a href="/u/devcard-demo" class="btn-secondary">View demo profile</a>
+    </div>
+  </section>
+
+  <section class="features" aria-label="DevCard features">
+    {#each highlights as item}
+      <article class="feature-card">
+        <h3>{item.title}</h3>
+        <p>{item.text}</p>
+      </article>
+    {/each}
+  </section>
+</main>
+
+<footer class="footer">
+  <p>Open source developer profile exchange platform.</p>
+</footer>
+
 <style>
   .bg-glow {
     position: fixed;
@@ -28,6 +84,12 @@
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
   }
 
   .logo {
@@ -183,6 +245,16 @@
   }
 
   @media (max-width: 640px) {
+    .nav-content {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .nav-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
     h1 {
       font-size: 2.6rem;
     }

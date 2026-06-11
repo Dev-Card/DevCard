@@ -18,6 +18,7 @@ const mockUser = {
   cards: [],
   provider: 'github',
   providerId: 'gh-123',
+  passwordHash: 'scrypt:salt:hash',
 };
 
 const mockPrisma: Pick<PrismaClient, 'user'> = {
@@ -52,6 +53,7 @@ describe('GET /api/profiles/me', () => {
     expect(body.email).toBe('test@example.com');
     expect(body.provider).toBeUndefined();
     expect(body.providerId).toBeUndefined();
+    expect(body.passwordHash).toBeUndefined();
   });
 
   it('should return 404 if user not found', async () => {

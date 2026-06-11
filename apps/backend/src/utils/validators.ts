@@ -54,3 +54,20 @@ export const updateCardSchema = z.object({
   title: z.string().min(1).max(100).optional(),
   linkIds: z.array(z.string().uuid()).optional(),
 });
+
+export const signupSchema = z.object({
+  email: z.string().email().max(255).transform((value) => value.toLowerCase().trim()),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  username: z
+    .string()
+    .min(3)
+    .max(50)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, hyphens, and underscores')
+    .transform((value) => value.trim()),
+  displayName: z.string().min(1).max(100).transform((value) => value.trim()),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email().max(255).transform((value) => value.toLowerCase().trim()),
+  password: z.string().min(1).max(128),
+});

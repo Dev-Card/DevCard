@@ -1,4 +1,10 @@
-const API_BASE_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+// In the browser the Vite dev proxy forwards /auth and /api to the backend,
+// so we use relative URLs (no CORS). On the server (SSR load functions) we
+// need the full URL because there is no proxy there.
+const API_BASE_URL =
+  typeof window !== 'undefined'
+    ? ''                                                          // browser → proxy
+    : (import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000'); // SSR → direct
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -28,8 +34,22 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error((error as any)?.message ?? `Request failed: ${response.status}`);
+    const errorBody = await response.json().catch(() => ({})) as any;
+
+    // Unpack zod fieldErrors into a readable string, e.g.:
+    //   "password: Password must be at least 8 characters · username: Invalid format"
+    const fieldErrors = errorBody?.details?.fieldErrors as Record<string, string[]> | undefined;
+    if (fieldErrors) {
+      const parts = Object.entries(fieldErrors)
+        .flatMap(([field, msgs]) => msgs.map((m: string) => `${field}: ${m}`));
+      if (parts.length) throw new Error(parts.join(' · '));
+    }
+
+    throw new Error(errorBody?.error ?? errorBody?.message ?? `Request failed: ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return response.json() as Promise<T>;
