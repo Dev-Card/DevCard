@@ -177,6 +177,7 @@ describe('GET /api/connect/github/callback — CSRF nonce enforcement', () => {
       method: 'GET',
       url: '/api/connect/github/callback?code=gh_code&state=not_valid_base64!!!',
     });
+    mockPrisma.oAuthToken.upsert.mockResolvedValue({});
 
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toContain('error=connect_failed');
