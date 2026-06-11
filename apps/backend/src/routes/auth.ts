@@ -1,8 +1,16 @@
-import { encrypt } from '../utils/encryption.js';
-import { extractRawJwt, blocklistKey } from '../utils/jwt.js';
+import { handleDbError, isGitHubTokenError, isGoogleTokenError } from '../utils/error.util.js';
+import { extractRawJwt, blocklistKey, signAccessToken  } from '../utils/jwt.js';
 import { buildOAuthState, getMobileRedirectUri } from '../utils/oauth.js';
+import { generateRefreshToken, hashIp, hashRefreshToken } from '../utils/refreshToken.js';
 
+import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
+interface GitHubEmailResponse {
+  email: string;
+  primary: boolean;
+  verified: boolean;
+}
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -15,6 +23,34 @@ interface OAuthCallbackQuery {
   code: string;
   state?: string;
 }
+
+type GoogleAuthQuery = {
+  state?: string;
+  mobile_redirect_uri?: string;
+};
+
+interface GoogleUser {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+interface GoogleTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  expires_in: number;
+  token_type: string;
+}
+
+interface GitHubUserResponse {
+  id: number;
+  login: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string;
+}
+
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   // Developer login bypass (development only)
@@ -30,10 +66,23 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   }
 
   // GitHub OAuth start
-  app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/github', async (request: FastifyRequest<{Querystring: GoogleAuthQuery}>, reply: FastifyReply) => {
+    const clientId = process.env.GITHUB_CLIENT_ID; 
+    if(!clientId){
+      return reply.status(400).send()
+    }
+    //TODO: Add zod validation here
+    const { state: clientState = '', mobile_redirect_uri: mobileRedirectUri = '' } = request.query
+    
+    if (
+      mobileRedirectUri &&
+      !mobileRedirectUri.startsWith('devcard://')
+    ) {
+      return reply.status(400).send({
+        error: 'Invalid mobile redirect URI',
+      });
+    }
     const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
-    const clientState = (request.query as any).state || '';
-    const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
     reply.setCookie('oauth_state', state, {
@@ -45,7 +94,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     });
 
     const params = new URLSearchParams({
-      client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
+      client_id: clientId, 
       redirect_uri: redirectUri,
       scope: 'read:user user:email',
       state,
@@ -58,6 +107,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // GitHub OAuth callback
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+    //TODO: Add zod validation here
     const { code, state } = request.query;
     const storedState = request.cookies?.oauth_state;
     if (!state || !storedState || state !== storedState) {
@@ -81,70 +131,155 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         }),
       });
 
-      const tokenData = (await tokenRes.json()) as any;
-      if (tokenData.error) {
-        app.log.error({ tokenData }, 'GitHub token error');
-        return reply.status(400).send({ error: 'Failed to authenticate with GitHub' });
-      }
 
+    const tokenData = (await tokenRes.json()) as
+      GitHubTokenResponse | GitHubTokenErrorResponse;
+
+    if (!tokenRes.ok || isGitHubTokenError(tokenData)) {
+      app.log.error(
+        { tokenData, status: tokenRes.status },
+        'GitHub token exchange failed',
+      );
+
+      return reply.status(400).send({
+        error: 'Failed to authenticate with GitHub',
+      });
+    }
       const userRes = await fetch(GITHUB_USER_URL, { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
-      const githubUser = (await userRes.json()) as any;
+      const githubUser = (await userRes.json()) as GitHubUserResponse;;
 
       let email = githubUser.email;
       if (!email) {
         const emailsRes = await fetch('https://api.github.com/user/emails', {
           headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
-        const emails = (await emailsRes.json()) as any[];
-        const primary = emails.find((e: any) => e.primary && e.verified);
-        email = primary?.email || emails[0]?.email;
+        const emails = (await emailsRes.json()) as GitHubEmailResponse[];
+        const primary = emails.find(
+          (e) => e.primary && e.verified,
+        );
+
+        email = primary?.email ?? null;
       }
 
-      const user = await app.prisma.user.upsert({
-        where: { provider_providerId: { provider: 'github', providerId: String(githubUser.id) } },
-        update: {
-          email: email || `${githubUser.login}@github.local`,
-          displayName: githubUser.name || githubUser.login,
-          avatarUrl: githubUser.avatar_url,
-        },
-        create: {
-          email: email || `${githubUser.login}@github.local`,
-          username: githubUser.login,
-          displayName: githubUser.name || githubUser.login,
-          bio: githubUser.bio,
-          company: githubUser.company,
-          avatarUrl: githubUser.avatar_url,
-          provider: 'github',
-          providerId: String(githubUser.id),
-        },
-      });
-
-      try {
-        const encryptedToken = encrypt(tokenData.access_token);
-        await app.prisma.oAuthToken.upsert({
-          where: { userId_platform: { userId: user.id, platform: 'github' } },
-          update: { accessToken: encryptedToken, scopes: 'read:user user:email' },
-          create: { userId: user.id, platform: 'github', accessToken: encryptedToken, scopes: 'read:user user:email' },
+      if (!email) {
+        return reply.status(400).send({
+          error: 'No email returned by GitHub',
         });
-      } catch (err) {
-        app.log.error({ err, userId: user.id }, 'Failed to persist GitHub OAuth token — authentication proceeds');
       }
 
-      const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
+      const baseUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
+
+      const identity = await app.prisma.userIdentity.findUnique({
+        where: {
+          provider_providerId: {
+            provider: 'github', 
+            providerId: githubUser.id.toString()
+          },
+        },
+        include: {
+          user: true
+        }
+      })
+
+      let user; 
+
+      if (identity) {
+        user = await app.prisma.user.update({
+          where: {
+            id: identity.user.id,
+          },
+          data: {
+            email,
+            displayName: githubUser.name || baseUsername,
+            avatarUrl: githubUser.avatar_url,
+            lastSignInAt: new Date(),
+            isActive: true
+          },
+        });
+      }else{
+
+        const existingAccount = await app.prisma.user.findUnique({
+          where: {
+            email
+          }
+        })
+
+        if(existingAccount){
+          await app.prisma.userIdentity.create({
+            data: {
+              userId: existingAccount.id, 
+              provider: 'github',
+              providerId: githubUser.id.toString()
+            }
+          })
+          user = existingAccount; 
+        }else{
+          user = await app.prisma.user.create({
+            data: {
+              email, 
+              username: `${baseUsername}_${Date.now().toString(36)}`,
+              displayName: githubUser.name || baseUsername,
+              avatarUrl: githubUser.avatar_url,
+              emailVerified: true, 
+              isActive: true, 
+              lastSignInAt: new Date(),
+    
+              identities: {
+                create: {
+                  provider: 'github',
+                  providerId: githubUser.id.toString()
+                }
+              }
+            }
+          })
+        }
+      }
+      
+      const accessToken = signAccessToken(app, user)
+      const refreshToken = generateRefreshToken()
+      const refreshTokenHash = hashRefreshToken(refreshToken); 
+      const ip = hashIp(request.ip)
+      const userAgent = request.headers['user-agent'] ?? 'unknown';
+
+      await app.prisma.refreshToken.create({
+        data: {
+          userId: user.id, 
+          tokenHash: refreshTokenHash, 
+          family: crypto.randomUUID(), 
+          expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+          ip, 
+          userAgent
+        }
+      })
 
       if (request.query.state?.startsWith('mobile_')) {
-        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
-        return reply.redirect(`${mobileRedirect}#token=${token}`);
+        const exchangeCode = crypto.randomUUID();
+        await app.redis.set(
+          `mobile_exchange:${exchangeCode}`,
+          JSON.stringify({ accessToken, refreshToken }),
+          'EX', 60
+        );
+        const mobileRedirect = getMobileRedirectUri(request.query.state) 
+          || process.env.MOBILE_REDIRECT_URI;
+        return reply.redirect(`${mobileRedirect}?code=${exchangeCode}`);
       }
 
-      reply.setCookie('token', token, {
+      reply.setCookie('access_Token', accessToken,{
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 30 * 24 * 60 * 60,
+        maxAge: 15 * 60,
       });
 
+      reply.setCookie('refresh_token',  refreshToken,{
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 90 * 24 * 60 * 60,
+        },
+      );
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (error) {
       app.log.error({ error }, 'GitHub auth error');
@@ -153,12 +288,26 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Google OAuth start
-  app.get('/google', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/google', async (request: FastifyRequest<{Querystring: GoogleAuthQuery}>, reply: FastifyReply) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID; 
+    if(!clientId){
+      return reply.status(400).send()
+    }
     const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
-    const clientState = (request.query as any).state || '';
-    const mobileRedirectUri = (request.query as any).mobile_redirect_uri || '';
+    //TODO: Add zod validation here 
+    const { state: clientState = '', mobile_redirect_uri: mobileRedirectUri = '' } = request.query
+    
+    if (
+      mobileRedirectUri &&
+      !mobileRedirectUri.startsWith('devcard://')
+    ) {
+      return reply.status(400).send({
+        error: 'Invalid mobile redirect URI',
+      });
+    }
+    
     const state = buildOAuthState(clientState, mobileRedirectUri);
-
+    
     reply.setCookie('oauth_state', state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -166,9 +315,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       path: '/',
       maxAge: 10 * 60,
     });
-
     const params = new URLSearchParams({
-      client_id: (process.env.GOOGLE_CLIENT_ID || '').trim(),
+      client_id: clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'openid email profile',
@@ -183,6 +331,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // Google callback
   app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+    //TODO: Add zod validation here
     const { code, state } = request.query;
 
     const storedState = request.cookies?.oauth_state;
@@ -208,50 +357,255 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         }),
       });
 
-      const tokenData = (await tokenRes.json()) as any;
-      if (tokenData.error) {
-        app.log.error({ tokenData }, 'Google token error');
+      const tokenData = (await tokenRes.json()) as GoogleTokenResponse
+      if (!tokenRes.ok || isGoogleTokenError(tokenData)) {
+        app.log.error({ tokenData, status: tokenRes.status }, 'Google token exchange failed');
         return reply.status(400).send({ error: 'Failed to authenticate with Google' });
       }
 
       const userRes = await fetch(GOOGLE_USER_URL, { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
-      const googleUser = (await userRes.json()) as any;
+      const googleUser = (await userRes.json()) as GoogleUser;
 
       const baseUsername = googleUser.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
 
-      const user = await app.prisma.user.upsert({
-        where: { provider_providerId: { provider: 'google', providerId: googleUser.id } },
-        update: { email: googleUser.email, displayName: googleUser.name || baseUsername, avatarUrl: googleUser.picture },
-        create: {
-          email: googleUser.email,
-          username: `${baseUsername}_${Date.now().toString(36)}`,
-          displayName: googleUser.name || baseUsername,
-          avatarUrl: googleUser.picture,
-          provider: 'google',
-          providerId: googleUser.id,
+      const identity = await app.prisma.userIdentity.findUnique({
+        where: {
+          provider_providerId: {
+            provider: 'google', 
+            providerId: googleUser.id
+          },
         },
-      });
+        include: {
+          user: true
+        }
+      })
 
-      const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
+      let user; 
+
+      if (identity) {
+        user = await app.prisma.user.update({
+          where: {
+            id: identity.user.id,
+          },
+          data: {
+            email: googleUser.email,
+            displayName: googleUser.name || baseUsername,
+            avatarUrl: googleUser.picture,
+            lastSignInAt: new Date(),
+            isActive: true
+          },
+        });
+      }else{
+        const existingAccount = await app.prisma.user.findUnique({
+          where: {
+            email: googleUser.email
+          }
+        })
+
+        if(existingAccount){
+          await app.prisma.userIdentity.create({
+            data: {
+              userId: existingAccount.id, 
+              provider: 'google', 
+              providerId: googleUser.id
+            }
+          })
+
+          user = existingAccount
+        }else{
+          user = await app.prisma.user.create({
+            data: {
+              email: googleUser.email, 
+              username: `${baseUsername}_${Date.now().toString(36)}`,
+              displayName: googleUser.name || baseUsername,
+              avatarUrl: googleUser.picture,
+              emailVerified: true, 
+              isActive: true, 
+              lastSignInAt: new Date(),
+    
+              identities: {
+                create: {
+                  provider: 'google',
+                  providerId: googleUser.id
+                }
+              }
+            }
+          })
+
+        }
+      }
+      
+      const accessToken = signAccessToken(app, user)
+      const refreshToken = generateRefreshToken()
+      const refreshTokenHash = hashRefreshToken(refreshToken); 
+      const ip = hashIp(request.ip)
+      const userAgent = request.headers['user-agent'] ?? 'unknown';
+
+      await app.prisma.refreshToken.create({
+        data: {
+          userId: user.id, 
+          tokenHash: refreshTokenHash, 
+          family: crypto.randomUUID(), 
+          expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+          ip, 
+          userAgent
+        }
+      })
 
       if (request.query.state?.startsWith('mobile_')) {
-        const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
-        return reply.redirect(`${mobileRedirect}#token=${token}`);
+        const exchangeCode = crypto.randomUUID();
+        await app.redis.set(
+          `mobile_exchange:${exchangeCode}`,
+          JSON.stringify({ accessToken, refreshToken }),
+          'EX', 60
+        );
+        const mobileRedirect = getMobileRedirectUri(request.query.state) 
+          || process.env.MOBILE_REDIRECT_URI;
+        return reply.redirect(`${mobileRedirect}?code=${exchangeCode}`);
       }
 
-      reply.setCookie('token', token, {
+      reply.setCookie('access_Token', accessToken,{
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 30 * 24 * 60 * 60,
+        maxAge: 15 * 60,
       });
+
+      reply.setCookie('refresh_token',  refreshToken,{
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 90 * 24 * 60 * 60,
+        },
+      );
+
+      app.log.info({
+        user: user.id, 
+        provider: 'google'
+      }, 'User is authenticated');
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/dashboard`);
     } catch (error) {
+      handleDbError(error, request, reply)
       app.log.error({ error }, 'Google auth error');
       return reply.status(500).send({ error: 'Authentication failed' });
     }
+  });
+
+  app.post('/refresh', async(request: FastifyRequest, reply: FastifyReply) => {
+     const refreshToken = request.cookies.refresh_token ?? (request.body as { refresh_token?: string })?.refresh_token;
+
+    if (!refreshToken) {
+      return reply.status(401).send({
+        error: 'Refresh token missing',
+      });
+    }
+    const tokenHash = hashRefreshToken(refreshToken); 
+
+    try {
+      
+      const storedToken = await app.prisma.refreshToken.findUnique({
+        where: {
+          tokenHash
+        }, 
+        include: {
+          user: true
+        }
+      })
+  
+    if (!storedToken) {
+      return reply.status(401).send({
+        error: 'Invalid refresh token',
+      });
+    }
+
+    if (storedToken.revokedAt) {
+      return reply.status(401).send({
+        error: 'Refresh token revoked',
+      });
+    }
+
+    if(storedToken.expiresAt < new Date()){
+      return reply.status(401).send({
+        error: 'Refresh token expired',
+      });
+    }
+
+    await app.prisma.refreshToken.update({
+      where: {
+        id: storedToken.id,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+
+    const newRefreshToken = generateRefreshToken(); 
+    const newTokenHash = hashRefreshToken(newRefreshToken); 
+    const ip = hashIp(request.ip)
+    const userAgent = request.headers['user-agent'] ?? 'unknown';
+
+    const details = {
+      id: storedToken.user.id, 
+      username: storedToken.user.username
+    }
+
+    await app.prisma.refreshToken.create({
+      data: {
+        userId: storedToken.user.id,
+        tokenHash: newTokenHash,
+        family: storedToken.family,
+        expiresAt: new Date(
+          Date.now() + 90 * 24 * 60 * 60 * 1000,
+        ),
+        userAgent,
+        ip,
+      },
+    });
+
+
+    const accessToken = signAccessToken(app,details)
+
+    const isMobileRequest = !request.cookies.refresh_token;
+    if (isMobileRequest) {
+      return reply.status(200).send({ accessToken, refreshToken: newRefreshToken });
+    }
+
+    reply.setCookie('access_Token', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 15 * 60,
+    });
+
+    reply.setCookie('refresh_token',newRefreshToken,{
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 90 * 24 * 60 * 60,
+      },
+    );
+
+    return reply.status(200).send('Token revoked')
+  
+    } catch (error) {
+      handleDbError(error, request, reply)
+      app.log.error(error)
+    }
+
+  })
+
+  app.post('/mobile/exchange', async (request: FastifyRequest<{Body: {code: string}}>, reply: FastifyReply) => {
+    const { code } = request.body;
+    const raw = await app.redis.getdel(`mobile_exchange:${code}`);
+    if (!raw) {return reply.status(400).send({ error: 'Invalid or expired exchange code' });}
+    
+    const { accessToken, refreshToken } = JSON.parse(raw);
+    return { accessToken, refreshToken }; 
   });
 
   // Current user
@@ -290,8 +644,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   // Cookie-only logout — use DELETE /auth/logout for token revocation.
   app.post('/logout', async (_request: FastifyRequest, reply: FastifyReply) => {
     app.log.info('Legacy cookie-only logout called — token not blocklisted');
-    reply.clearCookie('token', { path: '/' });
-    return { message: 'Logged out' };
+    reply.clearCookie('access_Token', { path: '/' });
+    return reply.status(200).send({message: 'Logged out',});
   });
 
   // ─── Secure Logout — blocklists the token in Redis ───
@@ -331,14 +685,25 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         // server (we always pass expiresIn), but log a warning so it is
         // visible if a custom or third-party token ever reaches this path.
         app.log.warn(
-          { userId: (request.user as any)?.id },
           'JWT missing exp claim — skipping Redis blocklist; token cannot be actively revoked',
         );
       }
     }
 
-    reply.clearCookie('token', { path: '/' });
-    return { message: 'Logged out' };
+    reply.clearCookie('access_Token', { path: '/' });
+    reply.clearCookie('refresh_token', { path: '/' });
+
+    const refreshToken = request.cookies.refresh_token ?? (request.body as { refresh_token?: string })?.refresh_token;
+    if (refreshToken) {
+      const hash = hashRefreshToken(refreshToken);
+      await app.prisma.refreshToken.updateMany({
+        where: { tokenHash: hash },
+        data: { revokedAt: new Date() },
+      });
+      return reply.status(200).send({message: 'Logged out',});
+    }
+
+    return reply.status(200).send({ message: 'Logged out' });
   });
 }
 
