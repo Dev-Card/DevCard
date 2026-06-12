@@ -6,6 +6,9 @@ import { generateOgImage } from '../utils/og-image.js';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 
 import type { PlatformLink } from '@devcard/shared';
+import * as publicService from '../services/publicService';
+import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
+
 import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 // ── QR size bounds ────────────────────────────────────────────────────────────
@@ -24,10 +27,15 @@ interface CardLinkWithPlatform {
   platformLink: PlatformLink;
 }
 
+// ── Cache constants ───────────────────────────────────────────────────────────
+// Public profile cache TTL matches the Cache-Control max-age (5 minutes).
+// The QR session JWT TTL is 10 minutes so an offline scan remains valid well
+// beyond the HTTP cache window.
+const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60';
+
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
   // ─── Public Profile ───────────────────────────────────────────────────────
-  // ─── Public Profile ───
- /**
+  /**
    * GET /api/u/:username
    * Returns the public profile information for a user.
    */
@@ -40,14 +48,15 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     },
   }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
+
     // Try to extract viewer from Authorization header (soft auth).
-    let viewerId: string | null = null
+    let viewerId: string | null = null;
     try {
       if (request.headers.authorization) {
-        const decoded = (await request.jwtVerify()) as { id?: string }
-        viewerId = decoded?.id ?? null
+        const decoded = (await request.jwtVerify()) as { id?: string };
+        viewerId = decoded?.id ?? null;
       } else {
-        viewerId = null
+        viewerId = null;
       }
     } catch {
       // ignored
@@ -63,6 +72,15 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     } catch (err: unknown) {
       app.log.error({ err }, 'Failed to fetch public profile')
       return reply.status(500).send({ error: 'Internal server error' })
+      const result = await publicService.getPublicProfile(app, username, viewerId, request);
+      if (!result) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+      reply.header('X-Cache', result.cached ? 'HIT' : 'MISS').header('Cache-Control', CACHE_CONTROL_HEADER);
+      return result.data;
+    } catch (err: unknown) {
+      app.log.error({ err }, 'Failed to fetch public profile');
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
@@ -93,11 +111,35 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     } catch (err: unknown) {
       app.log.error({ err }, 'Failed to fetch shared card')
       return reply.status(500).send({ error: 'Internal server error' })
+      const card = await publicService.getCardById(app, cardId);
+      if (!card) {
+        return reply.status(404).send({ error: 'Card not found' });
+      }
+      const response = {
+        id: card.id,
+        title: card.title,
+        owner: {
+          username: card.user.username,
+          displayName: card.user.displayName,
+          bio: card.user.bio,
+          avatarUrl: card.user.avatarUrl,
+          accentColor: card.user.accentColor,
+        },
+        links: card.cardLinks.map((cl: any) => ({
+          id: cl.platformLink.id,
+          platform: cl.platformLink.platform,
+          username: cl.platformLink.username,
+          url: cl.platformLink.url,
+        })),
+      };
+      return response;
+    } catch (err: unknown) {
+      app.log.error({ err }, 'Failed to fetch shared card');
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // ─── Public Card View ─────────────────────────────────────────────────────
-  // ─── Public Card View ───
   /**
    * GET /api/u/:username/card/:cardId
    * Returns full owner profile + specific card data.
@@ -113,11 +155,11 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
   }, async (request: FastifyRequest<{ Params: { username: string; cardId: string } }>, reply: FastifyReply) => {
     const { username, cardId } = request.params;
 
-    let viewerId: string | null = null
+    let viewerId: string | null = null;
     try {
       if (request.headers.authorization) {
-        const decoded = (await request.jwtVerify()) as { id?: string }
-        viewerId = decoded?.id ?? null
+        const decoded = (await request.jwtVerify()) as { id?: string };
+        viewerId = decoded?.id ?? null;
       }
     } catch {
       // ignored
@@ -132,6 +174,14 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     } catch (err: unknown) {
       app.log.error({ err }, 'Failed to fetch user card')
       return reply.status(500).send({ error: 'Internal server error' })
+      const result = await publicService.getUserCard(app, username, cardId, viewerId, request);
+      if (result.notFound) {
+        return reply.status(404).send({ error: 'User or card not found' });
+      }
+      return result.data;
+    } catch (err: unknown) {
+      app.log.error({ err }, 'Failed to fetch user card');
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
@@ -162,6 +212,21 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     } catch (err: unknown) {
       app.log.error({ err }, 'Failed to create qr-session')
       return reply.status(500).send({ error: 'Internal server error' })
+
+    try {
+      const result = await publicService.getPublicProfile(app, username, null, request);
+      if (!result) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+      const snapshot = result.data;
+      const expiresIn = 600;
+      const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+      const token = app.jwt.sign({ profile: snapshot, sub: username }, { expiresIn: '10m' });
+      reply.header('Cache-Control', CACHE_CONTROL_HEADER);
+      return { token, tokenType: 'JWT', expiresIn, expiresAt };
+    } catch (err: unknown) {
+      app.log.error({ err }, 'Failed to create qr-session');
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
@@ -206,14 +271,21 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
 
     try {
       if (format === 'svg') {
-        const svg = await generateQRSvg(profileUrl, { width: size })
-        return reply.header('Content-Type', 'image/svg+xml').header('Content-Disposition', `inline; filename="devcard-${username}.svg"`).send(svg)
+        const svg = await generateQRSvg(profileUrl, { width: size });
+        return reply
+          .header('Content-Type', 'image/svg+xml')
+          .header('Content-Disposition', `inline; filename="devcard-${username}.svg"`)
+          .send(svg);
       }
-      const png = await generateQRBuffer(profileUrl, { width: size })
-      return reply.header('Content-Type', 'image/png').header('Content-Disposition', `inline; filename="devcard-${username}.png"`).send(png)
+
+      const png = await generateQRBuffer(profileUrl, { width: size });
+      return reply
+        .header('Content-Type', 'image/png')
+        .header('Content-Disposition', `inline; filename="devcard-${username}.png"`)
+        .send(png);
     } catch (error) {
-      app.log.error({ error, username, size, format }, 'QR generation failed')
-      return reply.status(500).send({ error: 'QR code generation failed' })
+      app.log.error({ error, username, size, format }, 'QR generation failed');
+      return reply.status(500).send({ error: 'QR code generation failed' });
     }
   });
 

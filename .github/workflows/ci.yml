@@ -20,6 +20,7 @@ jobs:
       webFiles:         ${{ steps.detect.outputs.webFiles }}
       backendTestFiles: ${{ steps.detect.outputs.backendTestFiles }}  
       mobileTestFiles:  ${{ steps.detect.outputs.mobileTestFiles }}  
+      dbFiles:  ${{ steps.detect.outputs.dbFiles }}  
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -55,11 +56,13 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install shared dependencies
-        run: npm --prefix packages/shared install
-
       - name: Install backend dependencies
         run: npm --prefix apps/backend install
+
+      - name: DB migration check
+        if: needs.detect-changes.outputs.dbFiles != '' 
+        continue-on-error: true
+        run: npm run db:migrate
 
       - name: Backend lint
         id: backend_lint

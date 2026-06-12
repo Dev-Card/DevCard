@@ -15,6 +15,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
