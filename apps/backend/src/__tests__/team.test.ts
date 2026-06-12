@@ -1,7 +1,11 @@
+import { Prisma, TeamRole } from '@prisma/client';
+import Fastify from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Fastify, { FastifyInstance } from 'fastify';
-import { PrismaClient, TeamRole } from '@prisma/client';
+
 import { teamRoutes } from '../routes/team';
+
+import type { PrismaClient } from '@prisma/client';
+import type { FastifyInstance } from 'fastify';
 
 // ─── Shared mock data ─────────────────────────────────────────────────────────
 
@@ -92,7 +96,7 @@ const prismaMock = {
 
 // ─── App factory ──────────────────────────────────────────────────────────────
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
@@ -118,7 +122,7 @@ async function createTeam(
   app: FastifyInstance,
   body: Record<string, unknown>,
   authenticated = true,
-) {
+): Promise<ReturnType<typeof app.inject>> {
   return app.inject({
     method: 'POST',
     url: '/',
@@ -219,6 +223,46 @@ describe('Teams API', () => {
       const res = await createTeam(app, validBody);
       expect(res.statusCode).toBe(500);
       expect(res.json()).toMatchObject({ error: 'Failed to create team' });
+    });
+
+    it('201 — retries and succeeds when first attempt loses slug race to concurrent request', async () => {
+      // First generateUniqueSlug: base slug appears available
+      prismaMock.team.findUnique.mockResolvedValueOnce(null);
+      // First $transaction: P2002 — another request inserted first
+      prismaMock.$transaction.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: '0' }),
+      );
+      // Second generateUniqueSlug: base slug now taken, devcard-core-1 is free
+      prismaMock.team.findUnique.mockResolvedValueOnce(MOCK_TEAM); // devcard-core taken
+      prismaMock.team.findUnique.mockResolvedValueOnce(null);      // devcard-core-1 free
+      // Second $transaction: succeeds with suffix slug
+      prismaMock.$transaction.mockImplementationOnce(async (cb: any) => {
+        return cb({
+          team: { create: vi.fn().mockResolvedValue({ ...MOCK_TEAM, slug: 'devcard-core-1' }) },
+          teamMember: { create: vi.fn().mockResolvedValue({}) },
+        });
+      });
+
+      const res = await createTeam(app, validBody);
+
+      expect(res.statusCode).toBe(201);
+      expect(res.json().slug).toBe('devcard-core-1');
+    });
+
+    it('409 — exhausts all retry attempts when DB rejects every slug with P2002', async () => {
+      const p2002 = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed on the fields: (`slug`)',
+        { code: 'P2002', clientVersion: '0' },
+      );
+      // Slug always appears available at the application level
+      prismaMock.team.findUnique.mockResolvedValue(null);
+      // DB always rejects with P2002 (concurrent inserts won every race)
+      prismaMock.$transaction.mockRejectedValue(p2002);
+
+      const res = await createTeam(app, validBody);
+
+      expect(res.statusCode).toBe(409);
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(5);
     });
   });
 
