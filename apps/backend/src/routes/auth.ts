@@ -613,7 +613,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const user = await app.prisma.user.findUnique({
       where: { id: userId },
       select: {
