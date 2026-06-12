@@ -1,19 +1,27 @@
-export function createSlug(name:string){
-    return name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]+/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '')
+export function createSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]+/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
-export async function generateUniqueSlug(name: string, 
-    slugExists: (slug: string) => Promise<boolean> 
-){
-    const cleanSlug = createSlug(name)
-    let finalSlug = cleanSlug; 
-    while(true){
-        const exists = await slugExists(finalSlug)
+const MAX_SLUG_ATTEMPTS = 10;
 
-        if(!exists) break; 
+export async function generateUniqueSlug(
+  name: string,
+  slugExists: (slug: string) => Promise<boolean>,
+): Promise<string> {
+  const baseSlug = createSlug(name);
 
-        const randomSuffix  = Math.random().toString(36).substring(2,6); 
-        finalSlug = `${cleanSlug}-${randomSuffix}` 
-    }
-    return finalSlug; 
+  if (!(await slugExists(baseSlug))) { return baseSlug; }
+
+  for (let i = 1; i <= MAX_SLUG_ATTEMPTS; i++) {
+    const candidate = `${baseSlug}-${i}`;
+    if (!(await slugExists(candidate))) { return candidate; }
+  }
+
+  throw new Error(`Unable to generate unique slug for "${name}" after ${MAX_SLUG_ATTEMPTS} attempts`);
 }
