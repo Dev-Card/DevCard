@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import type {
   FastifyInstance,
   FastifyRequest,
@@ -114,7 +115,7 @@ export async function analyticsRoutes(
       const limit = 20;
       const skip = (page - 1) * limit;
 
-      const whereClause: any = { ownerId: userId };
+      const whereClause: Prisma.CardViewWhereInput = { ownerId: userId };
 
       if (request.query.cardId) {
         whereClause.cardId = request.query.cardId;
