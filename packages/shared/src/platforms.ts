@@ -274,7 +274,7 @@ export function getPlatform(id: string): PlatformDef | undefined {
 
 /** Check whether a platform ID exists in the registry */
 export function isSupportedPlatform(id: string): boolean {
-  return PLATFORMS[id] !== undefined;
+  return Object.prototype.hasOwnProperty.call(PLATFORMS, id);
 }
 
 /** Get the profile URL for a given platform and username */
