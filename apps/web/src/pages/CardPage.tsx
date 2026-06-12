@@ -24,17 +24,33 @@ export default function CardPage() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
-    apiFetch<PublicCard>(`/api/u/card/${id}`)
-      .then((data) => {
-        setCard(data);
-        setError(null);
-      })
-      .catch(() => {
-        setCard(null);
-        setError('Card not found');
-      })
-      .finally(() => setLoading(false));
+    
+    let isMounted = true;
+    
+    const loadCard = async () => {
+      try {
+        const data = await apiFetch<PublicCard>(`/api/u/card/${id}`);
+        if (isMounted) {
+          setCard(data);
+          setError(null);
+        }
+      } catch {
+        if (isMounted) {
+          setCard(null);
+          setError('Card not found');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadCard();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   // Update document title

@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { connectRoutes } from '../routes/connect.js';
 import type { PrismaClient } from '@prisma/client';
 
@@ -22,6 +22,7 @@ const mockPrisma = {
     findMany: vi.fn(),
     upsert: vi.fn(),
     delete: vi.fn(),
+    deleteMany: vi.fn(),
   },
 };
 
@@ -36,7 +37,7 @@ async function buildApp() {
   app.decorate('authenticate', async (request: any, reply: any) => {
     try {
       await request.jwtVerify();
-    } catch (err) {
+    } catch (_err) {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
@@ -183,5 +184,117 @@ describe('GET /api/connect/github/callback', () => {
     expect(mockPrisma.oAuthToken.upsert).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe('http://localhost:3000/settings?error=connect_failed');
+  });
+});
+
+describe('DELETE /api/connect/:platform', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('successfully deletes github and github_follow when platform is github', async () => {
+    mockPrisma.oAuthToken.deleteMany.mockResolvedValue({ count: 2 });
+    const app = await buildApp();
+    
+    const token = app.jwt.sign({ id: 'user-1' });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/connect/github',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ success: true });
+    expect(mockPrisma.oAuthToken.deleteMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        platform: { in: ['github', 'github_follow'] }
+      }
+    });
+  });
+
+  it('returns 404 if no github tokens are found', async () => {
+    mockPrisma.oAuthToken.deleteMany.mockResolvedValue({ count: 0 });
+    const app = await buildApp();
+    
+    const token = app.jwt.sign({ id: 'user-1' });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/connect/github',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(JSON.parse(res.body)).toEqual({ error: 'Connection not found' });
+  });
+
+  it('successfully deletes other platforms using delete', async () => {
+    mockPrisma.oAuthToken.delete.mockResolvedValue({});
+    const app = await buildApp();
+    
+    const token = app.jwt.sign({ id: 'user-1' });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/connect/linkedin',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ success: true });
+    expect(mockPrisma.oAuthToken.delete).toHaveBeenCalledWith({
+      where: {
+        userId_platform: {
+          userId: 'user-1',
+          platform: 'linkedin'
+        }
+      }
+    });
+  });
+
+  it('allows direct deletion of github_follow', async () => {
+    mockPrisma.oAuthToken.delete.mockResolvedValue({});
+    const app = await buildApp();
+    
+    const token = app.jwt.sign({ id: 'user-1' });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/connect/github_follow',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ success: true });
+    expect(mockPrisma.oAuthToken.delete).toHaveBeenCalledWith({
+      where: {
+        userId_platform: {
+          userId: 'user-1',
+          platform: 'github_follow'
+        }
+      }
+    });
+  });
+
+  it('returns 400 for unsupported platforms', async () => {
+    const app = await buildApp();
+    
+    const token = app.jwt.sign({ id: 'user-1' });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/connect/unsupported',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toContain('Unsupported platform');
   });
 });
