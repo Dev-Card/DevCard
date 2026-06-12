@@ -130,9 +130,12 @@ beforeEach(() => {
   (mockPrisma.platformLink.update as any).mockResolvedValue(mockLink);
   (mockPrisma.platformLink.delete as any).mockResolvedValue({});
   (mockPrisma.platformLink.updateMany as any).mockResolvedValue({ count: 1 });
-  (mockPrisma.$transaction as any).mockImplementation(async (ops: any[]) =>
-    Promise.all(ops),
-  );
+  (mockPrisma.$transaction as any).mockImplementation(async (opsOrFn: any) => {
+    if (typeof opsOrFn === 'function') {
+      return opsOrFn(mockPrisma);
+    }
+    return Promise.all(opsOrFn);
+  });
 
   // Default Redis mocks
   mockRedis.del.mockResolvedValue(1);
