@@ -113,7 +113,8 @@ jobs:
         run: npm --prefix apps/web run build
 
       - name: Fail job if any check failed
-        if: steps.web_build.outcome == 'failure'
+        if: >
+          steps.web_build.outcome == 'failure'
         run: exit 1
 
   mobile-ci:
