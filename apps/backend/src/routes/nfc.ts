@@ -10,15 +10,19 @@ const nfcQuerySchema = z.object({
   card: z.string().uuid('Invalid card ID format').optional(),
 });
 
+interface JwtPayload {
+  id: string;
+}
+
 export async function nfcRoutes(app: FastifyInstance) {
   app.addHook('preHandler', async (request, reply) => {
-        const server = request.server as any;
+        const server = request.server as FastifyInstance;
         if (typeof server?.authenticate === 'function') {
           await server.authenticate(request, reply);
           return;
         }
-        if (typeof (app as any).authenticate === 'function') {
-          await (app as any).authenticate(request, reply);
+        if (typeof app.authenticate === 'function') {
+          await app.authenticate(request, reply);
           return;
         }
         try {
@@ -36,7 +40,7 @@ export async function nfcRoutes(app: FastifyInstance) {
       request: FastifyRequest<{ Querystring: { card?: string } }>,
       reply: FastifyReply
     ) => {
-      const userId = (request.user as any).id;
+      const userId = (request.user as JwtPayload).id;
 
       // Validate query params with Zod
       const parseResult = nfcQuerySchema.safeParse(request.query);
