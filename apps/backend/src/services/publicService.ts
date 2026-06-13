@@ -1,5 +1,6 @@
-import type { FastifyInstance } from 'fastify'
 import { getErrorMessage } from '../utils/error.util.js'
+
+import type { FastifyInstance } from 'fastify'
 
 const PROFILE_CACHE_TTL = 300
 const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60'
@@ -23,7 +24,7 @@ export async function getPublicProfile(app: FastifyInstance, username: string, v
   }
 
   const user = await app.prisma.user.findUnique({ where: { username }, include: { platformLinks: { orderBy: { displayOrder: 'asc' } } } })
-  if (!user) return null
+  if (!user) {return null}
 
   if (viewerId && viewerId !== user.id) {
     app.prisma.cardView.create({ data: { ownerId: user.id, cardId: null, viewerId, viewerIp: request.ip || null, viewerAgent: request.headers['user-agent'] || null, source: request.query?.source || 'link' } }).catch((error: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(error)}`))
@@ -54,9 +55,9 @@ export async function getCardById(app: FastifyInstance, cardId: string) {
 
 export async function getUserCard(app: FastifyInstance, username: string, cardId: string, viewerId: string | null, request: any) {
   const user = await app.prisma.user.findUnique({ where: { username } })
-  if (!user) return { notFound: true }
+  if (!user) {return { notFound: true }}
   const card = await app.prisma.card.findFirst({ where: { id: cardId, userId: user.id }, include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } } })
-  if (!card) return { notFound: true }
+  if (!card) {return { notFound: true }}
 
   if (viewerId && viewerId !== user.id) {
     app.prisma.cardView.create({ data: { ownerId: user.id, cardId: card.id, viewerId, viewerIp: request.ip || null, viewerAgent: request.headers['user-agent'] || null, source: request.query?.source || 'qr' } }).catch((error: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(error)}`))

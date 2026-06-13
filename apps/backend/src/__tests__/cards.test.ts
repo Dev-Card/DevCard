@@ -52,7 +52,7 @@ function wireTransaction(): void {
   );
 }
 
-async function buildApp():Promise<FastifyInstance> {
+async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
   app.decorate('authenticate', async (request: any) => {

@@ -1,7 +1,8 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import {generateUniqueSlug} from '../utils/slug'
 import { createEventSchema, joinEventSchema} from '../validations/event.validation';
 
-import {generateUniqueSlug} from '../utils/slug'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
 
 
 type EventDetails = {
@@ -80,8 +81,8 @@ export async function eventRoutes(app:FastifyInstance) {
         
         const {name, description, startDate, endDate, isPublic ,location} = parsed.data
 
-        let finalSlug = await generateUniqueSlug(name, async(slug) => {
-            const existing = await app.prisma.event.findUnique({where: {slug : slug}})
+        const finalSlug = await generateUniqueSlug(name, async(slug) => {
+            const existing = await app.prisma.event.findUnique({where: {slug}})
             
             return !!existing
         })
@@ -95,7 +96,7 @@ export async function eventRoutes(app:FastifyInstance) {
                     name, 
                     description, 
                     slug: finalSlug, 
-                    location: location,
+                    location,
                     startDate: startDateObj, 
                     endDate: endDateObj, 
                     isPublic: isPublic ?? true, 
@@ -171,7 +172,7 @@ export async function eventRoutes(app:FastifyInstance) {
             await app.prisma.eventAttendee.create({
                 data: {
                     eventId: event.id, 
-                    userId: userId, 
+                    userId, 
                     joinedAt: new Date()
                 }
             })
@@ -205,7 +206,7 @@ export async function eventRoutes(app:FastifyInstance) {
             await app.prisma.eventAttendee.delete({
                 where: {
                     userId_eventId: {
-                        userId: userId, 
+                        userId, 
                         eventId: event.id
                     }
                 }

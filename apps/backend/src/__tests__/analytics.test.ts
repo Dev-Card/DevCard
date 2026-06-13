@@ -1,3 +1,6 @@
+import Fastify, {
+  type FastifyInstance,
+} from 'fastify';
 import {
   describe,
   it,
@@ -7,13 +10,11 @@ import {
   vi,
 } from 'vitest';
 
-import Fastify, {
-  type FastifyInstance,
-} from 'fastify';
+
+import { analyticsRoutes } from '../routes/analytics';
 
 import type { PrismaClient } from '@prisma/client';
 
-import { analyticsRoutes } from '../routes/analytics';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ const prismaMock = {
 
 // ─── App factory ─────────────────────────────────────────────────────────────
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({

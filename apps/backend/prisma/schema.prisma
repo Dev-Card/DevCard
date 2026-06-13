@@ -92,6 +92,7 @@ model PlatformLink {
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   cardLinks CardLink[]
 
+  @@unique([userId, displayOrder])
   @@map("platform_links")
 }
 
