@@ -676,7 +676,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
             await app.redis.set(blocklistKey(raw), '1', 'EX', ttl);
           } catch (err) {
             // Non-fatal: log and continue. The token will expire on its own.
-            app.log.warn({ err, userId: (request.user as any)?.id }, 'Redis blocklist write failed during logout — token will expire naturally');
+            app.log.warn({ err, userId: request.user?.id }, 'Redis blocklist write failed during logout — token will expire naturally');
           }
         }
       } else {
