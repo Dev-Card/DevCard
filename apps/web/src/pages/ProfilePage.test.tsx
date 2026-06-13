@@ -45,7 +45,6 @@ describe('ProfilePage', () => {
       links: [
         {
           id: 'link1',
-          profileId: '123',
           platform: 'github',
           username: 'testgithub',
           url: '',
