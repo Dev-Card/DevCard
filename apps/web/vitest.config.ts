@@ -1,15 +1,12 @@
 import { defineConfig } from 'vitest/config';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [react()],
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest-setup.ts'],
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     globals: true,
-  },
-  resolve: {
-    conditions: ['browser', 'svelte'],
   },
 });

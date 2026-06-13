@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useTheme } from '../lib/useTheme';
+import { useTheme } from '../lib/theme';
 import './Navbar.css';
 
 export default function Navbar() {

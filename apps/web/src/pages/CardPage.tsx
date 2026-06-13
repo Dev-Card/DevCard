@@ -24,7 +24,6 @@ export default function CardPage() {
 
   useEffect(() => {
     if (!id) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     apiFetch<PublicCard>(`/api/u/card/${id}`)
       .then((data) => {
