@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ProfilePage from './ProfilePage';
 import { apiFetch } from '../lib/api';
+import type { PublicProfile } from '../shared';
 
 vi.mock('../lib/api', () => ({
   apiFetch: vi.fn(),
@@ -24,14 +25,14 @@ describe('ProfilePage', () => {
   };
 
   it('renders loading state initially', () => {
-    (apiFetch as any).mockImplementation(() => new Promise(() => {}));
+    vi.mocked(apiFetch).mockImplementation(() => new Promise(() => {}));
     const { container } = renderWithRouter('testuser');
     
     expect(container.querySelector('.loading-card')).toBeInTheDocument();
   });
 
   it('renders profile data successfully', async () => {
-    const mockProfile = {
+    const mockProfile: PublicProfile = {
       id: '123',
       userId: '456',
       username: 'testuser',
@@ -55,7 +56,7 @@ describe('ProfilePage', () => {
       updatedAt: new Date().toISOString(),
     };
 
-    (apiFetch as any).mockResolvedValue(mockProfile);
+    vi.mocked(apiFetch).mockResolvedValue(mockProfile);
 
     renderWithRouter('testuser');
 
@@ -70,7 +71,7 @@ describe('ProfilePage', () => {
   });
 
   it('renders 404 flow when user is not found', async () => {
-    (apiFetch as any).mockRejectedValue(new Error('User not found'));
+    vi.mocked(apiFetch).mockRejectedValue(new Error('User not found'));
 
     renderWithRouter('unknownuser');
 
