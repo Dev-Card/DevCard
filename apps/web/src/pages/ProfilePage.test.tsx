@@ -33,12 +33,11 @@ describe('ProfilePage', () => {
 
   it('renders profile data successfully', async () => {
     const mockProfile: PublicProfile = {
-      id: '123',
-      userId: '456',
       username: 'testuser',
       displayName: 'Test User',
       avatarUrl: 'https://example.com/avatar.jpg',
       bio: 'Test Bio',
+      pronouns: null,
       role: 'Developer',
       company: 'Test Corp',
       accentColor: '#123456',
@@ -48,11 +47,9 @@ describe('ProfilePage', () => {
           platform: 'github',
           username: 'testgithub',
           url: '',
-          order: 0,
+          displayOrder: 0,
         }
       ],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
     vi.mocked(apiFetch).mockResolvedValue(mockProfile);
