@@ -1,5 +1,51 @@
 # DevCard Backend
 
+## Authentication API
+
+Local credential authentication is available as a backend foundation for future
+profile-sharing features. These endpoints do not add any web or mobile UI.
+
+### POST `/auth/register`
+
+Creates a local user account, stores the password as a salted scrypt hash, and
+returns an access token plus refresh token.
+
+Request body:
+
+```json
+{
+  "email": "ada@example.com",
+  "username": "ada",
+  "displayName": "Ada Lovelace",
+  "password": "correct-horse-battery-staple"
+}
+```
+
+Responses:
+
+- `201` with `{ "user": { "id", "email", "username", "displayName" }, "accessToken", "refreshToken" }`
+- `400` when validation fails
+- `409` when the email or username is already registered
+
+### POST `/auth/login`
+
+Authenticates an existing local account by email and password.
+
+Request body:
+
+```json
+{
+  "email": "ada@example.com",
+  "password": "correct-horse-battery-staple"
+}
+```
+
+Responses:
+
+- `200` with `{ "user": { "id", "email", "username", "displayName" }, "accessToken", "refreshToken" }`
+- `400` when validation fails
+- `401` when credentials are invalid
+
 ## Follow Engine Architecture
 
 DevCard implements a multi-layered Hybrid Follow Engine designed to connect platform professionals seamlessly while maintaining platform policy compliance.

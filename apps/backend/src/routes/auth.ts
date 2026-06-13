@@ -1,6 +1,9 @@
+import { z } from 'zod';
+
 import { handleDbError, isGitHubTokenError, isGoogleTokenError } from '../utils/error.util.js';
 import { extractRawJwt, blocklistKey, signAccessToken  } from '../utils/jwt.js';
 import { buildOAuthState, getMobileRedirectUri } from '../utils/oauth.js';
+import { hashPassword, verifyPassword } from '../utils/password.js';
 import { generateRefreshToken, hashIp, hashRefreshToken } from '../utils/refreshToken.js';
 
 import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
@@ -51,8 +54,187 @@ interface GitHubUserResponse {
   avatar_url: string;
 }
 
+const registerSchema = z.object({
+  email: z.string().trim().email().max(254),
+  username: z
+    .string()
+    .trim()
+    .min(3)
+    .max(30)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, underscores, and hyphens'),
+  displayName: z.string().trim().min(1).max(80),
+  password: z.string().min(8).max(128),
+});
+
+const loginSchema = z.object({
+  email: z.string().trim().email().max(254),
+  password: z.string().min(1).max(128),
+});
+
+type AuthUser = {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string;
+};
+
+function publicUser(user: AuthUser): AuthUser {
+  return {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    displayName: user.displayName,
+  };
+}
+
+function validationError(reply: FastifyReply, error: z.ZodError): FastifyReply {
+  return reply.status(400).send({
+    error: 'Validation failed',
+    details: error.flatten().fieldErrors,
+  });
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (error as { code?: string }).code === 'P2002';
+}
+
+async function issueAuthTokens(
+  app: FastifyInstance,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  user: { id: string; username: string },
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const accessToken = signAccessToken(app, user);
+  const refreshToken = generateRefreshToken();
+
+  await app.prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      tokenHash: hashRefreshToken(refreshToken),
+      family: crypto.randomUUID(),
+      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      ip: hashIp(request.ip),
+      userAgent: request.headers['user-agent'] ?? 'unknown',
+    },
+  });
+
+  reply.setCookie('access_Token', accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 15 * 60,
+  });
+
+  reply.setCookie('refresh_token', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 90 * 24 * 60 * 60,
+  });
+
+  return { accessToken, refreshToken };
+}
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
+  app.post('/register', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = registerSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return validationError(reply, parsed.error);
+    }
+
+    const { email, username, displayName, password } = parsed.data;
+    const normalizedEmail = email.toLowerCase();
+
+    const existingUser = await app.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalizedEmail },
+          { username },
+        ],
+      },
+      select: { email: true, username: true },
+    });
+
+    if (existingUser?.email === normalizedEmail) {
+      return reply.status(409).send({ error: 'Email already registered' });
+    }
+
+    if (existingUser?.username === username) {
+      return reply.status(409).send({ error: 'Username already taken' });
+    }
+
+    try {
+      const user = await app.prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          username,
+          displayName,
+          passwordHash: await hashPassword(password),
+          isActive: true,
+          lastSignInAt: new Date(),
+        },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          displayName: true,
+        },
+      });
+      const tokens = await issueAuthTokens(app, request, reply, user);
+
+      return reply.status(201).send({
+        user: publicUser(user),
+        ...tokens,
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        return reply.status(409).send({ error: 'Email or username already exists' });
+      }
+
+      app.log.error({ error }, 'Registration failed');
+      return reply.status(500).send({ error: 'Registration failed' });
+    }
+  });
+
+  app.post('/login', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = loginSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return validationError(reply, parsed.error);
+    }
+
+    const user = await app.prisma.user.findUnique({
+      where: { email: parsed.data.email.toLowerCase() },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!user?.passwordHash || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
+      return reply.status(401).send({ error: 'Invalid email or password' });
+    }
+
+    await app.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastSignInAt: new Date(),
+        isActive: true,
+      },
+    });
+
+    const tokens = await issueAuthTokens(app, request, reply, user);
+
+    return reply.status(200).send({
+      user: publicUser(user),
+      ...tokens,
+    });
+  });
+
   // Developer login bypass (development only)
   if (process.env.NODE_ENV !== 'production') {
     app.post('/dev-login', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -706,4 +888,3 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(200).send({ message: 'Logged out' });
   });
 }
-
