@@ -6,7 +6,7 @@ import type { CardResponse } from '../services/cardService';
 import type { Card } from '@devcard/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { CardVisibility } from '@prisma/client';
-import { request } from 'http';
+import { hashIp } from '../utils/refreshToken';
 
 export interface CreateCardBody {
   title: string;
@@ -211,9 +211,37 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   //Get shared card
   app.get('/share/:slug', async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
     const paramsSlug = request.params.slug; 
+    const userId = request.user.id
+    const ip = hashIp(request.ip); 
+    const userAgent = request.headers['user-agent'] ?? 'unknown';
+
     
     try {
       const card = await cardService.getSharedCard(app, paramsSlug)
+
+      await app.prisma.$transaction([
+        app.prisma.card.update({
+          where: {
+            id: card.id,
+          },
+          data: {
+            viewCount: {
+              increment: 1,
+            },
+          },
+        }),
+
+        app.prisma.cardView.create({
+          data: {
+            cardId: card.id,
+            ownerId: card.userId,
+            viewerId: userId,
+            source: 'link',
+            viewerIp: ip,
+            viewerAgent: userAgent,
+          },
+        }),
+      ]);
       return reply.status(200).send(card)
     } catch (error:any) {
       if (error?.code === 'CARD_NOT_FOUND') {
