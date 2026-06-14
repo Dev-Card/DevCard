@@ -5,10 +5,13 @@ import { createCardSchema ,updateCardSchema} from '../validations/card.validatio
 import type { CardResponse } from '../services/cardService';
 import type { Card } from '@devcard/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { CardVisibility } from '@prisma/client';
 
-interface CreateCardBody {
+export interface CreateCardBody {
   title: string;
   linkIds: string[];
+  description?: string; 
+  visibility?: CardVisibility
 }
 
 interface UpdateCardBody {

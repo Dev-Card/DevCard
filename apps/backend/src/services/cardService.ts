@@ -3,6 +3,7 @@ import { CardVisibility, type Prisma } from '@prisma/client';
 import { generateUniqueSlug } from '../utils/slug';
 
 import type { FastifyInstance } from 'fastify';
+import type { CreateCardBody } from '../routes/cards';
 
 type CardLinkResponse = { platformLink: unknown };
 type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
@@ -28,7 +29,7 @@ export async function listCards(app: FastifyInstance, userId: string): Promise<C
   return cards.map(mapCard);
 }
 
-export async function createCard(app: FastifyInstance, userId: string, body: { title: string; linkIds: string[] , description?: string, visibility?: CardVisibility}): Promise<CardResponse> {
+export async function createCard(app: FastifyInstance, userId: string, body: CreateCardBody): Promise<CardResponse> {
   const {title , description , linkIds , visibility} = body
 
   const ownedLinks = await app.prisma.platformLink.findMany({
