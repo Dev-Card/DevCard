@@ -1,4 +1,4 @@
-import { CardVisibility, Prisma } from '@prisma/client';
+import { Card, CardVisibility, Prisma } from '@prisma/client';
 
 import { generateUniqueSlug } from '../utils/slug';
 
@@ -9,6 +9,14 @@ import QRCode from 'qrcode';
 type CardLinkResponse = { platformLink: unknown };
 type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
 export type CardResponse = { id: string; title: string; isDefault: boolean; links: unknown[] };
+
+
+export interface UpdateCardBody{
+  title?:string; 
+  description?:string; 
+  visibility?: CardVisibility; 
+  qrEnabled?: boolean; 
+}
 
 
 function mapCard(card: RawCard): CardResponse {
@@ -106,50 +114,28 @@ export async function updateCard(
   app: FastifyInstance,
   userId: string,
   id: string,
-  body: { title?: string; linkIds?: string[] },
-): Promise<CardResponse | null> {
+  body: UpdateCardBody,
+): Promise<Card> {
+  const {title, description, visibility, qrEnabled} = body
+
   const existing = await app.prisma.card.findFirst({ where: { id, userId } });
-  if (!existing) {
-    return null;
-  }
-
-  if (body.title) {
-    await app.prisma.card.update({ where: { id }, data: { title: body.title } });
-  }
-
-  if (body.linkIds) {
-    if (body.linkIds.length > 0) {
-      const ownedLinks = await app.prisma.platformLink.findMany({
-        where: { id: { in: body.linkIds }, userId },
-        select: { id: true },
-      });
-
-      if (ownedLinks.length !== body.linkIds.length) {
-        throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' });
-      }
+    if (!existing) {
+      throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' });
     }
 
-    const linkIds = body.linkIds;
-    await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.cardLink.deleteMany({ where: { cardId: id } });
-      if (linkIds.length > 0) {
-        await tx.cardLink.createMany({
-          data: linkIds.map((linkId, index) => ({ cardId: id, platformLinkId: linkId, displayOrder: index })),
-        });
+  const updated = await app.prisma.card.update({
+      where: {
+        id, 
+      },
+      data:{
+        title, 
+        description, 
+        visibility, 
+        qrEnabled
       }
-    });
-  }
+  })
 
-  const updated = (await app.prisma.card.findUnique({
-    where: { id },
-    include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
-  })) as unknown as RawCard | null;
-
-  if (!updated) {
-    return null;
-  }
-
-  return mapCard(updated);
+  return updated;
 }
 
 //Delete card service
@@ -184,9 +170,10 @@ export async function deleteCard(app: FastifyInstance, userId: string, id: strin
 //Set default card service
 export async function setDefaultCard(app: FastifyInstance, userId: string, id: string): Promise<{ message: string } | null> {
   const existing = await app.prisma.card.findFirst({ where: { id, userId } });
-  if (!existing) {
-    return null;
-  }
+
+    if (!existing) {
+      throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' });
+    }
 
   await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.card.updateMany({ where: { userId }, data: { isDefault: false } });
@@ -251,6 +238,7 @@ export async function addPlatFormLinks(app: FastifyInstance, userId: string, id:
     })
 }
 
+//Shares card
 export async function shareCard(app: FastifyInstance, userId:string, id: string){
   const card = await app.prisma.card.findFirst({
     where:{
@@ -279,6 +267,7 @@ export async function shareCard(app: FastifyInstance, userId:string, id: string)
   }; 
 }
 
+//Gets share card
 export async function getSharedCard(app:FastifyInstance, slug:string){
   const card = await app.prisma.card.findUnique({
     where: {
@@ -303,6 +292,7 @@ export async function getSharedCard(app:FastifyInstance, slug:string){
   return card
 }
 
+//Genreate qr
 export async function genrateQr(app: FastifyInstance,userId:string, id: string){
   const card = await app.prisma.card.findFirst({
     where:{

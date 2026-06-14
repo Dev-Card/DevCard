@@ -19,10 +19,23 @@ export const createCardSchema = z.object({
   visibility: z.nativeEnum(CardVisibility).optional(),
 });
 
-export const updateCardSchema = z.object({
-  title: z.string().min(1).max(100).optional(),
-  linkIds: z.array(z.string().uuid()).optional(),
-});
+export const updateCardSchema = z
+  .object({
+    title: z.string().min(1).max(100).optional(),
+    description: z.string().min(1).max(100).optional(),
+    visibility: z.nativeEnum(CardVisibility).optional(),
+    qrEnabled: z.boolean().optional(),
+  })
+  .refine(
+    (data) =>
+      data.title !== undefined ||
+      data.description !== undefined ||
+      data.visibility !== undefined ||
+      data.qrEnabled !== undefined,
+    {
+      message: 'At least one field must be provided',
+    }
+);
 
 export const addPlatformLinkSchema = z.object({
   platformLinkId: z.string().uuid({

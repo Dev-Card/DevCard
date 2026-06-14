@@ -2,12 +2,11 @@ import * as cardService from '../services/cardService'
 import { handleDbError } from '../utils/error.util.js';
 import { createCardSchema ,updateCardSchema, addPlatformLinkSchema} from '../validations/card.validation';
 
-import type { CardResponse } from '../services/cardService';
+import type { CardResponse, UpdateCardBody } from '../services/cardService';
 import type { Card } from '@devcard/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { CardVisibility } from '@prisma/client';
 import { hashIp } from '../utils/refreshToken';
-import { id } from 'zod/v4/locales';
 
 export interface CreateCardBody {
   title: string;
@@ -16,10 +15,6 @@ export interface CreateCardBody {
   visibility?: CardVisibility
 }
 
-interface UpdateCardBody {
-  title?: string;
-  linkIds?: string[];
-}
 
 interface CardParams {
   id: string;
@@ -90,7 +85,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ─── Update Card ───
-  app.put('/:id', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply): Promise<CardResponse> => {
+  app.put('/:id/update', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply) => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
@@ -98,16 +93,20 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       const parsed = updateCardSchema.safeParse(request.body)
       if (!parsed.success) {return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() })}
       const updated = await cardService.updateCard(app, userId, id, parsed.data)
-      if (!updated) {return reply.status(404).send({ error: 'Card not found' })}
-      return updated
+      return reply.status(200).send(updated)
     } catch (error: any) {
-      if (error?.code === 'OWNERSHIP') {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
-      return handleDbError(error, request, reply)
+      if(error.code === 'NOT_FOUND'){
+        return reply.status(404).send({
+          error: error.message,
+        });
+      }
+      app.log.error(error)
+      handleDbError(error,request,reply)
     }
   });
 
   // ─── Delete Card ───
-  app.delete('/:id', async (request: FastifyRequest<{ Params: CardParams }>, reply: FastifyReply): Promise<void> => {
+  app.delete('/:id/delete', async (request: FastifyRequest<{ Params: CardParams }>, reply: FastifyReply): Promise<void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
 
@@ -136,8 +135,14 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     try {
       const resp = await cardService.setDefaultCard(app, userId, id)
       if (!resp) {return reply.status(404).send({ error: 'Card not found' })}
-      return resp
-    } catch (error) {
+      return reply.status(200).send('Default card updated')
+    } catch (error:any) {
+      if(error.code === 'NOT_FOUND'){
+        return reply.status(404).send({
+          error: error.message,
+        });
+      }
+      app.log.error(error)
       return handleDbError(error, request, reply)
     }
   });
