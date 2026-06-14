@@ -1,6 +1,6 @@
 import * as cardService from '../services/cardService'
 import { handleDbError } from '../utils/error.util.js';
-import { createCardSchema ,updateCardSchema} from '../validations/card.validation';
+import { createCardSchema ,updateCardSchema, addPlatformLinkSchema} from '../validations/card.validation';
 
 import type { CardResponse } from '../services/cardService';
 import type { Card } from '@devcard/shared';
@@ -89,7 +89,6 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ─── Update Card ───
-
   app.put('/:id', async (request: FastifyRequest<{ Params: CardParams; Body: UpdateCardBody }>, reply: FastifyReply): Promise<CardResponse> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
@@ -143,4 +142,44 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       return handleDbError(error, request, reply)
     }
   });
+
+  //Add platform-link
+  app.put('/:id/platform-link', async(request: FastifyRequest<{Params:{id: string}, Body: {platformLinkId: string}}>, reply: FastifyReply) => {
+    const cardId = request.params.id; 
+    const userId = request.user.id; 
+    const parsed = addPlatformLinkSchema.safeParse(request.body); 
+
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
+    }
+    
+    try {
+
+      const platformLinkId = parsed.data.platformLinkId
+      await cardService.addPlatFormLinks(app, userId, cardId, platformLinkId)
+      
+      return reply.status(200).send('Platform link added successfully')
+      
+    } catch (error: any) {
+      if (error?.code === 'CARD_NOT_FOUND') {
+        return reply.status(404).send({
+          error: error.message,
+        });
+      }
+
+      if (error?.code === 'PLATFORM_LINK_NOT_FOUND') {
+        return reply.status(403).send({
+          error: error.message,
+        });
+      }
+
+      if (error?.code === 'LINK_ALREADY_EXISTS') {
+        return reply.status(409).send({
+          error: error.message,
+        });
+      }
+      app.log.error(error)
+      handleDbError(error, request, reply)
+    }
+  })
 }

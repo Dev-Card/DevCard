@@ -23,3 +23,9 @@ export const updateCardSchema = z.object({
   title: z.string().min(1).max(100).optional(),
   linkIds: z.array(z.string().uuid()).optional(),
 });
+
+export const addPlatformLinkSchema = z.object({
+  platformLinkId: z.string().uuid({
+    message: 'Invalid platform link ID',
+  }),
+});

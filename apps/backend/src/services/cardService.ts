@@ -2,12 +2,13 @@ import { CardVisibility, type Prisma } from '@prisma/client';
 
 import { generateUniqueSlug } from '../utils/slug';
 
-import type { FastifyInstance } from 'fastify';
 import type { CreateCardBody } from '../routes/cards';
+import type { FastifyInstance } from 'fastify';
 
 type CardLinkResponse = { platformLink: unknown };
 type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
 export type CardResponse = { id: string; title: string; isDefault: boolean; links: unknown[] };
+
 
 function mapCard(card: RawCard): CardResponse {
   return {
@@ -18,6 +19,7 @@ function mapCard(card: RawCard): CardResponse {
   };
 }
 
+//List card service
 export async function listCards(app: FastifyInstance, userId: string): Promise<CardResponse[]> {
   const cards = (await app.prisma.card.findMany({
     where: { userId },
@@ -29,6 +31,7 @@ export async function listCards(app: FastifyInstance, userId: string): Promise<C
   return cards.map(mapCard);
 }
 
+//Creates card service
 export async function createCard(app: FastifyInstance, userId: string, body: CreateCardBody): Promise<CardResponse> {
   const {title , description , linkIds , visibility} = body
 
@@ -97,6 +100,7 @@ export async function createCard(app: FastifyInstance, userId: string, body: Cre
   throw new Error('Failed to create card after retrying serialization conflicts');
 }
 
+//Update card service
 export async function updateCard(
   app: FastifyInstance,
   userId: string,
@@ -147,6 +151,7 @@ export async function updateCard(
   return mapCard(updated);
 }
 
+//Delete card service
 export async function deleteCard(app: FastifyInstance, userId: string, id: string): Promise<null> {
   return await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existing = await tx.card.findFirst({ where: { id, userId } });
@@ -175,6 +180,7 @@ export async function deleteCard(app: FastifyInstance, userId: string, id: strin
   });
 }
 
+//Set default card service
 export async function setDefaultCard(app: FastifyInstance, userId: string, id: string): Promise<{ message: string } | null> {
   const existing = await app.prisma.card.findFirst({ where: { id, userId } });
   if (!existing) {
@@ -187,4 +193,59 @@ export async function setDefaultCard(app: FastifyInstance, userId: string, id: s
   });
 
   return { message: 'Default card updated' };
+}
+
+//Adds platfrom link
+export async function addPlatFormLinks(app: FastifyInstance, userId: string, id:string, platformLinkId: string){
+    const ownedCard = await app.prisma.card.findFirst({
+      where: {
+        id, 
+        userId
+      }
+    })
+
+    if (!ownedCard) {
+      throw Object.assign(
+        new Error('Card not found or you do not have permission to modify it'),
+        { code: 'CARD_NOT_FOUND' }
+      );
+    }
+    const [existingLink, platformLink] = await Promise.all([
+      app.prisma.cardLink.findUnique({
+        where: {
+          cardId_platformLinkId: {
+            cardId: id,
+            platformLinkId,
+          },
+        },
+      }),
+
+      app.prisma.platformLink.findFirst({
+        where: {
+          id: platformLinkId,
+          userId,
+        },
+      }),
+    ]);
+
+    if (!platformLink) {
+      throw Object.assign(
+        new Error('Platform link not found or does not belong to your account'),
+        { code: 'PLATFORM_LINK_NOT_FOUND' }
+      );
+    }
+
+    if (existingLink) {
+      throw Object.assign(
+        new Error('This platform link has already been added to the card'),
+        { code: 'LINK_ALREADY_EXISTS' }
+      );
+    }
+
+    await app.prisma.cardLink.create({
+      data: {
+        cardId: id, 
+        platformLinkId
+      }
+    })
 }
