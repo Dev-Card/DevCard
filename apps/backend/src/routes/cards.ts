@@ -6,6 +6,7 @@ import type { CardResponse } from '../services/cardService';
 import type { Card } from '@devcard/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { CardVisibility } from '@prisma/client';
+import { request } from 'http';
 
 export interface CreateCardBody {
   title: string;
@@ -129,7 +130,6 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ─── Set Default Card ───
-
   app.put('/:id/default', async (request: FastifyRequest<{ Params: CardParams }>, reply: FastifyReply): Promise<object | void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
@@ -180,6 +180,50 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       }
       app.log.error(error)
       handleDbError(error, request, reply)
+    }
+  })
+
+  //Share card
+  app.post('/:id/share',async(request: FastifyRequest<{Params: {id: string}}>, reply:FastifyReply) => {
+    const cardId = request.params.id; 
+    const userId = request.user.id; 
+
+    try {
+      const link = await cardService.shareCard(app, userId, cardId); 
+      return reply.status(200).send(link)
+    } catch (error:any) {
+      if (error?.code === 'CARD_NOT_FOUND') {
+        return reply.status(404).send({
+          error: error.message,
+        });
+      }
+      if (error?.code === 'CARD_PRIVATE') {
+        return reply.status(403).send({
+          error: error.message,
+        });
+      }
+      
+      app.log.error(error)
+      handleDbError(error, request, reply)
+    }
+  })
+
+  //Get shared card
+  app.get('/share/:slug', async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+    const paramsSlug = request.params.slug; 
+    
+    try {
+      const card = await cardService.getSharedCard(app, paramsSlug)
+      return reply.status(200).send(card)
+    } catch (error:any) {
+      if (error?.code === 'CARD_NOT_FOUND') {
+        return reply.status(404).send({
+          error: error.message,
+        });
+      }
+
+      app.log.error(error)
+      handleDbError(error, request,reply)
     }
   })
 }

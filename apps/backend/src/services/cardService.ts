@@ -1,4 +1,4 @@
-import { CardVisibility, type Prisma } from '@prisma/client';
+import { CardVisibility, Prisma } from '@prisma/client';
 
 import { generateUniqueSlug } from '../utils/slug';
 
@@ -248,4 +248,56 @@ export async function addPlatFormLinks(app: FastifyInstance, userId: string, id:
         platformLinkId
       }
     })
+}
+
+export async function shareCard(app: FastifyInstance, userId:string, id: string){
+  const card = await app.prisma.card.findFirst({
+    where:{
+      id,
+      userId
+    }
+  })
+
+  if (!card) {
+    throw Object.assign(
+      new Error('Card not found'),
+      { code: 'CARD_NOT_FOUND' }
+    );
+  }
+
+
+  if(card?.visibility === CardVisibility.PRIVATE){
+    throw Object.assign(
+      new Error('Private cards cannot be shared'),
+      { code: 'CARD_PRIVATE' }
+    );
+  }
+
+  return {
+    shareUrl: `/cards/share/${card.slug}`,
+  }; 
+}
+
+export async function getSharedCard(app:FastifyInstance, slug:string){
+  const card = await app.prisma.card.findUnique({
+    where: {
+      slug
+    },
+    include: {
+      cardLinks: {
+        include: {
+          platformLink: true
+        }
+      }
+    }
+  })
+
+  if(!card){
+    throw Object.assign(
+      new Error('Card not found'),
+      { code: 'CARD_NOT_FOUND' }
+    );
+  }
+
+  return card
 }
