@@ -124,9 +124,10 @@ model Card {
   
   cardLinks CardLink[]
   views     CardView[]
+  
 
   @@map("cards")
-  @@index([slug])
+  @@index([userId])
   @@index([viewCount])
 }
 
@@ -175,6 +176,8 @@ model CardView {
   viewer  User? @relation("cardViewer", fields: [viewerId], references: [id], onDelete: SetNull)
 
   @@map("card_views")
+  @@index([cardId])
+  @@index([ownerId])
 }
 
 model FollowLog {
