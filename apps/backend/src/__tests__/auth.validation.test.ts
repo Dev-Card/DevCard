@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mobileExchangeSchema, refreshTokenSchema } from '../validations/auth.validation.js';
+
+import { mobileExchangeSchema, refreshTokenSchema } from '../validations/auth.validation';
 
 describe('auth.validation', () => {
   describe('mobileExchangeSchema', () => {
