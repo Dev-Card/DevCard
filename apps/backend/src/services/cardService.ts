@@ -1,4 +1,7 @@
-import type { Prisma } from '@prisma/client';
+import { CardVisibility, type Prisma } from '@prisma/client';
+
+import { generateUniqueSlug } from '../utils/slug';
+
 import type { FastifyInstance } from 'fastify';
 
 type CardLinkResponse = { platformLink: unknown };
@@ -25,17 +28,27 @@ export async function listCards(app: FastifyInstance, userId: string): Promise<C
   return cards.map(mapCard);
 }
 
-export async function createCard(app: FastifyInstance, userId: string, body: { title: string; linkIds: string[] }): Promise<CardResponse> {
-  if (body.linkIds.length > 0) {
-    const ownedLinks = await app.prisma.platformLink.findMany({
-      where: { id: { in: body.linkIds }, userId },
-      select: { id: true },
-    });
+export async function createCard(app: FastifyInstance, userId: string, body: { title: string; linkIds: string[] , description?: string, visibility?: CardVisibility}): Promise<CardResponse> {
+  const {title , description , linkIds , visibility} = body
 
-    if (ownedLinks.length !== body.linkIds.length) {
-      throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' });
-    }
-  }
+  const ownedLinks = await app.prisma.platformLink.findMany({
+    where: { id: { in: linkIds }, userId },
+    select: { id: true },
+  });
+
+  if (ownedLinks.length !== linkIds.length) {
+    throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' });
+  } 
+
+  const finalSlug = await generateUniqueSlug(title, async(slug) => {
+    const existing = await app.prisma.card.findUnique({
+      where: {
+        slug
+      }
+    })
+    return !!existing
+  })
+
 
   const maxRetries = 3;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -47,10 +60,13 @@ export async function createCard(app: FastifyInstance, userId: string, body: { t
           return tx.card.create({
             data: {
               userId,
-              title: body.title,
+              title,
+              slug: finalSlug,
               isDefault: cardCount === 0,
+              description, 
+              visibility: visibility ?? CardVisibility.PUBLIC,
               cardLinks: {
-                create: body.linkIds.map((linkId, index) => ({ platformLinkId: linkId, displayOrder: index })),
+                create: linkIds.map((linkId, index) => ({ platformLinkId: linkId, displayOrder: index })),
               },
             },
             include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
@@ -72,9 +88,8 @@ export async function createCard(app: FastifyInstance, userId: string, body: { t
       ) {
         continue;
       }
-
       app.log.error(error);
-      throw error;
+      throw error
     }
   }
 

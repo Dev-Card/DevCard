@@ -1,6 +1,6 @@
 import * as cardService from '../services/cardService'
 import { handleDbError } from '../utils/error.util.js';
-import { createCardSchema, updateCardSchema } from '../utils/validators.js';
+import { createCardSchema ,updateCardSchema} from '../validations/card.validation';
 
 import type { CardResponse } from '../services/cardService';
 import type { Card } from '@devcard/shared';
@@ -67,8 +67,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
-  // ─── Create Card ───
-
+  // ─── Creates Card ───
   app.post('/', async (request: FastifyRequest<{ Body: CreateCardBody }>, reply: FastifyReply): Promise<Card | void> => {
     const userId = (request.user as { id: string }).id;
     const parsed = createCardSchema.safeParse(request.body);
@@ -81,7 +80,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       const card = await cardService.createCard(app, userId, parsed.data)
       return reply.status(201).send(card)
     } catch (error: any) {
-      if (error?.code === 'OWNERSHIP') {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
+      if (error?.code === 'OWNERSHIP'){return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
       return handleDbError(error, request, reply)
     }
   });
