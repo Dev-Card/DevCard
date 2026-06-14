@@ -1,25 +1,24 @@
 import '@fastify/cookie';
 import '@fastify/jwt';
-import { FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 
-declare module 'fastify' {
-  interface FastifyInstance {
-    authenticate: (
-      request: FastifyRequest,
-      reply: FastifyReply
-    ) => Promise<void>;
-  }
-
-  interface FastifyRequest {
-    cookies: Record<string, string | undefined>;
-  }
+export interface AuthenticatedUser {
+  id: string;
+  username: string;
 }
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    user: {
-      id: string;
-      username: string;
-    };
+    user: AuthenticatedUser;
+  }
+}
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    cookies: Record<string, string | undefined>;
+  }
+
+  interface FastifyInstance {
+    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
