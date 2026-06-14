@@ -3,6 +3,7 @@ import { extractRawJwt, blocklistKey, signAccessToken  } from '../utils/jwt.js';
 import { buildOAuthState, getMobileRedirectUri } from '../utils/oauth.js';
 import { generateRefreshToken, hashIp, hashRefreshToken } from '../utils/refreshToken.js';
 
+import { mobileExchangeSchema, refreshTokenSchema } from '../validations/auth.validation.js';
 import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
@@ -495,7 +496,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/refresh', async(request: FastifyRequest, reply: FastifyReply) => {
-     const refreshToken = request.cookies.refresh_token ?? (request.body as { refresh_token?: string })?.refresh_token;
+     // Validate request body with Zod
+     const bodyParsed = refreshTokenSchema.safeParse(request.body);
+     if (!bodyParsed.success) {
+       return reply.status(400).send({
+         error: 'Invalid request body',
+         issues: bodyParsed.error.flatten().fieldErrors,
+       });
+     }
+     const refreshToken = request.cookies.refresh_token ?? bodyParsed.data.refresh_token;
 
     if (!refreshToken) {
       return reply.status(401).send({
@@ -599,8 +608,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   })
 
-  app.post('/mobile/exchange', async (request: FastifyRequest<{Body: {code: string}}>, reply: FastifyReply) => {
-    const { code } = request.body;
+  app.post('/mobile/exchange', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = mobileExchangeSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: 'Invalid request body',
+        issues: parsed.error.flatten().fieldErrors,
+      });
+    }
+    const { code } = parsed.data;
     const raw = await app.redis.getdel(`mobile_exchange:${code}`);
     if (!raw) {return reply.status(400).send({ error: 'Invalid or expired exchange code' });}
     
