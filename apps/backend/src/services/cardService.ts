@@ -303,7 +303,6 @@ export async function getSharedCard(app:FastifyInstance, slug:string){
   return card
 }
 
-
 export async function genrateQr(app: FastifyInstance,userId:string, id: string){
   const card = await app.prisma.card.findFirst({
     where:{
@@ -330,7 +329,7 @@ export async function genrateQr(app: FastifyInstance,userId:string, id: string){
   if(!card.qrEnabled){
     throw Object.assign(
       new Error('QR is not availbled for this card'),
-      { code: 'QR_ENABLED' }
+      { code: 'QR_DISABLED' }
     );
   }
 
@@ -347,4 +346,43 @@ export async function genrateQr(app: FastifyInstance,userId:string, id: string){
   return qrImage; 
 
 
+}
+
+//TODO:Add pagination
+export async function cardAnalytics(app: FastifyInstance, userId:string, id: string){
+  const cardAnalytics = await app.prisma.card.findFirst({
+    where: {
+      id, 
+      userId
+    },
+    include: {
+      views: {
+        orderBy: {
+          createdAt: 'desc'
+        },
+        include: {
+          viewer : {
+            select: {
+              id:true,
+              username: true, 
+              avatarUrl: true, 
+              displayName: true, 
+              role: true, 
+              accentColor: true
+            }
+          }
+        }
+      }
+    }, 
+
+  })
+
+  if (!cardAnalytics) {
+    throw Object.assign(
+      new Error('Card not found'),
+      { code: 'CARD_NOT_FOUND' }
+    );
+  }
+
+  return cardAnalytics
 }

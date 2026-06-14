@@ -62,7 +62,6 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ─── List Cards ───
-
   app.get('/', async (request: FastifyRequest, reply: FastifyReply): Promise<CardResponse[] | void> => {
     const userId = (request.user as { id: string }).id;
     try {
@@ -108,7 +107,6 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ─── Delete Card ───
-
   app.delete('/:id', async (request: FastifyRequest<{ Params: CardParams }>, reply: FastifyReply): Promise<void> => {
     const userId = (request.user as { id: string }).id;
     const { id } = request.params;
@@ -209,6 +207,10 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     }
   })
 
+  // TODO:
+  // Determine view source dynamically (url, qr, app, etc.).
+  // The shared card endpoint is currently used by multiple entry points,
+  // so source should not be hardcoded to "link".
   //Get shared card
   app.get('/share/:slug', async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
     const paramsSlug = request.params.slug; 
@@ -256,6 +258,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     }
   })
 
+  //Generates qr
   app.get('/:id/qr', async(request: FastifyRequest<{Params: {id: string}}>, reply:FastifyReply) => {
     const cardId = request.params.id
     const userId = request.user.id
@@ -274,18 +277,37 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
           error: error.message,
         });
       }
-      if (error?.code === 'QR_ENABLED') {
-        return reply.status(404).send({
+      if (error?.code === 'QR_DISABLED') {
+        return reply.status(403).send({
           error: error.message,
         });
       }
       if (error?.code === 'QR_IMAGE') {
-        return reply.status(403).send({
+        return reply.status(500).send({
           error: error.message,
         });
       }
       app.log.error(error)
       handleDbError(error,request, reply)
+    }
+  })
+
+  //Get analytics
+  app.get('/:id/analytics', async(request:FastifyRequest<{Params: {id:string}}>, reply: FastifyReply) => {
+    const cardId = request.params.id
+    const userId = request.user.id
+
+    try {
+      const analytics = await cardService.cardAnalytics(app, userId,cardId)
+      return reply.status(200).send(analytics)
+    } catch (error:any) {
+      if (error?.code === 'CARD_NOT_FOUND') {
+        return reply.status(404).send({
+          error: error.message,
+        });
+      }
+      app.log.error(error)
+      handleDbError(error , request, reply)
     }
   })
 }
