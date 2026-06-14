@@ -496,7 +496,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/refresh', async(request: FastifyRequest, reply: FastifyReply) => {
-    if (request.body && typeof request.body === 'object' && Object.keys(request.body).length > 0) {
+    if (request.body && typeof request.body === 'object' && 'refresh_token' in request.body) {
       const parsed = refreshTokenSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(400).send({ error: 'Invalid request body', details: parsed.error.flatten() });
