@@ -4,6 +4,7 @@ import { generateUniqueSlug } from '../utils/slug';
 
 import type { CreateCardBody } from '../routes/cards';
 import type { FastifyInstance } from 'fastify';
+import QRCode from 'qrcode';
 
 type CardLinkResponse = { platformLink: unknown };
 type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
@@ -300,4 +301,50 @@ export async function getSharedCard(app:FastifyInstance, slug:string){
   }
 
   return card
+}
+
+
+export async function genrateQr(app: FastifyInstance,userId:string, id: string){
+  const card = await app.prisma.card.findFirst({
+    where:{
+      id,
+      userId
+    }
+  })
+
+  if (!card) {
+    throw Object.assign(
+      new Error('Card not found'),
+      { code: 'CARD_NOT_FOUND' }
+    );
+  }
+
+
+  if(card?.visibility === CardVisibility.PRIVATE){
+    throw Object.assign(
+      new Error('Private cards cannot be shared'),
+      { code: 'CARD_PRIVATE' }
+    );
+  }
+
+  if(!card.qrEnabled){
+    throw Object.assign(
+      new Error('QR is not availbled for this card'),
+      { code: 'QR_ENABLED' }
+    );
+  }
+
+  const shareUrl = `${process.env.MOBILE_REDIRECT_URI}/cards/share/${card.slug}` 
+  const qrImage = await QRCode.toBuffer(shareUrl); 
+
+  if(!qrImage){
+    throw Object.assign(
+      new Error('QR generation failed'),
+      { code: 'QR_IMAGE' }
+    );
+  }
+
+  return qrImage; 
+
+
 }

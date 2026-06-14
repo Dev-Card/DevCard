@@ -7,6 +7,7 @@ import type { Card } from '@devcard/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { CardVisibility } from '@prisma/client';
 import { hashIp } from '../utils/refreshToken';
+import { id } from 'zod/v4/locales';
 
 export interface CreateCardBody {
   title: string;
@@ -252,6 +253,39 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
       app.log.error(error)
       handleDbError(error, request,reply)
+    }
+  })
+
+  app.get('/:id/qr', async(request: FastifyRequest<{Params: {id: string}}>, reply:FastifyReply) => {
+    const cardId = request.params.id
+    const userId = request.user.id
+
+    try {
+      const qrImage = await cardService.genrateQr(app, userId, cardId)
+      return reply.type('image/png').send(qrImage)
+    } catch (error:any) {
+      if (error?.code === 'CARD_NOT_FOUND') {
+        return reply.status(404).send({
+          error: error.message,
+        });
+      }
+      if (error?.code === 'CARD_PRIVATE') {
+        return reply.status(403).send({
+          error: error.message,
+        });
+      }
+      if (error?.code === 'QR_ENABLED') {
+        return reply.status(404).send({
+          error: error.message,
+        });
+      }
+      if (error?.code === 'QR_IMAGE') {
+        return reply.status(403).send({
+          error: error.message,
+        });
+      }
+      app.log.error(error)
+      handleDbError(error,request, reply)
     }
   })
 }
