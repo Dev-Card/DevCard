@@ -3,7 +3,7 @@ import { extractRawJwt, blocklistKey, signAccessToken  } from '../utils/jwt.js';
 import { buildOAuthState, getMobileRedirectUri } from '../utils/oauth.js';
 import { generateRefreshToken, hashIp, hashRefreshToken } from '../utils/refreshToken.js';
 
-import { mobileExchangeSchema, refreshTokenSchema } from '../validations/auth.validation.js';
+import { mobileExchangeSchema, refreshTokenSchema } from '../validations/auth.validation';
 import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
