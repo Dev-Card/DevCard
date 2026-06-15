@@ -110,7 +110,7 @@ export async function analyticsRoutes(
       _reply: FastifyReply
     ) => {
       const userId = (request.user as any).id;
-      const page = parseInt(request.query.page || '1', 10);
+      const page = Math.max(1, parseInt(request.query.page || '1', 10) || 1);
       const limit = 20;
       const skip = (page - 1) * limit;
 
