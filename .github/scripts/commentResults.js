@@ -9,7 +9,6 @@ module.exports = async ({
   backendTypecheck,
   mobileLint,
   mobileTest,
-  webCheck,
   webBuild,
   backendLintOutput,
   mobileLintOutput,
@@ -57,7 +56,6 @@ ${mobileLint === 'failure' ? lintDetails(mobileLintOutput) : ''}
 
 | Check | Result |
 |---|---|
-| Check | ${status(webCheck)} |
 | Build | ${status(webBuild)} |
 
 ---
