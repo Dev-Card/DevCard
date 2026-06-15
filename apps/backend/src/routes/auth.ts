@@ -57,8 +57,9 @@ export async function authRoutes(app: FastifyInstance) {
   // GitHub OAuth callback
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
+    const isMobileOAuth = state?.startsWith('mobile_');
     const storedState = request.cookies?.oauth_state;
-    if (!state || !storedState || state !== storedState) {
+    if (!state || (!isMobileOAuth && (!storedState || state !== storedState))) {
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
     reply.clearCookie('oauth_state', { path: '/' });
@@ -130,7 +131,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
 
-      if (request.query.state?.startsWith('mobile_')) {
+      if (isMobileOAuth) {
         const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }
@@ -183,8 +184,9 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
 
+    const isMobileOAuth = state?.startsWith('mobile_');
     const storedState = request.cookies?.oauth_state;
-    if (!state || !storedState || state !== storedState) {
+    if (!state || (!isMobileOAuth && (!storedState || state !== storedState))) {
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
     reply.clearCookie('oauth_state', { path: '/' });
@@ -232,7 +234,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       const token = app.jwt.sign({ id: user.id, username: user.username }, { expiresIn: '30d' });
 
-      if (request.query.state?.startsWith('mobile_')) {
+      if (isMobileOAuth) {
         const mobileRedirect = getMobileRedirectUri(request.query.state) || process.env.MOBILE_REDIRECT_URI;
         return reply.redirect(`${mobileRedirect}#token=${token}`);
       }

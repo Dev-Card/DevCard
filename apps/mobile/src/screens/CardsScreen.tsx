@@ -6,17 +6,20 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  Alert,
   StatusBar,
   Modal,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
+import QRCode from 'react-native-qrcode-svg';
+import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { PLATFORMS } from '@devcard/shared';
 import { get, post, del, put } from '../services/api';
+import { API_BASE_URL } from '../config';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 
@@ -24,34 +27,77 @@ interface PlatformLink {
   id: string;
   platform: string;
   username: string;
+  url?: string;
 }
+
+type CardVisibility = 'PUBLIC' | 'UNLISTED' | 'PRIVATE';
 
 interface Card {
   id: string;
   title: string;
+  description: string | null;
+  slug?: string;
+  visibility: CardVisibility;
+  qrEnabled: boolean;
+  viewCount: number;
   isDefault: boolean;
   links: PlatformLink[];
 }
 
+type ApiCard = Card & {
+  cardLinks?: Array<{ link?: PlatformLink; platformLink?: PlatformLink }>;
+};
+
+type CardAlert = {
+  title: string;
+  message: string;
+  tone?: 'success' | 'error' | 'info' | 'danger';
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm?: () => void | Promise<void>;
+};
+
+const getApiCardLinks = (card: ApiCard): PlatformLink[] => {
+  if (card.links) return card.links;
+  return (card.cardLinks ?? []).map(cl => cl.platformLink ?? cl.link).filter(Boolean) as PlatformLink[];
+};
+
 export default function CardsScreen() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
+  const { colors, isDark } = useTheme();
+  const themed = React.useMemo(() => createCardsThemedStyles(colors), [colors]);
   const [cards, setCards] = useState<Card[]>([]);
-  const [allLinks, setAllLinks] = useState<PlatformLink[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [newTitle, setNewTitle] = useState('');
-  const [selectedLinkIds, setSelectedLinkIds] = useState<string[]>([]);
+  const [newDescription, setNewDescription] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [visibility, setVisibility] = useState<CardVisibility>('PUBLIC');
+  const [qrEnabled, setQrEnabled] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [cardAlert, setCardAlert] = useState<CardAlert | null>(null);
+
+  const showAlert = useCallback((nextAlert: CardAlert) => {
+    setCardAlert(nextAlert);
+  }, []);
 
   const fetchData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const [cardsData, profileData] = await Promise.all([
-        get<Card[]>('/api/cards', token).catch(() => []),
-        get<any>('/api/profiles/me', token).catch(() => null),
-      ]);
-      setCards(cardsData || []);
-      setAllLinks(profileData?.platformLinks || []);
+      const cardsData = await get<ApiCard[]>('/api/cards', token).catch(() => []);
+      const normalizedCards: Card[] = (cardsData || []).map(card => ({
+        id: card.id,
+        title: card.title,
+        description: card.description ?? null,
+        slug: card.slug,
+        visibility: card.visibility ?? 'PUBLIC',
+        qrEnabled: card.qrEnabled ?? true,
+        viewCount: card.viewCount ?? 0,
+        isDefault: card.isDefault,
+        links: getApiCardLinks(card),
+      }));
+      setCards(normalizedCards);
     } catch (error) {
       console.error('Failed to fetch:', error);
     } finally {
@@ -71,61 +117,152 @@ export default function CardsScreen() {
     fetchData(false);
   };
 
-  const createCard = async () => {
-    if (!newTitle.trim() || selectedLinkIds.length === 0) {
-      Alert.alert('Error', 'Please enter a title and select at least one link');
+  const resetModal = () => {
+    setShowCreate(false);
+    setEditingCard(null);
+    setNewTitle('');
+    setNewDescription('');
+    setNewLinkUrl('');
+    setVisibility('PUBLIC');
+    setQrEnabled(true);
+  };
+
+  const openCreateModal = () => {
+    resetModal();
+    setShowCreate(true);
+  };
+
+  const openEditModal = (card: Card) => {
+    setEditingCard(card);
+    setNewTitle(card.title);
+    setNewDescription(card.description ?? '');
+    setNewLinkUrl(card.links?.[0]?.url || card.links?.[0]?.username || '');
+    setVisibility(card.visibility);
+    setQrEnabled(card.qrEnabled);
+    setShowCreate(true);
+  };
+
+  const formatLinkUrl = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    return trimmed.includes('://') ? trimmed : `https://${trimmed}`;
+  };
+
+  const saveCard = async () => {
+    const formattedUrl = formatLinkUrl(newLinkUrl);
+    if (!newTitle.trim()) {
+      showAlert({ title: 'Missing title', message: 'Please enter a card title.', tone: 'error' });
       return;
     }
+
+    if (!formattedUrl) {
+      showAlert({ title: 'Missing link', message: 'Please add a link URL.', tone: 'error' });
+      return;
+    }
+
     try {
-      await post('/api/cards', { title: newTitle.trim(), linkIds: selectedLinkIds }, token);
-      setShowCreate(false);
-      setNewTitle('');
-      setSelectedLinkIds([]);
+      const linkIds = editingCard ? (editingCard.links ?? []).map(link => link.id) : [];
+
+      if (editingCard && linkIds[0]) {
+        await put(`/api/profiles/me/links/${linkIds[0]}`, {
+          platform: 'custom',
+          username: formattedUrl,
+          url: formattedUrl,
+        }, token);
+      } else {
+        const createdLink = await post<PlatformLink>('/api/profiles/me/links', {
+          platform: 'custom',
+          username: formattedUrl,
+          url: formattedUrl,
+        }, token);
+        linkIds.push(createdLink.id);
+      }
+
+      if (linkIds.length === 0) {
+        showAlert({ title: 'Missing link', message: 'Please add a link URL.', tone: 'error' });
+        return;
+      }
+
+      const payload = {
+        title: newTitle.trim(),
+        description: newDescription.trim() || undefined,
+        linkIds,
+        visibility,
+        qrEnabled,
+      };
+
+      if (editingCard) {
+        await put(`/api/cards/${editingCard.id}/update`, payload, token);
+      } else {
+        await post('/api/cards', payload, token);
+      }
+
+      resetModal();
       fetchData();
-    } catch {
-      Alert.alert('Error', 'Failed to create card');
+      showAlert({ title: 'Saved', message: editingCard ? 'Card updated.' : 'Card created.', tone: 'success' });
+    } catch (error) {
+      showAlert({ title: 'Could not save', message: error instanceof Error ? error.message : `Failed to ${editingCard ? 'update' : 'create'} card`, tone: 'error' });
     }
   };
 
   const deleteCard = (id: string) => {
-    Alert.alert('Delete Card', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await del(`/api/cards/${id}`, undefined, token);
-          } catch {
-            // ignore
-          }
-          fetchData();
-        },
+    showAlert({
+      title: 'Delete card?',
+      message: 'This card will be removed from your account.',
+      tone: 'danger',
+      confirmText: 'Delete',
+      cancelText: 'Keep it',
+      onConfirm: async () => {
+        try {
+          await del(`/api/cards/${id}/delete`, undefined, token);
+          showAlert({ title: 'Deleted', message: 'Card deleted.', tone: 'success' });
+        } catch (error) {
+          showAlert({ title: 'Delete failed', message: error instanceof Error ? error.message : 'Failed to delete card', tone: 'error' });
+        }
+        fetchData();
       },
-    ]);
+    });
   };
 
   const setDefault = async (id: string) => {
     try {
       await put(`/api/cards/${id}/default`, undefined, token);
-    } catch {
-      // ignore
+      showAlert({ title: 'Updated', message: 'Default card updated.', tone: 'success' });
+    } catch (error) {
+      showAlert({ title: 'Update failed', message: error instanceof Error ? error.message : 'Failed to set default card', tone: 'error' });
     }
     fetchData();
   };
 
-  const toggleLink = (linkId: string) => {
-    setSelectedLinkIds(prev =>
-      prev.includes(linkId)
-        ? prev.filter(id => id !== linkId)
-        : [...prev, linkId]
-    );
+  const onCardPress = async (card: Card) => {
+    const firstLink = card.links?.[0];
+    const url = formatLinkUrl(firstLink?.url || firstLink?.username || '');
+
+    if (!url) {
+      showAlert({ title: 'No link', message: 'This card does not have a link to open.', tone: 'info' });
+      return;
+    }
+
+    const canOpen = await Linking.canOpenURL(url).catch(() => false);
+    if (!canOpen) {
+      showAlert({ title: 'Unable to open', message: 'This link cannot be opened on this device.', tone: 'error' });
+      return;
+    }
+
+    await Linking.openURL(url);
+  };
+
+  const getPlatformSummary = (card: Card) => {
+    const names = (card.links ?? [])
+      .slice(0, 4)
+      .map(link => PLATFORMS[link.platform]?.name || link.platform);
+    return names.join(' · ');
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
+      <SafeAreaView style={themed.container}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPrimary} />
         <View style={styles.header}>        
           <Skeleton width={180} height={34} borderRadius={12} />
           <Skeleton width={100} height={36} borderRadius={18} />
@@ -146,15 +283,15 @@ export default function CardsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
+    <SafeAreaView style={themed.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPrimary} />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Context Cards</Text>
+        <Text style={themed.title}>My Cards</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowCreate(true)}>
-          <Text style={styles.addButtonText}>+ New Card</Text>
+          onPress={openCreateModal}>
+          <Text style={styles.addButtonText}>+ New card</Text>
         </TouchableOpacity>
       </View>
 
@@ -171,59 +308,74 @@ export default function CardsScreen() {
         }
         renderItem={({ item }) => (
           <View style={[styles.cardContainer, item.isDefault && styles.defaultCardContainer]}>
-            <View style={[styles.premiumCard, item.isDefault ? styles.cardDefault : styles.cardNormal]}>
-              {/* Card Header: Logo & Chip */}
-              <View style={styles.cardHeader}>
-                <View style={styles.cardBrand}>
-                  <View style={styles.chip} />
-                  <Text style={styles.brandText}>DevCard</Text>
-                </View>
-                <Text style={styles.contactless}>📶</Text>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => onCardPress(item)}
+              style={[styles.cardTile, item.isDefault ? themed.cardDefault : themed.cardNormal]}>
+              <View style={styles.cardTopRow}>
+                {item.isDefault ? (
+                  <View style={styles.activePill}>
+                    <Text style={styles.activePillText}>ACTIVE</Text>
+                  </View>
+                ) : <View />}
+                <View />
               </View>
 
-              {/* Card Center: Title */}
-              <View style={styles.cardCenter}>
-                <Text style={styles.premiumCardTitle} numberOfLines={1}>{item.title}</Text>
-                <Text style={styles.cardType}>CONTMEMORY ACCESS</Text>
-              </View>
-
-              {/* Card Footer: User & Platforms */}
-              <View style={styles.cardFooter}>
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{user?.displayName || 'Card Holder'}</Text>
-                  <Text style={styles.cardId}>{Math.random().toString(36).substring(2, 6).toUpperCase()} {Math.random().toString(36).substring(2, 6).toUpperCase()}</Text>
-                </View>
-                <View style={styles.platformIcons}>
-                  {item.links.slice(0, 3).map(link => (
-                    <View key={link.id} style={[styles.platformDot, { backgroundColor: PLATFORMS[link.platform]?.color || COLORS.primary }]} />
-                  ))}
-                  {item.links.length > 3 && (
-                    <Text style={styles.morePlatforms}>+{item.links.length - 3}</Text>
+              <View style={styles.cardContentRow}>
+                <View style={styles.cardDetails}>
+                  <Text style={[themed.cardName, item.isDefault && styles.cardNameActive]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={themed.platformSummary} numberOfLines={1}>
+                    {getPlatformSummary(item)}
+                  </Text>
+                  {!!item.description && (
+                    <Text style={themed.cardDescription} numberOfLines={1}>{item.description}</Text>
                   )}
+                  <Text style={themed.platformCount}>{(item.links ?? []).length} platforms</Text>
+                  <Text style={themed.cardMeta}>{item.visibility.toLowerCase()} · {item.viewCount} views</Text>
                 </View>
+                {item.slug && item.qrEnabled ? (
+                  <View style={styles.qrContainer}>
+                    <QRCode
+                      value={formatLinkUrl(item.links?.[0]?.url || item.links?.[0]?.username || `${API_BASE_URL}/cards/share/${item.slug}`)}
+                      size={72}
+                      color="#111827"
+                      backgroundColor={COLORS.white}
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.qrPlaceholder}>
+                    <Text style={styles.qrPlaceholderText}>QR off</Text>
+                  </View>
+                )}
               </View>
+            </TouchableOpacity>
 
-              {/* Glass Overlay for Default */}
-              {item.isDefault && <View style={styles.glassOverlay} />}
-            </View>
-
-            {/* Card Actions Below the Card */}
             <View style={styles.actionRow}>
-              {!item.isDefault ? (
-                <TouchableOpacity onPress={() => setDefault(item.id)} style={styles.actionBtn}>
-                  <Text style={styles.actionBtnText}>Set as Primary</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeBadgeText}>ACTIVE CARD</Text>
-                </View>
-              )}
+              <TouchableOpacity onPress={() => openEditModal(item)} style={styles.defaultBtn}>
+                <Text style={styles.defaultBtnText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setDefault(item.id)} disabled={item.isDefault} style={styles.defaultBtn}>
+                <Text style={[styles.defaultBtnText, item.isDefault && styles.defaultBtnTextDisabled]}>{item.isDefault ? 'Default' : 'Set default'}</Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => deleteCard(item.id)} style={styles.deleteBtn}>
                 <Text style={styles.deleteBtnText}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
+        ListFooterComponent={
+          <View>
+            <TouchableOpacity style={themed.createTile} onPress={openCreateModal}>
+              <Text style={themed.createTileTitle}>+ Create a new context card</Text>
+              <Text style={themed.createTileSub}>e.g. "Open Source" or "Job Search"</Text>
+            </TouchableOpacity>
+            <View style={styles.tipCard}>
+              <Text style={styles.tipText}>Tip: select active card before opening Share screen</Text>
+            </View>
+          </View>
+        }
         ListEmptyComponent={
           <EmptyState
             emoji="💳"
@@ -233,46 +385,92 @@ export default function CardsScreen() {
         }
       />
 
-      {/* Create Card Modal */}
+      {/* Create/Edit Card Modal */}
       <Modal visible={showCreate} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Create Card</Text>
+          <View style={themed.modalContent}>
+            <Text style={styles.modalTitle}>{editingCard ? 'Edit Card' : 'Create Card'}</Text>
             <TextInput
-              style={styles.input}
+              style={themed.input}
               placeholder="Card title (e.g. Professional, Hackathon)"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={newTitle}
               onChangeText={setNewTitle}
             />
-            <Text style={styles.selectLabel}>Select platforms to include:</Text>
-            {allLinks.length === 0 ? (
-              <View style={styles.noLinksHint}>
-                <Text style={styles.noLinksHintText}>You haven't added any links yet.</Text>
-                <Text style={styles.noLinksHintSubtext}>Go to the "Links" tab to add your GitHub, LinkedIn, etc. before creating a card.</Text>
-              </View>
-            ) : (
-              allLinks.map(link => (
+            <TextInput
+              style={themed.input}
+              placeholder="Description (optional)"
+              placeholderTextColor={colors.textMuted}
+              value={newDescription}
+              onChangeText={setNewDescription}
+            />
+            <TextInput
+              style={themed.input}
+              placeholder="Link URL (e.g. github.com/dev-card)"
+              placeholderTextColor={colors.textMuted}
+              value={newLinkUrl}
+              onChangeText={setNewLinkUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+            <Text style={styles.selectLabel}>Visibility:</Text>
+            <View style={styles.visibilityRow}>
+              {(['PUBLIC', 'UNLISTED', 'PRIVATE'] as CardVisibility[]).map(option => (
                 <TouchableOpacity
-                  key={link.id}
-                  style={[styles.linkOption, selectedLinkIds.includes(link.id) && styles.linkSelected]}
-                  onPress={() => toggleLink(link.id)}>
-                  <View style={[styles.dot, { backgroundColor: PLATFORMS[link.platform]?.color || COLORS.primary }]} />
-                  <Text style={styles.linkOptionText}>
-                    {PLATFORMS[link.platform]?.name || link.platform} — {link.username}
-                  </Text>
-                  {selectedLinkIds.includes(link.id) && <Text style={styles.checkmark}>✓</Text>}
+                  key={option}
+                  style={[themed.visibilityChip, visibility === option && styles.visibilityChipSelected]}
+                  onPress={() => setVisibility(option)}>
+                  <Text style={[themed.visibilityChipText, visibility === option && styles.visibilityChipTextSelected]}>{option.toLowerCase()}</Text>
                 </TouchableOpacity>
-              ))
-            )}
-            <TouchableOpacity style={styles.submitBtn} onPress={createCard}>
-              <Text style={styles.submitBtnText}>Create Card</Text>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.qrToggle} onPress={() => setQrEnabled(value => !value)}>
+              <Text style={themed.qrToggleText}>{qrEnabled ? '✓ QR sharing enabled' : 'QR sharing disabled'}</Text>
+            </TouchableOpacity>
+            {editingCard && editingCard.links.length > 0 ? (
+              <Text style={styles.existingLinksText}>
+                Update the URL above to change this card's link.
+              </Text>
+            ) : null}
+            <TouchableOpacity style={styles.submitBtn} onPress={saveCard}>
+              <Text style={styles.submitBtnText}>{editingCard ? 'Save Changes' : 'Create Card'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.cancelBtn}
-              onPress={() => { setShowCreate(false); setNewTitle(''); setSelectedLinkIds([]); }}>
+              onPress={resetModal}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!cardAlert} animationType="fade" transparent>
+        <View style={styles.alertOverlay}>
+          <View style={themed.alertCard}>
+            <View style={[styles.alertIcon, styles[`alertIcon_${cardAlert?.tone || 'info'}`]]}>
+              <Text style={styles.alertIconText}>
+                {cardAlert?.tone === 'success' ? '✓' : cardAlert?.tone === 'danger' ? '!' : cardAlert?.tone === 'error' ? '!' : 'i'}
+              </Text>
+            </View>
+            <Text style={themed.alertTitle}>{cardAlert?.title}</Text>
+            <Text style={themed.alertMessage}>{cardAlert?.message}</Text>
+            <View style={styles.alertActions}>
+              {cardAlert?.onConfirm ? (
+                <TouchableOpacity style={themed.alertSecondaryButton} onPress={() => setCardAlert(null)}>
+                  <Text style={themed.alertSecondaryText}>{cardAlert.cancelText || 'Cancel'}</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                style={[styles.alertPrimaryButton, cardAlert?.tone === 'danger' && styles.alertDangerButton]}
+                onPress={async () => {
+                  const onConfirm = cardAlert?.onConfirm;
+                  setCardAlert(null);
+                  await onConfirm?.();
+                }}>
+                <Text style={styles.alertPrimaryText}>{cardAlert?.confirmText || 'OK'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -288,7 +486,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: FONT_SIZE.xl, fontWeight: '800', color: COLORS.textPrimary },
   addButton: {
-    backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: '#1E1E1E', borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
   },
   addButtonText: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZE.sm },
@@ -325,6 +523,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.md,
   },
   selectLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginBottom: SPACING.sm },
+  visibilityRow: { flexDirection: 'row', gap: SPACING.xs, marginBottom: SPACING.sm },
+  visibilityChipSelected: { borderColor: COLORS.primary, backgroundColor: 'rgba(99, 102, 241, 0.16)' },
+  visibilityChipTextSelected: { color: COLORS.primaryLight, fontWeight: '700' },
+  qrToggle: { marginBottom: SPACING.md, paddingVertical: SPACING.xs },
   linkOption: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: COLORS.bgCard, borderRadius: BORDER_RADIUS.sm,
@@ -363,151 +565,369 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.sm,
     textAlign: 'center',
   },
-  // Premium Card Styles
-  cardContainer: {
-    marginBottom: SPACING.xl,
+  existingLinksText: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+    marginBottom: SPACING.md,
+    textAlign: 'center',
   },
+  // Premium Card Styles
+  cardContainer: { marginBottom: SPACING.md },
   defaultCardContainer: {},
-  premiumCard: {
-    width: '100%',
-    aspectRatio: 1.58,
-    borderRadius: 20,
-    padding: SPACING.lg,
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-    position: 'relative',
-    ...SHADOWS.card,
+  cardTile: {
+    borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderWidth: 1,
   },
   cardNormal: {
-    backgroundColor: '#1E293B',
+    backgroundColor: COLORS.bgCard,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: COLORS.border,
   },
   cardDefault: {
-    backgroundColor: '#0F172A',
-    borderWidth: 1.5,
+    backgroundColor: '#1D2B3A',
+    borderWidth: 1,
     borderColor: COLORS.primary,
   },
-  cardHeader: {
+  cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: SPACING.sm,
   },
-  cardBrand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  activePill: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 999,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
   },
-  chip: {
-    width: 35,
-    height: 25,
-    borderRadius: 4,
-    backgroundColor: '#D1D5DB',
-    opacity: 0.8,
-  },
-  brandText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  contactless: {
-    fontSize: 20,
-    opacity: 0.5,
-  },
-  cardCenter: {
-    marginTop: SPACING.md,
-  },
-  premiumCardTitle: {
-    fontSize: 28,
-    fontWeight: '800',
+  activePillText: {
     color: COLORS.white,
+    fontSize: FONT_SIZE.xs,
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
-  cardType: {
-    fontSize: 8,
-    color: 'rgba(255,255,255,0.4)',
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginTop: 4,
+  editText: {
+    color: COLORS.primaryLight,
+    fontSize: FONT_SIZE.md,
+    fontWeight: '500',
   },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  cardId: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.3)',
-    fontFamily: 'monospace',
-    marginTop: 2,
-  },
-  platformIcons: {
+  cardContentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: SPACING.md,
   },
-  platformDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  cardDetails: {
+    flex: 1,
   },
-  morePlatforms: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: '700',
+  qrContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.xs,
   },
-  glassOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+  qrPlaceholder: {
+    width: 80,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: COLORS.border,
+  },
+  qrPlaceholderText: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.xs,
+    textAlign: 'center',
+  },
+  cardName: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  cardNameActive: {
+    color: '#8BC4FF',
+  },
+  platformSummary: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.md,
+    marginBottom: SPACING.sm,
+  },
+  cardDescription: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+    marginBottom: SPACING.xs,
+  },
+  cardMeta: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.xs,
+    marginTop: SPACING.xs,
+  },
+  platformCount: {
+    alignSelf: 'flex-start',
+    color: COLORS.textMuted,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 999,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    fontSize: FONT_SIZE.xs,
   },
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: SPACING.md,
+    marginTop: SPACING.xs,
     paddingHorizontal: SPACING.xs,
   },
-  actionBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+  deleteBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
-  actionBtnText: {
-    color: COLORS.primary,
+  defaultBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  defaultBtnText: {
+    color: COLORS.primaryLight,
     fontSize: 12,
     fontWeight: '600',
   },
-  activeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  activeBadgeText: {
-    color: COLORS.success,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  deleteBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+  defaultBtnTextDisabled: {
+    color: COLORS.textMuted,
   },
   deleteBtnText: {
     color: 'rgba(239, 68, 68, 0.6)',
     fontSize: 12,
     fontWeight: '600',
   },
+  createTile: {
+    marginTop: SPACING.sm,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.bgSecondary,
+    paddingVertical: SPACING.xl,
+    alignItems: 'center',
+  },
+  createTileTitle: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '500',
+  },
+  createTileSub: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+    marginTop: SPACING.xs,
+  },
+  tipCard: {
+    marginTop: SPACING.md,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+  },
+  tipText: {
+    color: '#F4C27A',
+    fontSize: FONT_SIZE.sm,
+    textAlign: 'center',
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.lg,
+  },
+  alertIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+  },
+  alertIcon_success: { backgroundColor: 'rgba(34, 197, 94, 0.2)' },
+  alertIcon_error: { backgroundColor: 'rgba(239, 68, 68, 0.2)' },
+  alertIcon_danger: { backgroundColor: 'rgba(239, 68, 68, 0.2)' },
+  alertIcon_info: { backgroundColor: 'rgba(99, 102, 241, 0.2)' },
+  alertIconText: {
+    color: COLORS.white,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '800',
+  },
+  alertActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+  },
+  alertPrimaryButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+  },
+  alertDangerButton: {
+    backgroundColor: '#DC2626',
+  },
+  alertPrimaryText: {
+    color: COLORS.white,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: '800',
+  },
 });
+
+function createCardsThemedStyles(colors: typeof COLORS) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bgPrimary },
+    title: { fontSize: FONT_SIZE.xl, fontWeight: '800', color: colors.textPrimary },
+    cardNormal: {
+      backgroundColor: colors.bgCard,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardDefault: {
+      backgroundColor: colors.bgElevated,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    cardName: {
+      fontSize: 34,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      marginBottom: 4,
+    },
+    platformSummary: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.md,
+      marginBottom: SPACING.sm,
+    },
+    cardDescription: {
+      color: colors.textMuted,
+      fontSize: FONT_SIZE.sm,
+      marginBottom: SPACING.xs,
+    },
+    cardMeta: {
+      color: colors.textMuted,
+      fontSize: FONT_SIZE.xs,
+      marginTop: SPACING.xs,
+    },
+    platformCount: {
+      alignSelf: 'flex-start',
+      color: colors.textMuted,
+      backgroundColor: colors.bgSecondary,
+      borderRadius: 999,
+      paddingHorizontal: SPACING.sm,
+      paddingVertical: 3,
+      fontSize: FONT_SIZE.xs,
+    },
+    createTile: {
+      marginTop: SPACING.sm,
+      borderRadius: BORDER_RADIUS.lg,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.border,
+      backgroundColor: colors.bgSecondary,
+      paddingVertical: SPACING.xl,
+      alignItems: 'center',
+    },
+    createTileTitle: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.lg,
+      fontWeight: '500',
+    },
+    createTileSub: {
+      color: colors.textMuted,
+      fontSize: FONT_SIZE.sm,
+      marginTop: SPACING.xs,
+    },
+    modalContent: {
+      backgroundColor: colors.bgSecondary,
+      borderTopLeftRadius: BORDER_RADIUS.xl,
+      borderTopRightRadius: BORDER_RADIUS.xl,
+      padding: SPACING.lg,
+      maxHeight: '80%',
+    },
+    input: {
+      backgroundColor: colors.bgCard,
+      borderRadius: BORDER_RADIUS.md,
+      padding: SPACING.md,
+      color: colors.textPrimary,
+      fontSize: FONT_SIZE.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: SPACING.md,
+    },
+    linkOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.bgCard,
+      borderRadius: BORDER_RADIUS.sm,
+      padding: SPACING.md,
+      marginBottom: SPACING.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    linkOptionText: { flex: 1, fontSize: FONT_SIZE.sm, color: colors.textPrimary, marginLeft: SPACING.sm },
+    visibilityChip: {
+      flex: 1,
+      alignItems: 'center',
+      borderRadius: BORDER_RADIUS.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.bgCard,
+      paddingVertical: SPACING.sm,
+    },
+    visibilityChipText: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.xs,
+      textTransform: 'uppercase',
+    },
+    qrToggleText: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.sm,
+    },
+    alertCard: {
+      width: '100%',
+      maxWidth: 360,
+      backgroundColor: colors.bgElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: BORDER_RADIUS.xl,
+      padding: SPACING.lg,
+      alignItems: 'center',
+    },
+    alertTitle: {
+      color: colors.textPrimary,
+      fontSize: FONT_SIZE.lg,
+      fontWeight: '800',
+      textAlign: 'center',
+      marginBottom: SPACING.xs,
+    },
+    alertMessage: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.sm,
+      lineHeight: 20,
+      textAlign: 'center',
+    },
+    alertSecondaryButton: {
+      flex: 1,
+      backgroundColor: colors.bgCard,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: BORDER_RADIUS.md,
+      paddingVertical: SPACING.md,
+      alignItems: 'center',
+    },
+    alertSecondaryText: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.sm,
+      fontWeight: '700',
+    },
+  });
+}

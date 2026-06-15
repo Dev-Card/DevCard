@@ -8,8 +8,6 @@ import {
   getDeepLinkUrl,
 } from './platforms';
 
-// ─── StackOverflow Platform Tests ───
-
 describe('stackoverflow platform', () => {
   it('should exist in PLATFORMS registry', () => {
     expect(PLATFORMS.stackoverflow).toBeDefined();
@@ -44,9 +42,7 @@ describe('stackoverflow platform', () => {
   });
 });
 
-// ─── getProfileUrl Tests for StackOverflow ───
-
-describe('getProfileUrl – stackoverflow', () => {
+describe('getProfileUrl - stackoverflow', () => {
   it('should generate correct URL with user ID and display name', () => {
     const url = getProfileUrl('stackoverflow', '1234/user');
     expect(url).toBe('https://stackoverflow.com/users/1234/user');
@@ -63,9 +59,7 @@ describe('getProfileUrl – stackoverflow', () => {
   });
 });
 
-// ─── getWebViewUrl / getDeepLinkUrl for StackOverflow ───
-
-describe('getWebViewUrl / getDeepLinkUrl – stackoverflow', () => {
+describe('getWebViewUrl / getDeepLinkUrl - stackoverflow', () => {
   it('should return null for webViewUrl (not supported)', () => {
     expect(getWebViewUrl('stackoverflow', '1234/user')).toBeNull();
   });
@@ -75,15 +69,12 @@ describe('getWebViewUrl / getDeepLinkUrl – stackoverflow', () => {
   });
 });
 
-// ─── validationRegex Tests ───
-
 describe('validationRegex logic', () => {
   it('should correctly validate github usernames', () => {
     const regex = PLATFORMS.github.validationRegex!;
     expect(regex.test('valid-user')).toBe(true);
     expect(regex.test('a')).toBe(true);
     expect(regex.test('user123')).toBe(true);
-    // Invalid
     expect(regex.test('-invalid')).toBe(false);
     expect(regex.test('invalid-')).toBe(false);
     expect(regex.test('in--valid')).toBe(false);
@@ -94,8 +85,7 @@ describe('validationRegex logic', () => {
     const regex = PLATFORMS.linkedin.validationRegex!;
     expect(regex.test('valid-user')).toBe(true);
     expect(regex.test('user123')).toBe(true);
-    // Invalid
-    expect(regex.test('ab')).toBe(false); // Too short
+    expect(regex.test('ab')).toBe(false);
     expect(regex.test('user name')).toBe(false);
   });
 
@@ -103,9 +93,8 @@ describe('validationRegex logic', () => {
     const regex = PLATFORMS.twitter.validationRegex!;
     expect(regex.test('valid_user')).toBe(true);
     expect(regex.test('user123')).toBe(true);
-    // Invalid
-    expect(regex.test('user-name')).toBe(false); // Hyphens not allowed
-    expect(regex.test('this_is_a_very_long_name_indeed')).toBe(false); // Too long
+    expect(regex.test('user-name')).toBe(false);
+    expect(regex.test('this_is_a_very_long_name_indeed')).toBe(false);
     expect(regex.test('user name')).toBe(false);
   });
 });

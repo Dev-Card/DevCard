@@ -1,5 +1,3 @@
-// ─── User Types ───
-
 export interface User {
   id: string;
   email: string;
@@ -24,8 +22,6 @@ export interface UpdateProfilePayload {
   accentColor?: string;
 }
 
-// ─── Platform Link Types ───
-
 export interface PlatformLink {
   id: string;
   platform: string;
@@ -44,11 +40,16 @@ export interface ReorderLinksPayload {
   links: Array<{ id: string; displayOrder: number }>;
 }
 
-// ─── Card Types ───
+export type CardVisibility = 'PUBLIC' | 'UNLISTED' | 'PRIVATE';
 
 export interface Card {
   id: string;
   title: string;
+  description?: string | null;
+  slug?: string;
+  visibility?: CardVisibility;
+  qrEnabled?: boolean;
+  viewCount?: number;
   isDefault: boolean;
   links: PlatformLink[];
 }
@@ -56,14 +57,17 @@ export interface Card {
 export interface CreateCardPayload {
   title: string;
   linkIds: string[];
+  description?: string;
+  visibility?: CardVisibility;
 }
 
 export interface UpdateCardPayload {
   title?: string;
   linkIds?: string[];
+  description?: string;
+  visibility?: CardVisibility;
+  qrEnabled?: boolean;
 }
-
-// ─── Public Profile Types ───
 
 export interface PublicProfile {
   username: string;
@@ -92,8 +96,6 @@ export interface PublicCard {
   links: PlatformLink[];
 }
 
-// ─── Follow Engine Types ───
-
 export type FollowStatus = 'idle' | 'loading' | 'success' | 'error';
 
 export interface FollowResult {
@@ -102,8 +104,6 @@ export interface FollowResult {
   status: FollowStatus;
   message?: string;
 }
-
-// ─── Auth Types ───
 
 export interface AuthResponse {
   token: string;

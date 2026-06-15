@@ -12,6 +12,12 @@ export const API_BASE_URL: string = __DEV__
   ? `http://${DEV_HOST}:3000`
   : 'https://api.devcard.dev';
 
+// OAuth must use the same host for start and callback so browser cookies/state match.
+// Android reaches the host machine via `adb reverse tcp:3000 tcp:3000`.
+export const AUTH_BASE_URL: string = __DEV__
+  ? 'http://localhost:3000'
+  : 'https://api.devcard.dev';
+
 export const APP_URL: string = __DEV__
   ? 'http://localhost:5173'
   : 'https://devcard.dev';
@@ -20,3 +26,9 @@ export const APP_URL: string = __DEV__
 export const DEEP_LINK_SCHEME = 'devcard';
 
 export const OAUTH_REDIRECT_URI = `${DEEP_LINK_SCHEME}://oauth/callback`;
+
+// Backend OAuth placeholders. Replace these once backend routes are finalized.
+export const BACKEND_AUTH_ROUTES = {
+  github: '/auth/github',
+  google: '/auth/google',
+} as const;

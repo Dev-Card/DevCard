@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getProfileUrl, getWebViewUrl, getDeepLinkUrl } from '../platforms';
 
-// ─── getProfileUrl Tests ───
-
 describe('getProfileUrl', () => {
   it('should return the correct GitHub profile URL', () => {
     expect(getProfileUrl('github', 'octocat')).toBe('https://github.com/octocat');
@@ -21,8 +19,6 @@ describe('getProfileUrl', () => {
   });
 });
 
-// ─── getWebViewUrl Tests ───
-
 describe('getWebViewUrl', () => {
   it('should return the correct LinkedIn webview URL', () => {
     expect(getWebViewUrl('linkedin', 'john')).toBe('https://www.linkedin.com/in/john');
@@ -40,8 +36,6 @@ describe('getWebViewUrl', () => {
     expect(getWebViewUrl('nonexistent', 'user')).toBeNull();
   });
 });
-
-// ─── getDeepLinkUrl Tests ───
 
 describe('getDeepLinkUrl', () => {
   it('should return the correct Twitter deep link URL', () => {

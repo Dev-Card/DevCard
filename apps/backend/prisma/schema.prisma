@@ -54,10 +54,21 @@ model PlatformLink {
   @@map("platform_links")
 }
 
+enum CardVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
 model Card {
   id        String     @id @default(uuid())
   userId    String     @map("user_id")
   title     String
+  description String?
+  slug      String     @unique
+  visibility CardVisibility @default(PUBLIC)
+  qrEnabled Boolean    @default(true) @map("qr_enabled")
+  viewCount Int        @default(0) @map("view_count")
   isDefault Boolean    @default(false) @map("is_default")
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
@@ -67,6 +78,8 @@ model Card {
   views     CardView[]
 
   @@map("cards")
+  @@index([userId])
+  @@index([viewCount])
 }
 
 model CardLink {
@@ -114,6 +127,8 @@ model CardView {
   viewer  User? @relation("cardViewer", fields: [viewerId], references: [id], onDelete: SetNull)
 
   @@map("card_views")
+  @@index([cardId])
+  @@index([ownerId])
 }
 
 model FollowLog {

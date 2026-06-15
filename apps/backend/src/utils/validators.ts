@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { getPlatform } from '@devcard/shared';
+import { CardVisibility } from '@prisma/client';
 
 export const updateProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
@@ -47,10 +48,19 @@ export const reorderLinksSchema = z.object({
 
 export const createCardSchema = z.object({
   title: z.string().min(1).max(100),
-  linkIds: z.array(z.string().uuid()),
+  linkIds: z.array(z.string().uuid()).nonempty('At least one link is required').refine(ids => new Set(ids).size === ids.length, 'Duplicate links are not allowed'),
+  description: z.string().min(1).max(100).optional(),
+  visibility: z.nativeEnum(CardVisibility).optional(),
 });
 
 export const updateCardSchema = z.object({
   title: z.string().min(1).max(100).optional(),
-  linkIds: z.array(z.string().uuid()).optional(),
+  linkIds: z.array(z.string().uuid()).refine(ids => new Set(ids).size === ids.length, 'Duplicate links are not allowed').optional(),
+  description: z.string().min(1).max(100).optional(),
+  visibility: z.nativeEnum(CardVisibility).optional(),
+  qrEnabled: z.boolean().optional(),
+}).refine(data => Object.values(data).some(value => value !== undefined), 'At least one field must be provided');
+
+export const addPlatformLinkSchema = z.object({
+  platformLinkId: z.string().uuid(),
 });
