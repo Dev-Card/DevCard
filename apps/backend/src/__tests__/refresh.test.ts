@@ -29,7 +29,15 @@ const mockUser = {
 
 // ─── Prisma mock factory ──────────────────────────────────────────────────────
 
-function createMockPrisma(): MockPrisma {
+function createMockPrisma(): {
+  user: { findUnique: ReturnType<typeof vi.fn> };
+  refreshToken: {
+    findUnique: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
+  };
+} {
   return {
     user: { findUnique: vi.fn() },
     refreshToken: {
@@ -76,7 +84,17 @@ function makeStoredToken(overrides: Partial<{
   revokedAt: Date | null;
   expiresAt: Date;
   family: string;
-}> = {}): ReturnType<typeof makeStoredToken> {
+}> = {}): {
+  id: string;
+  tokenHash: string;
+  family: string;
+  userId: string;
+  revokedAt: Date | null;
+  expiresAt: Date;
+  ip: string;
+  userAgent: string;
+  user: typeof mockUser;
+} {
   return {
     id: 'token-id-1',
     tokenHash: HASH_A,
