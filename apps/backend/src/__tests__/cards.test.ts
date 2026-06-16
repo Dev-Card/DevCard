@@ -341,7 +341,7 @@ describe('PUT /api/cards/:id/default — serialization isolation & retry', () =>
     mockPrisma.$transaction.mockImplementation(
       async (callback: (tx: typeof mockPrisma) => Promise<unknown>) => {
         callCount++;
-        if (callCount === 1) throw p2034;
+        if (callCount === 1) { throw p2034; }
         mockPrisma.card.updateMany.mockResolvedValue({ count: 2 });
         mockPrisma.card.update.mockResolvedValue({ ...mockCard, isDefault: true });
         return callback(mockPrisma);
