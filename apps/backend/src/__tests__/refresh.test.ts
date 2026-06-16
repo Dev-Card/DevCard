@@ -1,7 +1,7 @@
 import cookiePlugin from '@fastify/cookie';
 import jwtPlugin from '@fastify/jwt';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { authRoutes } from '../routes/auth.js';
 import { hashRefreshToken } from '../utils/refreshToken.js';
@@ -29,7 +29,7 @@ const mockUser = {
 
 // ─── Prisma mock factory ──────────────────────────────────────────────────────
 
-function createMockPrisma() {
+function createMockPrisma(): MockPrisma {
   return {
     user: { findUnique: vi.fn() },
     refreshToken: {
@@ -76,7 +76,7 @@ function makeStoredToken(overrides: Partial<{
   revokedAt: Date | null;
   expiresAt: Date;
   family: string;
-}> = {}) {
+}> = {}): ReturnType<typeof makeStoredToken> {
   return {
     id: 'token-id-1',
     tokenHash: HASH_A,
