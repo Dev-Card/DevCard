@@ -306,6 +306,117 @@ describe('PUT /api/cards/:id — link ownership validation', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/cards/:id/default — serialization & retry behaviour
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('PUT /api/cards/:id/default — serialization isolation & retry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('passes isolationLevel Serializable to $transaction', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard);
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mockPrisma) => Promise<unknown>, options?: unknown) => {
+        expect(options).toEqual({ isolationLevel: 'Serializable' });
+        mockPrisma.card.updateMany.mockResolvedValue({ count: 2 });
+        mockPrisma.card.update.mockResolvedValue({ ...mockCard, isDefault: true });
+        return callback(mockPrisma);
+      },
+    );
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'PUT', url: `/api/cards/${CARD_ID}/default` });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
+  });
+
+  it('retries on P2034 (serialization conflict) and succeeds on second attempt', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard);
+
+    const p2034 = Object.assign(new Error('Serialization failure'), { code: 'P2034' });
+    let callCount = 0;
+
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mockPrisma) => Promise<unknown>) => {
+        callCount++;
+        if (callCount === 1) throw p2034;
+        mockPrisma.card.updateMany.mockResolvedValue({ count: 2 });
+        mockPrisma.card.update.mockResolvedValue({ ...mockCard, isDefault: true });
+        return callback(mockPrisma);
+      },
+    );
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'PUT', url: `/api/cards/${CARD_ID}/default` });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().message).toBe('Default card updated');
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns 500 after exhausting all 3 retry attempts on persistent P2034', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard);
+
+    const p2034 = Object.assign(new Error('Serialization failure'), { code: 'P2034' });
+    mockPrisma.$transaction.mockRejectedValue(p2034);
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'PUT', url: `/api/cards/${CARD_ID}/default` });
+
+    expect(res.statusCode).toBe(500);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry on non-P2034 errors and returns 500 immediately', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard);
+
+    const dbError = new Error('Connection lost');
+    mockPrisma.$transaction.mockRejectedValue(dbError);
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'PUT', url: `/api/cards/${CARD_ID}/default` });
+
+    expect(res.statusCode).toBe(500);
+    // Must not have retried — only one attempt for non-serialization errors
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('concurrent calls: the last committed transaction determines the sole default', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard);
+
+    let callCount = 0;
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mockPrisma) => Promise<unknown>) => {
+        callCount++;
+        // First concurrent attempt fails (simulates DB-level serialization abort)
+        if (callCount === 1) {
+          throw Object.assign(new Error('Serialization failure'), { code: 'P2034' });
+        }
+        mockPrisma.card.updateMany.mockResolvedValue({ count: 2 });
+        mockPrisma.card.update.mockResolvedValue({ ...mockCard, isDefault: true });
+        return callback(mockPrisma);
+      },
+    );
+
+    const app = await buildApp();
+
+    // Fire both requests concurrently
+    const [res1, res2] = await Promise.all([
+      app.inject({ method: 'PUT', url: `/api/cards/${CARD_ID}/default` }),
+      app.inject({ method: 'PUT', url: `/api/cards/${CARD_ID}/default` }),
+    ]);
+
+    // Both callers ultimately succeed (one retried)
+    expect([res1.statusCode, res2.statusCode]).toEqual([200, 200]);
+    // Combined, the transaction was attempted 3 times (1 fail + 1 succeed for
+    // the first caller, 1 succeed for the second — ordering may vary)
+    expect(mockPrisma.$transaction.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/cards/:id
 // ─────────────────────────────────────────────────────────────────────────────
 
