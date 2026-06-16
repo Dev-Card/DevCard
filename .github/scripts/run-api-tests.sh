@@ -18,7 +18,7 @@ PORT="${PORT:-3000}"
 BASE_URL="http://localhost:${PORT}"
 HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
 HEALTH_INTERVAL="${HEALTH_INTERVAL:-2}"
-COLLECTION="apps/backend/postman/DevCard.postman_collection.json"
+COLLECTION="postman/DevCard.postman_collection.json"
 
 SERVER_PID=""
 
@@ -31,13 +31,35 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "::group::Apply migrations and seed"
-npm --prefix apps/backend exec prisma migrate deploy
-npm --prefix apps/backend run db:seed
+# Prisma and tsx resolve paths relative to the working directory, so run
+# everything from the backend package rather than the repo root.
+cd apps/backend
+
+# CI runs against an ephemeral database with no migration history, and the
+# committed migrations can lag schema.prisma. `db push` syncs the database
+# straight from the schema — the right tool for a throwaway test database.
+echo "::group::Sync database schema and seed"
+npx prisma db push --skip-generate
+npm run db:seed
+echo "::endgroup::"
+
+# src/env.ts loads a repo-root .env via dotenv and throws if the file is
+# absent. CI supplies config through real env vars, so materialise a .env
+# from them (dotenv does not override values already set in the environment).
+echo "::group::Write .env for dotenv"
+cat > ../../.env <<EOF
+DATABASE_URL=${DATABASE_URL:-}
+REDIS_URL=${REDIS_URL:-}
+JWT_SECRET=${JWT_SECRET:-}
+ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+NODE_ENV=${NODE_ENV:-development}
+PORT=${PORT:-3000}
+PUBLIC_APP_URL=${PUBLIC_APP_URL:-}
+EOF
 echo "::endgroup::"
 
 echo "::group::Start API server"
-npm --prefix apps/backend exec tsx src/server.ts &
+npx tsx src/server.ts &
 SERVER_PID=$!
 echo "Server started (pid ${SERVER_PID})"
 echo "::endgroup::"
