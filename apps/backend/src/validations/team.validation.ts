@@ -24,3 +24,7 @@ export const updateTeam = z.object({
     message: 'At least one field is required',
   }
 )
+
+export const transferOwnership = z.object({
+  newOwnerId: z.string().uuid('Invalid user ID format'),
+})

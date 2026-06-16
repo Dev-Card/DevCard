@@ -1,10 +1,10 @@
 import {Prisma, TeamRole } from '@prisma/client';
 import QRCode from 'qrcode'
 
-import {generateUniqueSlug} from '../utils/slug'
-import { createTeamScehma,inviteMembers,updateTeam } from '../validations/team.validation';
+import { generateUniqueSlug } from '../utils/slug'
+import { createTeamScehma, inviteMembers, updateTeam, transferOwnership } from '../validations/team.validation';
 
-import type {PlatformLink, PublicProfile} from '@devcard/shared'
+import type { PlatformLink, PublicProfile } from '@devcard/shared'
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 type TeamMember = PublicProfile & {
@@ -25,6 +25,17 @@ type TeamProfile = {
 }
 
 export async function teamRoutes(app:FastifyInstance){
+    const authPreHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const server = request.server as any;
+        if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return; }
+        if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return; }
+        try { 
+            const payload = await request.jwtVerify(); 
+            if (payload) (request as any).user = payload;
+        } catch (e) { 
+            reply.status(401).send({ error: 'Unauthorized' }); 
+        }
+    };
         app.post('/', { preHandler: [async (request, reply) => {
             const server = request.server as any;
             if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
@@ -224,7 +235,7 @@ export async function teamRoutes(app:FastifyInstance){
         }
     })
 
-    app.delete('/:slug/members/:userId', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string, userId: string}}>, reply: FastifyReply)  => {
+    app.delete('/:slug/members/:userId', { preHandler: [authPreHandler] }, async(request: FastifyRequest<{Params: {slug: string, userId: string}}>, reply: FastifyReply)  => {
         const paramsSlug = request.params.slug 
         const paramsUserId = request.params.userId
         const userID = (request.user as any).id; 
@@ -260,11 +271,45 @@ export async function teamRoutes(app:FastifyInstance){
             });
         }
 
-        //TODO: Assign owner role to next person
-        if(paramsUserId === teamDetails.ownerId){
-            return reply.status(403).send({
-                error: 'Owner cannot leave team',
-            });
+        // Assign owner role to next person if owner leaves.
+        // We pick the oldest non-owner member. If there is a tie, we sort by user ID for determinism.
+        if (paramsUserId === teamDetails.ownerId) {
+            const nextOwnerMember = teamDetails.members
+                .filter(m => m.user.id !== paramsUserId)
+                .sort((a, b) => {
+                    const timeDiff = new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime();
+                    return timeDiff !== 0 ? timeDiff : a.user.id.localeCompare(b.user.id);
+                })[0];
+            
+            if (!nextOwnerMember) {
+                return reply.status(400).send({
+                    error: 'Cannot leave as the only member. Please delete the team instead.',
+                });
+            }
+
+            try {
+                await app.prisma.$transaction(async (tx) => {
+                    await tx.team.update({
+                        where: { id: teamDetails.id },
+                        data: { ownerId: nextOwnerMember.user.id }
+                    });
+                    await tx.teamMember.update({
+                        where: {
+                            userId_teamId: { teamId: teamDetails.id, userId: nextOwnerMember.user.id }
+                        },
+                        data: { role: TeamRole.OWNER }
+                    });
+                    await tx.teamMember.delete({
+                        where: {
+                            userId_teamId: { teamId: teamDetails.id, userId: paramsUserId }
+                        }
+                    });
+                });
+                return reply.status(200).send({ message: 'Member removed and ownership transferred' })
+            } catch (error) {
+                app.log.error(error); 
+                return reply.status(500).send({ error: 'DB query failed' })
+            }
         }
 
         if(isOwner || isSelfRemove){
@@ -277,16 +322,76 @@ export async function teamRoutes(app:FastifyInstance){
                         }
                     }
                 })
-                reply.status(200).send('Member removed')
+                reply.status(200).send({ message: 'Member removed' })
             } catch (error) {
                 app.log.error(error); 
 
-                return reply.status(500).send('DB query failed')
+                return reply.status(500).send({ error: 'DB query failed' })
             }
         }
     })
 
-    app.patch('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string},Body: {description?:string, name?:string, avatarUrl?:string}}>, reply: FastifyReply) => {
+    app.put('/:slug/transfer', { preHandler: [authPreHandler] }, async (request: FastifyRequest<{ Params: { slug: string }, Body: { newOwnerId: string } }>, reply: FastifyReply) => {
+        const paramsSlug = request.params.slug;
+        const currentOwnerId = (request.user as any).id;
+        
+        const parsed = transferOwnership.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({ error: parsed.error.issues[0]?.message || 'Bad request' })
+        }
+        
+        const { newOwnerId } = parsed.data;
+
+        const teamDetails = await app.prisma.team.findUnique({
+            where: { slug: paramsSlug },
+            include: { members: true }
+        });
+
+        if (!teamDetails) {
+            return reply.status(404).send({ error: 'Team not found' });
+        }
+
+        if (teamDetails.ownerId !== currentOwnerId) {
+            return reply.status(403).send({ error: 'Forbidden' });
+        }
+        
+        if (currentOwnerId === newOwnerId) {
+            return reply.status(400).send({ error: 'Already the owner' });
+        }
+
+        const newOwnerIsMember = teamDetails.members.some(m => m.userId === newOwnerId);
+        if (!newOwnerIsMember) {
+            return reply.status(400).send({ error: 'New owner must be an existing team member' });
+        }
+
+        const currentOwnerIsMember = teamDetails.members.some(m => m.userId === currentOwnerId);
+        if (!currentOwnerIsMember) {
+            return reply.status(400).send({ error: 'Current owner is not a team member' });
+        }
+
+        try {
+            await app.prisma.$transaction(async (tx) => {
+                await tx.team.update({
+                    where: { id: teamDetails.id },
+                    data: { ownerId: newOwnerId }
+                });
+                await tx.teamMember.update({
+                    where: { userId_teamId: { teamId: teamDetails.id, userId: currentOwnerId } },
+                    data: { role: TeamRole.MEMBER }
+                });
+                await tx.teamMember.update({
+                    where: { userId_teamId: { teamId: teamDetails.id, userId: newOwnerId } },
+                    data: { role: TeamRole.OWNER }
+                });
+            });
+            return reply.status(200).send({ message: 'Ownership transferred successfully' });
+        } catch (error) {
+            app.log.error(error);
+            return reply.status(500).send({ error: 'DB query failed' });
+        }
+    })
+
+    app.patch('/:slug',{ preHandler: [authPreHandler] }, async(request: FastifyRequest<{Params: {slug: string},Body: {description?:string, name?:string, avatarUrl?:string}}>, reply: FastifyReply) => {
         const userId = (request.user as any).id; 
         const paramsSlug = request.params.slug; 
         const parsed = updateTeam.safeParse(request.body); 
@@ -328,7 +433,7 @@ export async function teamRoutes(app:FastifyInstance){
         
     })
 
-    app.delete('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request:FastifyRequest<{Params:{slug: string}}>, reply:FastifyReply) => {
+    app.delete('/:slug',{ preHandler: [authPreHandler] }, async(request:FastifyRequest<{Params:{slug: string}}>, reply:FastifyReply) => {
         const userId = (request.user as any).id; 
         const paramsSlug = request.params.slug; 
 
