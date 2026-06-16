@@ -19,8 +19,13 @@ async function main() {
       company: 'OpenSource Inc.',
       avatarUrl: null,
       accentColor: '#6366f1',
-      provider: 'github',
-      providerId: 'demo-12345',
+      emailVerified: true,
+      identities: {
+        create: {
+          provider: 'github',
+          providerId: 'demo-12345',
+        },
+      },
     },
   });
 
@@ -109,6 +114,7 @@ async function main() {
     data: {
       userId: testUser.id,
       title: 'Professional',
+      slug: 'devcard-demo-professional',
       isDefault: true,
       cardLinks: {
         create: [
@@ -125,6 +131,7 @@ async function main() {
     data: {
       userId: testUser.id,
       title: 'Hackathon',
+      slug: 'devcard-demo-hackathon',
       isDefault: false,
       cardLinks: {
         create: [

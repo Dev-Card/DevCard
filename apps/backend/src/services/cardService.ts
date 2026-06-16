@@ -1,10 +1,10 @@
-import { Card, CardVisibility, Prisma } from '@prisma/client';
+import { type Card, CardVisibility, type Prisma } from '@prisma/client';
+import QRCode from 'qrcode';
 
 import { generateUniqueSlug } from '../utils/slug';
 
 import type { CreateCardBody } from '../routes/cards';
 import type { FastifyInstance } from 'fastify';
-import QRCode from 'qrcode';
 
 type CardLinkResponse = { platformLink: unknown };
 type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
@@ -184,7 +184,7 @@ export async function setDefaultCard(app: FastifyInstance, userId: string, id: s
 }
 
 //Adds platfrom link
-export async function addPlatFormLinks(app: FastifyInstance, userId: string, id:string, platformLinkId: string){
+export async function addPlatFormLinks(app: FastifyInstance, userId: string, id:string, platformLinkId: string): Promise<void> {
     const ownedCard = await app.prisma.card.findFirst({
       where: {
         id, 
@@ -239,7 +239,7 @@ export async function addPlatFormLinks(app: FastifyInstance, userId: string, id:
 }
 
 //Shares card
-export async function shareCard(app: FastifyInstance, userId:string, id: string){
+export async function shareCard(app: FastifyInstance, userId:string, id: string): Promise<{ shareUrl: string }> {
   const card = await app.prisma.card.findFirst({
     where:{
       id,
@@ -268,7 +268,7 @@ export async function shareCard(app: FastifyInstance, userId:string, id: string)
 }
 
 //Gets share card
-export async function getSharedCard(app:FastifyInstance, slug:string){
+export async function getSharedCard(app:FastifyInstance, slug:string): Promise<Prisma.CardGetPayload<{ include: { cardLinks: { include: { platformLink: true } } } }>> {
   const card = await app.prisma.card.findUnique({
     where: {
       slug
@@ -293,7 +293,7 @@ export async function getSharedCard(app:FastifyInstance, slug:string){
 }
 
 //Genreate qr
-export async function genrateQr(app: FastifyInstance,userId:string, id: string){
+export async function genrateQr(app: FastifyInstance,userId:string, id: string): Promise<Buffer> {
   const card = await app.prisma.card.findFirst({
     where:{
       id,
@@ -339,8 +339,8 @@ export async function genrateQr(app: FastifyInstance,userId:string, id: string){
 }
 
 //TODO:Add pagination
-export async function cardAnalytics(app: FastifyInstance, userId:string, id: string){
-  const cardAnalytics = await app.prisma.card.findFirst({
+export async function cardAnalytics(app: FastifyInstance, userId:string, id: string): Promise<Prisma.CardGetPayload<{ include: { views: { include: { viewer: { select: { id: true; username: true; avatarUrl: true; displayName: true; role: true; accentColor: true } } } } } }>> {
+  const card = await app.prisma.card.findFirst({
     where: {
       id, 
       userId
@@ -367,12 +367,12 @@ export async function cardAnalytics(app: FastifyInstance, userId:string, id: str
 
   })
 
-  if (!cardAnalytics) {
+  if (!card) {
     throw Object.assign(
       new Error('Card not found'),
       { code: 'CARD_NOT_FOUND' }
     );
   }
 
-  return cardAnalytics
+  return card
 }
