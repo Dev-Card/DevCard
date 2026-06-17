@@ -32,6 +32,7 @@ model User {
   organizer     Event[]    
   attendedEvents           EventAttendee[] 
 
+  webhookEndpoints WebhookEndpoint[]
 
   @@unique([provider, providerId])
   @@map("users")
@@ -140,7 +141,6 @@ model Event {
   isPublic Boolean @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   attendees EventAttendee[]
-
   organizer User @relation(fields: [organizerId], references: [id])
 }
 
@@ -148,10 +148,27 @@ model EventAttendee {
   id    String @id @default(uuid())
   userId String  
   eventId String   
-  joinedAt DateTime 
+  joinedAt DateTime
+} 
+model WebhookDelivery {
+  id           String    @id @default(uuid())
+  endpointId   String    @map("endpoint_id")
+  eventType    String    @map("event_type")
+  payload      Json
+  status       String    @default("pending")   // "pending" | "success" | "failed"
+  responseCode Int?      @map("response_code")
+  attempts     Int       @default(0)
+  nextRetryAt  DateTime? @map("next_retry_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  errorMessage String?   @map("error_message")
+  deliveredAt  DateTime? @map("delivered_at")
 
   event Event @relation(fields: [eventId] , references: [id])
   user User @relation(fields: [userId],references: [id])
 
   @@unique([userId, eventId])
+  @@index([endpointId])
+  @@index([status, nextRetryAt])
+  @@map("webhook_deliveries")
 }
