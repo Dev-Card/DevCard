@@ -1,27 +1,76 @@
-import * as publicService from '../services/publicService';
+import { getErrorMessage } from '../utils/error.util.js';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 
+import type { PlatformLink } from '@devcard/shared';
 import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
-// ── QR size bounds ────────────────────────────────────────────────────────────
-// Enforced before any DB query or image allocation.  Values outside this range
-// are rejected with 400 so a single unauthenticated request cannot trigger an
-// unbounded memory allocation in the QR rasteriser.
-const MIN_QR_SIZE = 1;
-const MAX_QR_SIZE = 2048;
+type PublicProfileLink = {
+  id: string;
+  platform: string;
+  username: string; 
+  url: string; 
+  displayOrder: number; 
+  followed?: boolean;
+}
 
-// ── Cache constants ───────────────────────────────────────────────────────────
-// Public profile cache TTL matches the Cache-Control max-age (5 minutes).
-// The QR session JWT TTL is 10 minutes so an offline scan remains valid well
-// beyond the HTTP cache window.
-const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60';
+type UsernamePublicProfileResponse =  {
+  username: string; 
+  displayName: string;
+  bio: string | null; 
+  pronouns: string | null; 
+  role: string | null; 
+  company: string | null;
+  avatarUrl: string | null; 
+  accentColor: string;
+  links: PublicProfileLink[]
+} 
+
+type PublicProfileCardLink = {
+  id: string;
+  platform: string;
+  username: string; 
+  url: string; 
+  followed?: boolean;
+}
+
+type CardPublicProfileResponse = {
+  id: string; 
+  title: string; 
+  owner: {
+    username: string; 
+    displayName: string; 
+    bio: string | null;
+    avatarUrl: string | null;
+    accentColor: string; 
+  }; 
+  links: PublicProfileCardLink[]
+}
+
+type UsernameCardPublicProfileResponse = {
+  title: string; 
+  owner: {
+    username: string; 
+    displayName: string;
+    bio: string | null; 
+    pronouns: string | null; 
+    role: string | null; 
+    company: string | null;
+    avatarUrl: string | null; 
+    accentColor: string;
+  }; 
+  links: PublicProfileCardLink[]
+}
+
+// Represents a CardLink record with the joined PlatformLink relation
+interface CardLinkWithPlatform {
+  id: string;
+  displayOrder: number;
+  platformLink: PlatformLink;
+}
+
 
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
-  // ─── Public Profile ───────────────────────────────────────────────────────
-  /**
-   * GET /api/u/:username
-   * Returns the public profile information for a user.
-   */
+  // ─── Public Profile ───
   app.get('/:username', {
     config: {
       rateLimit: {
@@ -120,36 +169,44 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         timeWindow: '1 minute'
       }
     } as FastifyContextConfig
-  }, async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { cardId: string } }>, _reply: FastifyReply) => {
     const { cardId } = request.params;
 
-    try {
-      const card = await publicService.getCardById(app, cardId);
-      if (!card) {
-        return reply.status(404).send({ error: 'Card not found' });
-      }
-      const response = {
-        id: card.id,
-        title: card.title,
-        owner: {
-          username: card.user.username,
-          displayName: card.user.displayName,
-          bio: card.user.bio,
-          avatarUrl: card.user.avatarUrl,
-          accentColor: card.user.accentColor,
+    const card = await app.prisma.card.findUnique({
+      where: { id: cardId },
+      include: {
+        user: true,
+        cardLinks: {
+          include: { platformLink: true },
+          orderBy: { displayOrder: 'asc' },
         },
-        links: card.cardLinks.map((cl: any) => ({
-          id: cl.platformLink.id,
-          platform: cl.platformLink.platform,
-          username: cl.platformLink.username,
-          url: cl.platformLink.url,
-        })),
-      };
-      return response;
-    } catch (err: unknown) {
-      app.log.error({ err }, 'Failed to fetch shared card');
-      return reply.status(500).send({ error: 'Internal server error' });
+      },
+    });
+
+    if (!card) {
+      return _reply.status(404).send({ error: 'Card not found' });
     }
+
+    const response: CardPublicProfileResponse = {
+      id: card.id,
+      title: card.title,
+      owner: {
+        username: card.user.username,
+        displayName: card.user.displayName,
+        bio: card.user.bio,
+        avatarUrl: card.user.avatarUrl,
+        accentColor: card.user.accentColor,
+      },
+      links: card.cardLinks.map((cl: CardLinkWithPlatform) => ({
+        id: cl.platformLink.id,
+        platform: cl.platformLink.platform,
+        username: cl.platformLink.username,
+        url: cl.platformLink.url,
+      })),
+    }
+
+    return response; 
+
   });
 
   // ─── Public Card View ─────────────────────────────────────────────────────
@@ -179,7 +236,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
           viewerId = decoded?.id ?? null;
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // Ignored if invalid token
     }
 
