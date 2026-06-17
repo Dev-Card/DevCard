@@ -1,0 +1,27 @@
+name: GSSoC Discord Pin Reminder
+
+on:
+  pull_request_target:
+    types: [closed]
+  workflow_dispatch:
+
+jobs:
+  discord-pin-reminder:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Notify contributor about Discord GSSoC labels
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const script = require('./.github/scripts/discordPinReminder.js');
+            await script({ github, context });

@@ -78,7 +78,9 @@ async function buildApp(): Promise<FastifyInstance> {
     return mockJwtVerify();
   });
 
-  await app.register(eventRoutes);
+  // Register with the same prefix used in production (app.ts) so that
+  // tests exercise routes at their real paths — /api/events, /api/events/:slug, etc.
+  await app.register(eventRoutes, { prefix: '/api/events' });
   await app.ready();
   return app;
 }

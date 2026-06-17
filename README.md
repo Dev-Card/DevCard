@@ -22,6 +22,22 @@
 
 ---
 
+## Table of Contents
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [API Endpoints](#api-endpoints)
+- [Good First Issues](#good-first-issues)
+- [Contributing](#contributing)
+- [Contributors](#contributors)
+- [Project Support](#project-support)
+- [License](#license)
+
+---
+
 ## The Problem
 
 At every developer meetup, hackathon, or conference, the same friction plays out:
@@ -52,8 +68,7 @@ Each exchange is manual, error-prone, and slow. DevCard fixes this.
 
 ### Prerequisites
 
-- Node.js >= 20
-- pnpm >= 9
+- Node.js >= 20 (includes npm)
 - Docker & Docker Compose
 - React Native development environment ([setup guide](https://reactnative.dev/docs/environment-setup))
 
@@ -65,7 +80,11 @@ git clone https://github.com/Dev-Card/DevCard.git
 cd devcard
 
 # Install dependencies
-pnpm install
+npm install                              # root orchestrator
+npm --prefix packages/shared install     # shared types/utils
+npm --prefix apps/backend install        # backend API
+npm --prefix apps/web install            # web app
+npm --prefix apps/mobile install         # mobile app (if needed)
 
 # Start infrastructure (PostgreSQL + Redis)
 docker compose up -d
@@ -73,17 +92,22 @@ docker compose up -d
 # Copy environment config
 cp .env.example .env
 
+# ⚠️ Replace secret placeholders before starting the server:
+# JWT_SECRET  → node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# ENCRYPTION_KEY → node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Paste the generated values into your .env file. Never use placeholders in production.
+
 # Run database migrations
-pnpm db:migrate
+npm run db:migrate
 
 # Seed sample data
-pnpm db:seed
+npm run db:seed
 
 # Start the backend
-pnpm dev:backend
+npm run dev:backend
 
 # In another terminal — start the mobile app
-pnpm dev:mobile
+npm run dev:mobile
 ```
 
 ## Architecture
@@ -91,13 +115,13 @@ pnpm dev:mobile
 ```
 devcard/
 ├── apps/
-│   ├── backend/          # Fastify + TypeScript API
-│   ├── mobile/           # React Native (Bare) mobile app
-│   └── web/              # SvelteKit web backup
+│   ├── backend/          # Fastify + TypeScript API (independent npm)
+│   ├── mobile/           # React Native (Bare) mobile app (independent npm)
+│   └── web/              # Vite + React web app (independent npm)
 ├── packages/
 │   └── shared/           # Shared types, platform registry, utils
 ├── docker-compose.yml    # PostgreSQL + Redis
-└── pnpm-workspace.yaml   # Monorepo config
+└── package.json          # Root orchestrator (npm scripts)
 ```
 
 ### Tech Stack
@@ -272,6 +296,32 @@ New to open source? We've got you covered! Check out our [Good First Issues](htt
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions, coding standards, and PR process.
+
+## Contributors
+
+Thanks to all the amazing people who contribute to **DevCard** 🚀
+
+<p align="center">
+  <a href="https://github.com/Dev-Card/DevCard/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=Dev-Card/DevCard" alt="Contributors"/>
+  </a>
+</p>
+
+<br>
+
+## Project Support
+
+<p align="center">
+  <a href="https://github.com/Dev-Card/DevCard/stargazers">
+    <img src="https://img.shields.io/github/stars/Dev-Card/DevCard?style=social" alt="Stars">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/Dev-Card/DevCard/network/members">
+    <img src="https://img.shields.io/github/forks/Dev-Card/DevCard?style=social" alt="Forks">
+  </a>
+</p>
+
+---
 
 ## License
 

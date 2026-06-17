@@ -6,8 +6,8 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
-import fastifyStatic from '@fastify/static';
-import Fastify, {type FastifyInstance} from 'fastify';
+import rateLimit from '@fastify/rate-limit';
+import Fastify, {type FastifyInstance, type FastifyReply, type FastifyRequest} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
@@ -17,13 +17,20 @@ import { cardRoutes } from './routes/cards.js';
 import { connectRoutes } from './routes/connect.js';
 import { eventRoutes } from './routes/event.js';
 import { followRoutes } from './routes/follow.js';
+import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
+import { teamRoutes } from './routes/team.js';
 import { webhookRoutes } from './routes/webhooks.js';
+import { extractRawJwt, blocklistKey } from './utils/jwt.js';
+import { validateEnv } from './utils/validateEnv.js';
+
+import type { AuthenticatedUser } from './types/fastify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function buildApp():Promise<FastifyInstance> {
+export async function buildApp() {
+  validateEnv();
   const app = Fastify({
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
@@ -32,6 +39,12 @@ export async function buildApp():Promise<FastifyInstance> {
           ? { target: 'pino-pretty', options: { colorize: true } }
           : undefined,
     },
+  });
+
+  // Log method + path for every incoming request.
+  app.addHook('onRequest', (request, _reply, done) => {
+    app.log.info({ method: request.method, url: request.url }, 'incoming request');
+    done();
   });
 
   // ─── Core Plugins ───
@@ -57,13 +70,18 @@ export async function buildApp():Promise<FastifyInstance> {
     },
   });
 
+  // cookie must be registered before jwt so that @fastify/jwt can read the
+  // `token` cookie during jwtVerify() for browser-based clients.
+  await app.register(cookie);
+
   await app.register(jwt, {
     secret: process.env.JWT_SECRET || 'dev-secret-change-me',
   });
 
   await app.register(cookie);
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } });
+  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
 
+  // Static file serving for uploads
   await app.register(fastifyStatic, {
     root: path.join(__dirname, '..', 'uploads'),
     prefix: '/uploads/',
@@ -71,15 +89,32 @@ export async function buildApp():Promise<FastifyInstance> {
   });
 
   // ─── Database & Cache Plugins ───
-  await app.register(prismaPlugin);
+ if (process.env.NODE_ENV !== 'test') {
+  await app.register(prismaPlugin); //change 
+}
+  if (process.env.NODE_ENV !== 'test') {
   await app.register(redisPlugin);
-
+}
   // ─── Auth Decorator ───
   app.decorate('authenticate', async function (request: any, reply: any) {
     try {
-      await request.jwtVerify();
+      if (app.hasDecorator('redis')) {
+        const raw = extractRawJwt(request);
+        if (raw) {
+          try {
+            const revoked = await app.redis.exists(blocklistKey(raw));
+            if (revoked) {
+              return reply.status(401).send({ error: 'Token has been revoked' });
+            }
+          } catch (redisErr) {
+            app.log.warn({ err: redisErr }, 'Redis blocklist check failed');
+          }
+        }
+      }
+      const payload = await request.jwtVerify<AuthenticatedUser>();
+      if (payload) { request.user = payload; }
     } catch (_err) {
-      reply.status(401).send({ error: 'Unauthorized' });
+      return reply.status(401).send({ error: 'Unauthorized' });
     }
   });
 
@@ -87,21 +122,22 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(authRoutes, { prefix: '/auth' });
   await app.register(profileRoutes, { prefix: '/api/profiles' });
   await app.register(cardRoutes, { prefix: '/api/cards' });
+  // Public routes: standardise on `/api/u` (remove duplicate `/api/public`).
   await app.register(publicRoutes, { prefix: '/api/u' });
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-  await app.register(eventRoutes, { prefix: '/api/events' });
+  await app.register(eventRoutes, {prefix: '/api/events'})
+  await app.register(nfcRoutes, { prefix: '/api/nfc' });
+  await app.register(teamRoutes, { prefix: '/api/teams' });
   await app.register(webhookRoutes, { prefix: '/api/webhooks' });
 
   // ─── Health Check ───
-  type HealthResponse = {
-    status: 'ok';
-  };
-
-  app.get('/health', async (): Promise<HealthResponse> => {
-    return { status: 'ok' };
-  });
+  app.get('/health', async () => ({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'devcard-api',
+  }));
 
   return app;
 }
