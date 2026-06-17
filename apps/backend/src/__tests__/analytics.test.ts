@@ -20,6 +20,7 @@ const prismaMock = {
   followLog: {
     count: vi.fn(),
   },
+  $queryRaw: vi.fn(),
 };
 
 // ─── App factory ─────────────────────────────────────────────────────────────
@@ -89,19 +90,16 @@ describe(
   () => {
     let app: FastifyInstance;
 
-    beforeEach(
-      async () => {
-        vi.clearAllMocks();
+    beforeEach(async () => {
+      vi.clearAllMocks();
 
-        mockJwtVerify.mockResolvedValue(
-          {
-            id: MOCK_USER_ID,
-          }
-        );
+      mockJwtVerify.mockResolvedValue({ id: MOCK_USER_ID });
 
-        app = await buildApp();
-      }
-    );
+      // Default: $queryRaw for uniqueViewers returns 0
+      prismaMock.$queryRaw.mockResolvedValue([{ count: BigInt(0) }]);
+
+      app = await buildApp();
+    });
 
     afterEach(
       async () => {
@@ -147,21 +145,8 @@ describe(
               ]
             );
 
-            prismaMock.cardView.groupBy.mockResolvedValue(
-              [
-                {
-                  viewerId:
-                    'u1',
-                  viewerIp:
-                    null,
-                },
-                {
-                  viewerId:
-                    'u2',
-                  viewerIp:
-                    null,
-                },
-              ]
+            prismaMock.$queryRaw.mockResolvedValue(
+              [{ count: BigInt(2) }]
             );
 
             const res =
@@ -294,6 +279,58 @@ describe(
                   'Unauthorized',
               }
             );
+          }
+        );
+
+        it(
+          'totalFollows counts rows by followerId (outbound follows), not by targetUsername',
+          async () => {
+            prismaMock.cardView.count
+              .mockResolvedValueOnce(0)
+              .mockResolvedValueOnce(0);
+
+            prismaMock.followLog.count.mockResolvedValue(3);
+            prismaMock.cardView.findMany.mockResolvedValue([]);
+
+            const res = await app.inject({
+              method: 'GET',
+              url: '/api/analytics/overview',
+              headers: authHeader(),
+            });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.json().totalFollows).toBe(3);
+
+            // The query must use followerId, never targetUsername
+            const followCountCall = prismaMock.followLog.count.mock.calls[0][0];
+            expect(followCountCall).toMatchObject({
+              where: {
+                followerId: MOCK_USER_ID,
+                status: 'success',
+              },
+            });
+            expect(followCountCall.where).not.toHaveProperty('targetUsername');
+          }
+        );
+
+        it(
+          'totalFollows is 0 when user has no successful outbound follows',
+          async () => {
+            prismaMock.cardView.count
+              .mockResolvedValueOnce(50)
+              .mockResolvedValueOnce(5);
+
+            prismaMock.followLog.count.mockResolvedValue(0);
+            prismaMock.cardView.findMany.mockResolvedValue([]);
+
+            const res = await app.inject({
+              method: 'GET',
+              url: '/api/analytics/overview',
+              headers: authHeader(),
+            });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.json().totalFollows).toBe(0);
           }
         );
       }
