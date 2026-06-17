@@ -98,10 +98,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const parsed = oAuthCallbackSchema.safeParse(request.query);
     if (!parsed.success) {
       reply.clearCookie('oauth_state', { path: '/' });
-      return reply.status(400).send({ error: 'Invalid callback parameters', details: parsed.error.flatten() });
+      return reply.status(400).send({ error: 'Invalid callback parameters' });
     }
     const { code, state } = parsed.data;
     if (!storedState || state !== storedState) {
+      reply.clearCookie('oauth_state', { path: '/' });
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
     reply.clearCookie('oauth_state', { path: '/' });
@@ -316,11 +317,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const parsed = oAuthCallbackSchema.safeParse(request.query);
     if (!parsed.success) {
       reply.clearCookie('oauth_state', { path: '/' });
-      return reply.status(400).send({ error: 'Invalid callback parameters', details: parsed.error.flatten() });
+      return reply.status(400).send({ error: 'Invalid callback parameters' });
     }
     const { code, state } = parsed.data;
 
     if (!storedState || state !== storedState) {
+      reply.clearCookie('oauth_state', { path: '/' });
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
     reply.clearCookie('oauth_state', { path: '/' });

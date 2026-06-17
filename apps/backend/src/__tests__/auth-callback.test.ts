@@ -32,6 +32,12 @@ async function buildTestApp(): Promise<FastifyInstance> {
   return app;
 }
 
+function cookieCleared(res: any): boolean {
+  const raw = res.headers['set-cookie'] as string | string[] | undefined;
+  const cookies = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return cookies.some((c) => c.startsWith('oauth_state=;') || c.includes('oauth_state=; '));
+}
+
 describe('GET /auth/github/callback — Zod validation', () => {
   let app: FastifyInstance;
 
@@ -53,6 +59,7 @@ describe('GET /auth/github/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid callback parameters');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — empty code rejects with validation error', async () => {
@@ -64,6 +71,7 @@ describe('GET /auth/github/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid callback parameters');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — missing state rejects with validation error', async () => {
@@ -74,6 +82,7 @@ describe('GET /auth/github/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid callback parameters');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — empty state rejects with validation error', async () => {
@@ -84,6 +93,7 @@ describe('GET /auth/github/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid callback parameters');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — valid code and state but no cookie rejects with state error', async () => {
@@ -94,6 +104,7 @@ describe('GET /auth/github/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid or missing OAuth state — possible CSRF attack');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — valid code and state but mismatched cookie rejects with state error', async () => {
@@ -105,19 +116,7 @@ describe('GET /auth/github/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid or missing OAuth state — possible CSRF attack');
-  });
-
-  it('validation error response includes field-level details', async () => {
-    const res = await app.inject({
-      method: 'GET',
-      url: '/auth/github/callback?state=somestate',
-      headers: { Cookie: 'oauth_state=somestate' },
-    });
-
-    expect(res.statusCode).toBe(400);
-    const body = res.json();
-    expect(body.details).toBeDefined();
-    expect(body.details.fieldErrors).toHaveProperty('code');
+    expect(cookieCleared(res)).toBe(true);
   });
 });
 
@@ -142,6 +141,7 @@ describe('GET /auth/google/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid callback parameters');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — empty code rejects with validation error', async () => {
@@ -153,6 +153,7 @@ describe('GET /auth/google/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid callback parameters');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — missing state rejects with validation error', async () => {
@@ -163,6 +164,7 @@ describe('GET /auth/google/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid callback parameters');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — empty state rejects with validation error', async () => {
@@ -173,6 +175,7 @@ describe('GET /auth/google/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid callback parameters');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — valid code and state but no cookie rejects with state error', async () => {
@@ -183,6 +186,7 @@ describe('GET /auth/google/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid or missing OAuth state — possible CSRF attack');
+    expect(cookieCleared(res)).toBe(true);
   });
 
   it('400 — valid code and state but mismatched cookie rejects with state error', async () => {
@@ -194,17 +198,6 @@ describe('GET /auth/google/callback — Zod validation', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Invalid or missing OAuth state — possible CSRF attack');
-  });
-
-  it('validation error response includes field-level details', async () => {
-    const res = await app.inject({
-      method: 'GET',
-      url: '/auth/google/callback?code=validcode',
-    });
-
-    expect(res.statusCode).toBe(400);
-    const body = res.json();
-    expect(body.details).toBeDefined();
-    expect(body.details.fieldErrors).toHaveProperty('state');
+    expect(cookieCleared(res)).toBe(true);
   });
 });
