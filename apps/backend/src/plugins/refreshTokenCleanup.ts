@@ -40,7 +40,7 @@ export const refreshTokenCleanupPlugin = fp(async (app: FastifyInstance) => {
   };
 
   // 1. Startup cleanup attempt
-  await runCleanup();
+  void runCleanup();
 
   // 2. Scheduled cleanup interval setup
   app.log.info(`Scheduling automated refresh token cleanup every ${intervalMs}ms`);
