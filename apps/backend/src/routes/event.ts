@@ -1,8 +1,10 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Prisma } from '@prisma/client';
-import { createEventSchema, joinEventSchema } from '../validations/event.validation';
-import { generateUniqueSlug } from '../utils/slug';
+
 import { getErrorMessage } from '../utils/error.util';
+import { generateUniqueSlug } from '../utils/slug';
+import { createEventSchema } from '../validations/event.validation';
+
+import type { FastifyInstance } from 'fastify';
 
 type EventDetails = {
     id: string;
@@ -56,7 +58,9 @@ type EventWithAttendees = {
   }[];
 };
 
-export async function eventRoutes(app: FastifyInstance) {
+export async function eventRoutes(
+    app: FastifyInstance,
+): Promise<void> {
     app.post<{
         Body: {
             name: string;
@@ -98,7 +102,7 @@ export async function eventRoutes(app: FastifyInstance) {
                 },
             });
             return reply.status(201).send(newEvent);
-        } catch (error: unknown) {
+        } catch {
             app.log.error('Failed to create event');
             return reply.status(500).send({ error: 'Failed to create event' });
         }
