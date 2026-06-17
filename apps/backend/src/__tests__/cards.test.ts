@@ -410,9 +410,12 @@ describe('PUT /api/cards/:id/default — serialization isolation & retry', () =>
 
     // Both callers ultimately succeed (one retried)
     expect([res1.statusCode, res2.statusCode]).toEqual([200, 200]);
-    // Combined, the transaction was attempted 3 times (1 fail + 1 succeed for
-    // the first caller, 1 succeed for the second — ordering may vary)
-    expect(mockPrisma.$transaction.mock.calls.length).toBeGreaterThanOrEqual(2);
+    // Exactly one global failure point (callCount === 1) is consumed by
+    // whichever request reaches it first; that request retries once and
+    // succeeds, while the other succeeds on its first attempt. Total calls
+    // is therefore deterministic at 3 — which caller hits the retry varies,
+    // the count does not.
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(3);
   });
 });
 
