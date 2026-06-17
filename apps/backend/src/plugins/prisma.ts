@@ -1,6 +1,7 @@
-import fp from 'fastify-plugin';
 import { PrismaClient } from '@prisma/client';
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import fp from 'fastify-plugin';
+
+import type { FastifyInstance } from 'fastify';
 
 declare module 'fastify' {
   interface FastifyInstance {
