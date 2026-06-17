@@ -2,8 +2,10 @@ import { handleDbError, isGitHubTokenError, isGoogleTokenError } from '../utils/
 import { extractRawJwt, blocklistKey, signAccessToken  } from '../utils/jwt.js';
 import { buildOAuthState, getMobileRedirectUri } from '../utils/oauth.js';
 import { generateRefreshToken, hashIp, hashRefreshToken } from '../utils/refreshToken.js';
+import { oAuthStartSchema } from '../validations/auth.validation.js';
 
 import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
+import type { OAuthStartQuery } from '../validations/auth.validation.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 interface GitHubEmailResponse {
@@ -23,11 +25,6 @@ interface OAuthCallbackQuery {
   code: string;
   state?: string;
 }
-
-type GoogleAuthQuery = {
-  state?: string;
-  mobile_redirect_uri?: string;
-};
 
 interface GoogleUser {
   id: string;
@@ -66,23 +63,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   }
 
   // GitHub OAuth start
-  app.get('/github', async (request: FastifyRequest<{Querystring: GoogleAuthQuery}>, reply: FastifyReply) => {
+  app.get('/github', async (request: FastifyRequest<{Querystring:  OAuthStartQuery}>, reply: FastifyReply) => {
     const clientId = process.env.GITHUB_CLIENT_ID; 
     if(!clientId){
       return reply.status(400).send()
     }
-    //TODO: Add zod validation here
-    const { state: clientState = '', mobile_redirect_uri: mobileRedirectUri = '' } = request.query
-    
-    if (
-      mobileRedirectUri &&
-      !mobileRedirectUri.startsWith('devcard://')
-    ) {
-      return reply.status(400).send({
-        error: 'Invalid mobile redirect URI',
-      });
-    }
     const redirectUri = `${process.env.BACKEND_URL}/auth/github/callback`;
+
+    const parsed = oAuthStartSchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.errors[0].message });
+    }
+    const { state: clientState, mobile_redirect_uri: mobileRedirectUri } = parsed.data;
     const state = buildOAuthState(clientState, mobileRedirectUri);
 
     reply.setCookie('oauth_state', state, {
@@ -288,24 +280,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Google OAuth start
-  app.get('/google', async (request: FastifyRequest<{Querystring: GoogleAuthQuery}>, reply: FastifyReply) => {
+  app.get('/google', async (request: FastifyRequest<{Querystring: OAuthStartQuery}>, reply: FastifyReply) => {
     const clientId = process.env.GOOGLE_CLIENT_ID; 
     if(!clientId){
       return reply.status(400).send()
     }
     const redirectUri = `${process.env.BACKEND_URL}/auth/google/callback`;
-    //TODO: Add zod validation here 
-    const { state: clientState = '', mobile_redirect_uri: mobileRedirectUri = '' } = request.query
     
-    if (
-      mobileRedirectUri &&
-      !mobileRedirectUri.startsWith('devcard://')
-    ) {
-      return reply.status(400).send({
-        error: 'Invalid mobile redirect URI',
-      });
+    const parsed = oAuthStartSchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.errors[0].message });
     }
-    
+    const { state: clientState, mobile_redirect_uri: mobileRedirectUri } = parsed.data;
     const state = buildOAuthState(clientState, mobileRedirectUri);
     
     reply.setCookie('oauth_state', state, {
