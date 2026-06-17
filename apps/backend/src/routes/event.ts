@@ -4,6 +4,7 @@ import { createEventSchema, joinEventSchema } from '../validations/event.validat
 import { generateUniqueSlug } from '../utils/slug';
 import { getErrorMessage } from '../utils/error.util';
 
+
 type EventDetails = {
     id: string;
     name: string;
@@ -57,66 +58,57 @@ type EventWithAttendees = {
 };
 
 export async function eventRoutes(app: FastifyInstance) {
-    app.post(
-        '/',
-        { preHandler: [app.authenticate] },
-        async (
-            request: FastifyRequest<{
-                Body: {
-                    name: string;
-                    description?: string;
-                    startDate: string;
-                    location: string;
-                    endDate: string;
-                    isPublic?: boolean;
-                };
-            }>,
-            reply: FastifyReply,
-        ) => {
-            const userId = request.user.id;
-            const parsed = createEventSchema.safeParse(request.body);
-            if (!parsed.success) {
-                return reply.status(400).send({ error: 'Bad request' });
-            }
+    app.post<{
+        Body: {
+            name: string;
+            description?: string;
+            startDate: string;
+            location: string;
+            endDate: string;
+            isPublic?: boolean;
+        };
+    }>('/', { preHandler: [async (request, reply) => { await app.authenticate(request, reply); }] },
+        async (request, reply) => {
+        const userId = request.user.id;
+        const parsed = createEventSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({ error: 'Bad request' });
+        }
 
-            const { name, description, startDate, endDate, isPublic, location } = parsed.data;
+        const { name, description, startDate, endDate, isPublic, location } = parsed.data;
 
-            let finalSlug = await generateUniqueSlug(name, async (slug) => {
-                const existing = await app.prisma.event.findUnique({ where: { slug } });
-                return !!existing;
+        const finalSlug = await generateUniqueSlug(name, async (slug) => {
+            const existing = await app.prisma.event.findUnique({ where: { slug } });
+            return !!existing;
+        });
+
+        const startDateObj = new Date(startDate);
+        const endDateObj = new Date(endDate);
+
+        try {
+            const newEvent = await app.prisma.event.create({
+                data: {
+                    name,
+                    description,
+                    slug: finalSlug,
+                    location,
+                    startDate: startDateObj,
+                    endDate: endDateObj,
+                    isPublic: isPublic ?? true,
+                    organizerId: userId,
+                },
             });
-
-            const startDateObj = new Date(startDate);
-            const endDateObj = new Date(endDate);
-
-            try {
-                const newEvent = await app.prisma.event.create({
-                    data: {
-                        name,
-                        description,
-                        slug: finalSlug,
-                        location,
-                        startDate: startDateObj,
-                        endDate: endDateObj,
-                        isPublic: isPublic ?? true,
-                        organizerId: userId,
-                    },
-                });
-                return reply.status(201).send(newEvent);
-            } catch (error: unknown) {
-                app.log.error('Failed to create event');
-                return reply.status(500).send({ error: 'Failed to create event' });
-            }
-        },
-    );
+            return reply.status(201).send(newEvent);
+        } catch (error: unknown) {
+            app.log.error('Failed to create event');
+            return reply.status(500).send({ error: 'Failed to create event' });
+        }
+    });
 
     // Returns event details and attendees count
-    app.get(
+    app.get<{ Params: { slug: string } }>(
         '/:slug',
-        async (
-            request: FastifyRequest<{ Params: { slug: string } }>,
-            reply: FastifyReply,
-        ) => {
+        async (request, reply) => {
             const paramsSlug = request.params.slug;
             const details = await app.prisma.event.findUnique({
                 where: { slug: paramsSlug },
@@ -148,13 +140,10 @@ export async function eventRoutes(app: FastifyInstance) {
         },
     );
 
-    app.post(
+    app.post<{ Params: { slug: string } }>(
         '/:slug/join',
-        { preHandler: [app.authenticate] },
-        async (
-            request: FastifyRequest<{ Params: { slug: string } }>,
-            reply: FastifyReply,
-        ) => {
+        { preHandler: [async (request, reply) => { await app.authenticate(request, reply); }] },
+        async (request, reply) => {
             const userId = request.user.id;
             const paramsSlug = request.params.slug;
 
@@ -185,13 +174,10 @@ export async function eventRoutes(app: FastifyInstance) {
         },
     );
 
-    app.delete(
+    app.delete<{ Params: { slug: string } }>(
         '/:slug/leave',
-        { preHandler: [app.authenticate] },
-        async (
-            request: FastifyRequest<{ Params: { slug: string } }>,
-            reply: FastifyReply,
-        ) => {
+        { preHandler: [async (request, reply) => { await app.authenticate(request, reply); }] },
+        async (request, reply) => {
             const userId = request.user.id;
             const paramsSlug = request.params.slug;
 
@@ -220,15 +206,12 @@ export async function eventRoutes(app: FastifyInstance) {
         },
     );
 
-    app.get(
+    app.get<{
+        Params: { slug: string };
+        Querystring: { page?: string; limit?: string };
+    }>(
         '/:slug/attendees',
-        async (
-            request: FastifyRequest<{
-                Params: { slug: string };
-                Querystring: { page?: string; limit?: string };
-            }>,
-            reply: FastifyReply,
-        ) => {
+        async (request, reply) => {
             const paramsSlug = request.params.slug;
             const page = Math.max(1, Number(request.query.page) || 1);
             const limit = Math.min(50, Number(request.query.limit) || 10);
