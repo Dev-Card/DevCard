@@ -12,7 +12,6 @@ import Fastify, {type FastifyInstance, type FastifyReply, type FastifyRequest} f
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
 import { refreshTokenCleanupPlugin } from './plugins/refreshTokenCleanup.js';
-
 import { analyticsRoutes } from './routes/analytics.js';
 import { authRoutes } from './routes/auth.js';
 import { cardRoutes } from './routes/cards.js';
