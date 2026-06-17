@@ -90,7 +90,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
           avatarUrl: card.user.avatarUrl,
           accentColor: card.user.accentColor,
         },
-        links: card.cardLinks.map((cl: any) => ({
+        links: card.cardLinks.map((cl: { platformLink: { id: string; platform: string; username: string; url: string } }) => ({
           id: cl.platformLink.id,
           platform: cl.platformLink.platform,
           username: cl.platformLink.username,
@@ -187,12 +187,12 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     Querystring: { format?: string; size?: string };
   }>, reply: FastifyReply) => {
     const { username } = request.params;
-    const format = (request.query as any).format || 'png';
+    const format = request.query.format || 'png';
 
     // Parse and validate size before touching the DB or allocating any buffers.
     // parseInt safely handles non-numeric strings (returns NaN) and ignores any
     // trailing fractional part, so '400.9' → 400 which is within bounds.
-    const rawSize = (request.query as any).size;
+    const rawSize = request.query.size;
     const size = rawSize !== undefined ? parseInt(rawSize, 10) : 400;
 
     if (!Number.isInteger(size) || size < MIN_QR_SIZE || size > MAX_QR_SIZE) {
