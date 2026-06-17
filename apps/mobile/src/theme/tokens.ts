@@ -56,6 +56,22 @@ export const COLORS = {
   overlay: 'rgba(0, 0, 0, 0.5)',
 };
 
+export const LIGHT_COLORS: typeof COLORS = {
+  ...COLORS,
+  bgPrimary: '#F8F7F2',
+  bgSecondary: '#EFEEE8',
+  bgCard: '#FFFFFF',
+  bgCardGlass: 'rgba(255, 255, 255, 0.85)',
+  bgElevated: '#E7E5DD',
+  textPrimary: '#27272A',
+  textSecondary: '#71717A',
+  textMuted: '#A1A1AA',
+  textInverse: '#FFFFFF',
+  border: '#D8D6CC',
+  borderLight: '#C8C5BA',
+  overlay: 'rgba(15, 23, 42, 0.35)',
+};
+
 export const SPACING = {
   xs: 4,
   sm: 8,
