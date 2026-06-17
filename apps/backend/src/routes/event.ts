@@ -4,7 +4,6 @@ import { createEventSchema, joinEventSchema } from '../validations/event.validat
 import { generateUniqueSlug } from '../utils/slug';
 import { getErrorMessage } from '../utils/error.util';
 
-
 type EventDetails = {
     id: string;
     name: string;
@@ -115,7 +114,7 @@ export async function eventRoutes(app: FastifyInstance) {
                 include: {
                     _count: { select: { attendees: true } },
                     organizer: { select: { username: true, displayName: true } },
-                },
+                 },
             });
 
             if (!details) {
@@ -240,7 +239,7 @@ export async function eventRoutes(app: FastifyInstance) {
                         take: limit,
                         orderBy: { joinedAt: 'desc' },
                     },
-                },
+                 },
             })) as EventWithAttendees | null;
 
             if (!event) {
@@ -248,7 +247,8 @@ export async function eventRoutes(app: FastifyInstance) {
             }
 
             const attendees = event.attendees.map(
-                (attendee: EventWithAttendees['attendees'][number]) => ({
+                (attendee: EventWithAttendees['attendees'][number]) => (
+                    {
                     id: attendee.user.id,
                     username: attendee.user.username,
                     displayName: attendee.user.displayName,
@@ -257,7 +257,7 @@ export async function eventRoutes(app: FastifyInstance) {
                     company: attendee.user.company,
                     avatarUrl: attendee.user.avatarUrl,
                     accentColor: attendee.user.accentColor,
-                }),
+                    }),
             );
 
             const response: PaginatedAttendeesResponse = {

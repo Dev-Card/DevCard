@@ -357,8 +357,8 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
       // Prisma unique constraint error
       const uniqueError = new Prisma.PrismaClientKnownRequestError(
-        'Unique constraint failed',
-        { code: 'P2002', clientVersion: '6.0.0' },
+          'Unique constraint failed',
+          { code: 'P2002', clientVersion: '6.0.0' },
       );
       prismaMock.eventAttendee.create.mockRejectedValue(uniqueError);
 
@@ -443,8 +443,8 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
       // Prisma record-not-found error
       const notFoundError = new Prisma.PrismaClientKnownRequestError(
-        'Record not found',
-        { code: 'P2025', clientVersion: '6.0.0' },
+          'Record not found',
+          { code: 'P2025', clientVersion: '6.0.0' },
       );
       prismaMock.eventAttendee.delete.mockRejectedValue(notFoundError);
 
