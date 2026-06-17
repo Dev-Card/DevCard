@@ -44,9 +44,7 @@ model User {
   ownedTeams    Team[]         @relation("TeamOwner")
   teamMemberships TeamMember[] @relation("TeamMember")
 
-<<<<<<< HEAD
   webhookEndpoints WebhookEndpoint[]
-=======
   @@map("users")
 }
 
@@ -58,7 +56,6 @@ model UserIdentity {
   createdAt  DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
->>>>>>> upstream/main
 
   @@unique([provider, providerId])
   @@index([userId])
@@ -214,12 +211,9 @@ model WebhookDelivery {
   user User @relation(fields: [userId],references: [id])
 
   @@unique([userId, eventId])
-<<<<<<< HEAD
   @@index([endpointId])
   @@index([status, nextRetryAt])
   @@map("webhook_deliveries")
-}
-=======
 }
 
 enum TeamRole {
@@ -259,4 +253,4 @@ model TeamMember{
   @@index([userId])
   @@map("team_members")
 }
->>>>>>> upstream/main
+
