@@ -1,19 +1,9 @@
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  vi,
-} from 'vitest';
-
-import Fastify, {
-  type FastifyInstance,
-} from 'fastify';
-
-import type { PrismaClient } from '@prisma/client';
+import Fastify, { type FastifyInstance, } from 'fastify';
+import { describe, it, expect, beforeEach, afterEach, vi, } from 'vitest';
 
 import { analyticsRoutes } from '../routes/analytics';
+
+import type { PrismaClient } from '@prisma/client';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -34,7 +24,7 @@ const prismaMock = {
 
 // ─── App factory ─────────────────────────────────────────────────────────────
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -214,6 +204,62 @@ describe(
             ).toHaveLength(
               1
             );
+          }
+        );
+
+        it(
+          'totalFollows counts rows by followerId (outbound follows), not by targetUsername',
+          async () => {
+            prismaMock.cardView.count
+              .mockResolvedValueOnce(0)   // totalViews
+              .mockResolvedValueOnce(0);  // viewsToday
+
+            // The user performed 3 outbound follow actions
+            prismaMock.followLog.count.mockResolvedValue(3);
+
+            prismaMock.cardView.findMany.mockResolvedValue([]);
+
+            const res = await app.inject({
+              method: 'GET',
+              url: '/api/analytics/overview',
+              headers: authHeader(),
+            });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.json().totalFollows).toBe(3);
+
+            // Assert the query used followerId, not targetUsername
+            const followCountCall = prismaMock.followLog.count.mock.calls[0][0];
+            expect(followCountCall).toMatchObject({
+              where: {
+                followerId: MOCK_USER_ID,
+                status: 'success',
+              },
+            });
+            expect(followCountCall.where).not.toHaveProperty('targetUsername');
+          }
+        );
+
+        it(
+          'totalFollows is 0 when user has no successful outbound follows',
+          async () => {
+            prismaMock.cardView.count
+              .mockResolvedValueOnce(50)
+              .mockResolvedValueOnce(5);
+
+            // No successful follow rows for this user
+            prismaMock.followLog.count.mockResolvedValue(0);
+
+            prismaMock.cardView.findMany.mockResolvedValue([]);
+
+            const res = await app.inject({
+              method: 'GET',
+              url: '/api/analytics/overview',
+              headers: authHeader(),
+            });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.json().totalFollows).toBe(0);
           }
         );
 
