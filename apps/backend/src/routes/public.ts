@@ -4,16 +4,10 @@ import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 // ── QR size bounds ────────────────────────────────────────────────────────────
-// Enforced before any DB query or image allocation.  Values outside this range
-// are rejected with 400 so a single unauthenticated request cannot trigger an
-// unbounded memory allocation in the QR rasteriser.
 const MIN_QR_SIZE = 1;
 const MAX_QR_SIZE = 2048;
 
 // ── Cache constants ───────────────────────────────────────────────────────────
-// Public profile cache TTL matches the Cache-Control max-age (5 minutes).
-// The QR session JWT TTL is 10 minutes so an offline scan remains valid well
-// beyond the HTTP cache window.
 const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60';
 
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
@@ -32,21 +26,23 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
   }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
 
-    // Try to extract viewer from Authorization header (soft auth).
+    // Soft auth: extract viewer id if token present.
+    // authenticatedUserId is used to detect self-views; viewerId is only set
+    // for other authenticated users so the service knows who is viewing.
     let viewerId: string | null = null;
+    let authenticatedUserId: string | null = null;
     try {
       if (request.headers.authorization) {
         const decoded = (await request.jwtVerify()) as { id?: string };
-        viewerId = decoded?.id ?? null;
-      } else {
-        viewerId = null;
+        authenticatedUserId = decoded?.id ?? null;
+        viewerId = authenticatedUserId;
       }
     } catch {
-      // ignored
+      // ignored — treat as unauthenticated
     }
 
     try {
-      const result = await publicService.getPublicProfile(app, username, viewerId, request);
+      const result = await publicService.getPublicProfile(app, username, viewerId, request, authenticatedUserId);
       if (!result) {
         return reply.status(404).send({ error: 'User not found' });
       }
@@ -121,17 +117,19 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     const { username, cardId } = request.params;
 
     let viewerId: string | null = null;
+    let authenticatedUserId: string | null = null;
     try {
       if (request.headers.authorization) {
         const decoded = (await request.jwtVerify()) as { id?: string };
-        viewerId = decoded?.id ?? null;
+        authenticatedUserId = decoded?.id ?? null;
+        viewerId = authenticatedUserId;
       }
     } catch {
       // ignored
     }
 
     try {
-      const result = await publicService.getUserCard(app, username, cardId, viewerId, request);
+      const result = await publicService.getUserCard(app, username, cardId, viewerId, request, authenticatedUserId);
       if (result.notFound) {
         return reply.status(404).send({ error: 'User or card not found' });
       }
@@ -143,9 +141,6 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ─── QR Session ──────────────────────────────────────────────────────────
-  // Returns a short-lived signed JWT encoding the public profile snapshot.
-  // Intended for native apps to generate QR codes that remain scannable when
-  // the device has no live network connectivity (offline QR mode, spec §5.9).
   app.get('/:username/qr-session', {
     config: {
       rateLimit: {
@@ -157,7 +152,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     const { username } = request.params;
 
     try {
-      const result = await publicService.getPublicProfile(app, username, null, request);
+      const result = await publicService.getPublicProfile(app, username, null, request, null);
       if (!result) {
         return reply.status(404).send({ error: 'User not found' });
       }
@@ -178,7 +173,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
   app.get('/:username/qr', {
     config: {
       rateLimit: {
-        max: 50, // Lower limit for QR generation as it's more resource intensive
+        max: 50,
         timeWindow: '1 minute'
       }
     } as FastifyContextConfig
@@ -189,9 +184,6 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     const { username } = request.params;
     const format = (request.query as any).format || 'png';
 
-    // Parse and validate size before touching the DB or allocating any buffers.
-    // parseInt safely handles non-numeric strings (returns NaN) and ignores any
-    // trailing fractional part, so '400.9' → 400 which is within bounds.
     const rawSize = (request.query as any).size;
     const size = rawSize !== undefined ? parseInt(rawSize, 10) : 400;
 
@@ -201,7 +193,6 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    // Verify user exists
     const user = await app.prisma.user.findUnique({
       where: { username },
     });
