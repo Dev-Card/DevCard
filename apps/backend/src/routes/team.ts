@@ -4,10 +4,19 @@ import QRCode from 'qrcode';
 import { generateUniqueSlug } from '../utils/slug.js';
 import { createTeamScehma, inviteMembers, updateTeam } from '../validations/team.validation.js';
 
-import type { PlatformLink, PublicProfile } from '@devcard/shared';
+import type { PlatformLink } from '@devcard/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
-type TeamMember = PublicProfile & {
+type TeamMember = {
+  username: string;
+  displayName: string;
+  bio: string | null;
+  pronouns: string | null;
+  role: string | null;
+  company: string | null;
+  avatarUrl: string | null;
+  accentColor: string;
+  links: PlatformLink[];
   teamRole: TeamRole;
   joinedAt: Date;
 }
