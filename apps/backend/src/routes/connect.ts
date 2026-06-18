@@ -15,15 +15,15 @@ const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 // silently overwrite the other's access token.
 const GITHUB_FOLLOW_PLATFORM = 'github_follow';
 const GITHUB_AUTODISCOVER_CACHE_TTL = 3600;
+const NONCE_TTL = 600; // 10 minutes
 
 interface OAuthCallbackQuery {
   code: string;
   state?: string;
 }
 
-interface ParsedOAuthState {
+interface StoredConnectNonce {
   userId: string;
-  nonce: string;
 }
 
 export async function connectRoutes(app: FastifyInstance): Promise<void> {
@@ -58,27 +58,24 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
     }],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
-    const nonce = generateState();
+    const nonce = randomBytes(32).toString('hex');
 
-    // Store nonce in Redis with 10-minute TTL.
-    // The callback verifies this to prevent CSRF attacks.
     await app.redis.set(
-      `oauth:nonce:${nonce}`,
-      userId,
+      `oauth:connect-nonce:${nonce}`,
+      JSON.stringify({ userId } satisfies StoredConnectNonce),
       'EX',
-      600
+      NONCE_TTL
     );
-
-    const state = JSON.stringify({ userId, nonce });
 
     const redirectUri = `${process.env.BACKEND_URL}/api/connect/github/callback`;
     const params = new URLSearchParams({
-      client_id: process.env.GITHUB_CLIENT_ID || '',
+      client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
       redirect_uri: redirectUri,
       scope: 'user:follow',
-      state: Buffer.from(state).toString('base64'),
+      state: nonce,
     });
 
+    app.log.debug({ provider: 'github', userId }, 'OAuth connect redirect initiated');
     return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
   });
 
@@ -89,30 +86,42 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=missing_params`);
     }
 
+    const nonce = parseNonce(state);
+    if (!nonce) {
+      app.log.warn({}, 'OAuth connect state validation failed: malformed state');
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+    }
+
+    // Atomically consume the nonce — closes the replay TOCTOU window
+    let storedRaw: string | null;
     try {
-      // Decode state to find which user requested the connect
-      const decodedState = parseOAuthState(state);
+      storedRaw = await app.redis.getdel(`oauth:connect-nonce:${nonce}`);
+    } catch (err: unknown) {
+      app.log.error({ err: getErrorMessage(err) }, 'Redis unavailable during OAuth callback');
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
+    }
 
-      if (!decodedState) {
-        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
-      }
+    if (!storedRaw) {
+      app.log.warn({}, 'OAuth connect state validation failed: unknown or expired nonce');
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+    }
 
-      // Verify nonce was issued by this server -- prevents CSRF
-      const storedUserId = app.redis ? await app.redis.get(`oauth:nonce:${decodedState.nonce}`) : null;
+    let stored: StoredConnectNonce;
+    try {
+      stored = JSON.parse(storedRaw);
+    } catch {
+      app.log.warn({}, 'OAuth connect state validation failed: corrupt nonce data');
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+    }
 
-      if (app.redis && (!storedUserId || storedUserId !== decodedState.userId)) {
-        app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed: nonce mismatch');
-        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
-      }
+    if (typeof stored.userId !== 'string' || !stored.userId) {
+      app.log.warn({}, 'OAuth connect state validation failed: invalid stored nonce data');
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+    }
 
-      // Consume the nonce -- one-time use only (if redis configured)
-      if (app.redis) {
-        await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
-      }
+    const userId = stored.userId;
 
-      const userId = decodedState.userId;
-
-      // Exchange code for token
+    try {
       const tokenRes = await fetch(GITHUB_TOKEN_URL, {
         method: 'POST',
         headers: {
@@ -120,8 +129,8 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
           Accept: 'application/json',
         },
         body: JSON.stringify({
-          client_id: process.env.GITHUB_CLIENT_ID,
-          client_secret: process.env.GITHUB_CLIENT_SECRET,
+          client_id: (process.env.GITHUB_CLIENT_ID || '').trim(),
+          client_secret: (process.env.GITHUB_CLIENT_SECRET || '').trim(),
           code,
           redirect_uri: `${process.env.BACKEND_URL}/api/connect/github/callback`,
         }),
@@ -130,7 +139,7 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
       const tokenData = (await tokenRes.json()) as any;
 
       if (tokenData.error) {
-        app.log.error('GitHub connect token error:', tokenData);
+        app.log.error({ tokenError: tokenData.error }, 'GitHub connect token error');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
@@ -157,12 +166,6 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
           scopes: tokenData.scope || 'user:follow',
         },
       });
-
-      // Redirect back to app settings
-      // If mobile, use custom scheme
-      if (decodedState.nonce.startsWith('mobile_')) {
-        return reply.redirect(`${process.env.MOBILE_REDIRECT_URI}?connected=github`);
-      }
 
       return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=github`);
 
@@ -294,18 +297,16 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
   });
 }
 
-function parseOAuthState(state: string): ParsedOAuthState | null {
-  try {
-    const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
-
-    // validating the OAuth state structure which is expected
-    if (typeof decoded.userId !== "string" || typeof decoded.nonce !== "string") {
-      return null;
-    }
-    return decoded;
-  } catch {
+// State must be exactly 64 lowercase hex chars (32 random bytes).
+// Returns null for any malformed input — caller must reject.
+function parseNonce(state: string): string | null {
+  if (!state) {
     return null;
   }
+  if (!/^[0-9a-f]{64}$/.test(state)) {
+    return null;
+  }
+  return state;
 }
 
 function buildGitHubDiscoverySuggestions(user: {
@@ -376,8 +377,4 @@ function parseBlogUrl(value: string): URL | null {
       return null;
     }
   }
-}
-
-function generateState(): string {
-  return randomBytes(32).toString('hex');
 }
