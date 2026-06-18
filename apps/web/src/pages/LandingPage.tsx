@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import './LandingPage.css';
@@ -24,6 +25,24 @@ const features = [
 ];
 
 export default function LandingPage() {
+    useEffect(() => {
+    const elements = document.querySelectorAll('.reveal');
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
   return (
     <>
       <div className="bg-glow" />
@@ -56,10 +75,8 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="features" id="features-section">
-          {features.map((f, i) => (
-            <article className="feature-card" key={i} id={`feature-card-${i}`}>
-              <div className="feature-icon">{f.icon}</div>
+<section className="features reveal" id="features-section">          {features.map((f, i) => (
+<article className="feature-card reveal" key={i} id={`feature-card-${i}`}>              <div className="feature-icon">{f.icon}</div>
               <h3>{f.title}</h3>
               <p>{f.description}</p>
             </article>
