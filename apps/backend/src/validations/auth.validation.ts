@@ -13,10 +13,3 @@ export const oAuthStartSchema = z.object({
 });
 
 export type OAuthStartQuery = z.infer<typeof oAuthStartSchema>;
-
-export const oAuthCallbackSchema = z.object({
-  code: z.string().trim().min(1, 'Authorization code is required'),
-  state: z.string().trim().min(1, 'State parameter is required'),
-});
-
-export type OAuthCallbackQuery = z.infer<typeof oAuthCallbackSchema>;

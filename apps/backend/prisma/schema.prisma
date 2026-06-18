@@ -95,19 +95,40 @@ model PlatformLink {
   @@map("platform_links")
 }
 
+enum CardVisibility {
+  PUBLIC    // Anyone can view the card
+  UNLISTED  // Anyone with the link can view, but not publicly listed
+  PRIVATE   // Only the card owner can view
+}
+
 model Card {
   id        String     @id @default(uuid())
   userId    String     @map("user_id")
+
   title     String
+  description String? 
+
+  slug    String @unique
+
+  visibility CardVisibility @default(PUBLIC)
+
+  qrEnabled Boolean    @default(true)
+
+  viewCount Int @default(0)
+
   isDefault Boolean    @default(false) @map("is_default")
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
   cardLinks CardLink[]
   views     CardView[]
+  
 
   @@map("cards")
+  @@index([userId])
+  @@index([viewCount])
 }
 
 model CardLink {
@@ -145,7 +166,7 @@ model CardView {
   cardId      String?  @map("card_id")       // null = default profile view
   ownerId     String   @map("owner_id")      // card/profile owner
   viewerId    String?  @map("viewer_id")     // null = anonymous web viewer
-  viewerIp    String?  @map("viewer_ip")
+  viewerIp    String?  @map("viewer_ip")     //hashed
   viewerAgent String?  @map("viewer_agent")
   source      String   @default("qr")        // "qr" | "link" | "web" | "app"
   createdAt   DateTime @default(now()) @map("created_at")
@@ -155,6 +176,8 @@ model CardView {
   viewer  User? @relation("cardViewer", fields: [viewerId], references: [id], onDelete: SetNull)
 
   @@map("card_views")
+  @@index([cardId])
+  @@index([ownerId])
 }
 
 model FollowLog {
