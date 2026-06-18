@@ -22,6 +22,7 @@ const MOCK_USER_ID = 'user-001';
 // ─── Prisma mock ─────────────────────────────────────────────────────────────
 
 const prismaMock = {
+  $queryRaw: vi.fn(),
   cardView: {
     count: vi.fn(),
     findMany: vi.fn(),
@@ -48,8 +49,12 @@ async function buildApp(): Promise<FastifyInstance> {
 
   app.decorateRequest(
     'jwtVerify',
-    function () {
-      return mockJwtVerify();
+    async function (this: any) {
+      const payload = await mockJwtVerify();
+      if (payload) {
+        this.user = payload;
+      }
+      return payload;
     }
   );
 
@@ -157,20 +162,11 @@ describe(
               ]
             );
 
-            prismaMock.cardView.groupBy.mockResolvedValue(
+            prismaMock.$queryRaw.mockResolvedValue(
               [
                 {
-                  viewerId:
-                    'u1',
-                  viewerIp:
-                    null,
-                },
-                {
-                  viewerId:
-                    'u2',
-                  viewerIp:
-                    null,
-                },
+                  count: 2n
+                }
               ]
             );
 

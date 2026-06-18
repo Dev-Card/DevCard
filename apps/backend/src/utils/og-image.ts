@@ -41,14 +41,94 @@ function sanitizeHexColor(color: string): string {
 }
 
 // ── Avatar fetch ──────────────────────────────────────────────────────────────
-// Only HTTPS URLs are fetched (SSRF guard). A 3-second AbortController
-// timeout prevents blocking the HTTP response. Returns null on any failure
-// so the caller renders the initials fallback instead.
+// Only HTTPS URLs are fetched, and hostnames are validated against private/local
+// IP ranges (SSRF guard). A 3-second AbortController timeout prevents blocking
+// the HTTP response. The download size is capped to prevent unbounded memory
+// allocation. Returns null on any failure so the caller renders the initials fallback instead.
+
+export function isSafeAvatarUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:') {
+      return false;
+    }
+    const hostname = parsed.hostname.toLowerCase();
+
+    if (hostname === 'localhost') {
+      return false;
+    }
+
+    if (hostname.endsWith('.local') || hostname.endsWith('.internal')) {
+      return false;
+    }
+
+    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const ipv4Match = hostname.match(ipv4Regex);
+    if (ipv4Match) {
+      const octets = ipv4Match.slice(1).map(Number);
+      if (octets.some(o => o < 0 || o > 255)) {
+        return false;
+      }
+      const [o1, o2] = octets;
+      // 127.0.0.0/8 - Loopback
+      if (o1 === 127) {
+        return false;
+      }
+      // 10.0.0.0/8 - Private
+      if (o1 === 10) {
+        return false;
+      }
+      // 172.16.0.0/12 - Private
+      if (o1 === 172 && (o2 >= 16 && o2 <= 31)) {
+        return false;
+      }
+      // 192.168.0.0/16 - Private
+      if (o1 === 192 && o2 === 168) {
+        return false;
+      }
+      // 169.254.0.0/16 - Link-local
+      if (o1 === 169 && o2 === 254) {
+        return false;
+      }
+      // 0.0.0.0/8 - Broadcast / local
+      if (o1 === 0) {
+        return false;
+      }
+    }
+
+    if (hostname.includes(':')) {
+      const cleanIp = hostname.startsWith('[') && hostname.endsWith(']')
+        ? hostname.slice(1, -1)
+        : hostname;
+
+      const normalized = cleanIp.toLowerCase();
+      if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') {
+        return false;
+      }
+      if (normalized.startsWith('fe80') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb')) {
+        return false;
+      }
+      if (normalized.startsWith('fc') || normalized.startsWith('fd')) {
+        return false;
+      }
+      if (normalized.startsWith('::ffff:')) {
+        const mappedIpv4 = normalized.slice(7);
+        return isSafeAvatarUrl(`https://${mappedIpv4}`);
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function fetchAvatarBase64(
   url: string,
 ): Promise<{ data: string; mimeType: string } | null> {
-  if (!url.startsWith('https://')) {return null;}
+  if (!isSafeAvatarUrl(url)) {
+    return null;
+  }
 
   try {
     const controller = new AbortController();
@@ -58,13 +138,59 @@ async function fetchAvatarBase64(
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
 
-    if (!response.ok) {return null;}
+    if (!response.ok) {
+      return null;
+    }
 
     const rawContentType = response.headers.get('content-type') ?? 'image/jpeg';
     const mimeType = rawContentType.split(';')[0].trim();
-    if (!mimeType.startsWith('image/')) {return null;}
+    if (!mimeType.startsWith('image/')) {
+      return null;
+    }
 
-    const arrayBuffer = await response.arrayBuffer();
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) {
+      const parsedLength = parseInt(contentLength, 10);
+      if (Number.isInteger(parsedLength) && parsedLength > MAX_SIZE) {
+        return null;
+      }
+    }
+
+    let arrayBuffer: ArrayBuffer;
+    if (response.body && typeof response.body.getReader === 'function') {
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let receivedLength = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        if (value) {
+          receivedLength += value.length;
+          if (receivedLength > MAX_SIZE) {
+            await reader.cancel().catch(() => {});
+            return null;
+          }
+          chunks.push(value);
+        }
+      }
+      const combined = new Uint8Array(receivedLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.length;
+      }
+      arrayBuffer = combined.buffer;
+    } else {
+      // Fallback
+      arrayBuffer = await response.arrayBuffer();
+      if (arrayBuffer.byteLength > MAX_SIZE) {
+        return null;
+      }
+    }
+
     return { data: Buffer.from(arrayBuffer).toString('base64'), mimeType };
   } catch {
     return null;

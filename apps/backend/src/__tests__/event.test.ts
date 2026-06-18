@@ -15,6 +15,10 @@ const MOCK_EVENT = {
   description: 'Annual DevCard conference',
   location: 'San Francisco, CA',
   organizerId: MOCK_USER_ID,
+  organizer: {
+    username: 'johndoe',
+    displayName: 'John Doe',
+  },
   startDate: new Date('2025-09-01T09:00:00Z'),
   endDate: new Date('2025-09-02T18:00:00Z'),
   isPublic: true,
@@ -74,8 +78,12 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Decorate jwtVerify on the request prototype so request.jwtVerify() resolves
   // to whatever the current test wants.
-  app.decorateRequest('jwtVerify', function () {
-    return mockJwtVerify();
+  app.decorateRequest('jwtVerify', async function (this: any) {
+    const payload = await mockJwtVerify();
+    if (payload) {
+      this.user = payload;
+    }
+    return payload;
   });
 
   // Register with the same prefix used in production (app.ts) so that

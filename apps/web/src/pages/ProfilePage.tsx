@@ -13,53 +13,6 @@ const platformColors: Record<string, string> = {
   telegram: '#26A5E4', email: '#EA4335', portfolio: '#6366F1', custom: '#8B5CF6',
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
-const APP_BASE_URL = import.meta.env.VITE_APP_URL ?? window.location.origin;
-const MANAGED_META_SELECTOR = 'meta[data-devcard-profile-meta], link[data-devcard-profile-meta]';
-
-function buildMetaDescription(profile: PublicProfile): string {
-  const platformCount = profile.links.length;
-  const platformSummary = platformCount === 1 ? '1 platform' : `${platformCount} platforms`;
-  const fallback = `${profile.displayName}'s developer profile with ${platformSummary} connected on DevCard.`;
-
-  if (!profile.bio) return fallback;
-  return `${profile.bio} ${platformSummary} connected on DevCard.`;
-}
-
-function upsertMetaTag(attribute: 'name' | 'property', key: string, content: string): void {
-  let element = document.head.querySelector<HTMLMetaElement>(
-    `meta[data-devcard-profile-meta][${attribute}="${key}"]`,
-  );
-
-  if (!element) {
-    element = document.createElement('meta');
-    element.setAttribute(attribute, key);
-    document.head.appendChild(element);
-  }
-
-  element.dataset.devcardProfileMeta = 'true';
-  element.content = content;
-}
-
-function upsertCanonicalLink(href: string): void {
-  let element = document.head.querySelector<HTMLLinkElement>(
-    'link[data-devcard-profile-meta][rel="canonical"]',
-  );
-
-  if (!element) {
-    element = document.createElement('link');
-    element.rel = 'canonical';
-    document.head.appendChild(element);
-  }
-
-  element.dataset.devcardProfileMeta = 'true';
-  element.href = href;
-}
-
-function clearManagedProfileMeta(): void {
-  document.head.querySelectorAll(MANAGED_META_SELECTOR).forEach((element) => element.remove());
-}
-
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
@@ -106,51 +59,19 @@ export default function ProfilePage() {
   }
 
   useEffect(() => {
-    clearManagedProfileMeta();
-
-    if (!username) return;
-
-    const canonicalUrl = `${APP_BASE_URL}/u/${username}`;
-    const ogImageUrl = `${API_BASE_URL}/api/u/${username}/og-image`;
-
-    if (!profile) {
-      if (error) {
-        document.title = 'User Not Found | DevCard';
-        upsertMetaTag('name', 'description', 'DevCard developer profile.');
-        upsertCanonicalLink(canonicalUrl);
-      }
+    if (error) {
+      document.title = 'User Not Found | DevCard';
       return;
     }
 
-    const title = `${profile.displayName} | DevCard`;
-    const description = buildMetaDescription(profile);
-
-    document.title = title;
-    upsertMetaTag('name', 'description', description);
-    upsertCanonicalLink(canonicalUrl);
-
-    upsertMetaTag('property', 'og:type', 'profile');
-    upsertMetaTag('property', 'og:url', canonicalUrl);
-    upsertMetaTag('property', 'og:title', title);
-    upsertMetaTag('property', 'og:description', description);
-    upsertMetaTag('property', 'og:image', ogImageUrl);
-    upsertMetaTag('property', 'og:image:width', '1200');
-    upsertMetaTag('property', 'og:image:height', '630');
-    upsertMetaTag('property', 'og:site_name', 'DevCard');
-
-    upsertMetaTag('name', 'twitter:card', 'summary');
-    upsertMetaTag('name', 'twitter:site', '@devcard');
-    upsertMetaTag('name', 'twitter:title', title);
-    upsertMetaTag('name', 'twitter:description', description);
-    upsertMetaTag('name', 'twitter:image', ogImageUrl);
-
-    return clearManagedProfileMeta;
+    if (profile) {
+      document.title = `${profile.displayName} | DevCard`;
+    }
   }, [profile, error, username]);
 
   useEffect(() => {
     return () => {
       document.title = 'DevCard';
-      clearManagedProfileMeta();
     };
   }, []);
 

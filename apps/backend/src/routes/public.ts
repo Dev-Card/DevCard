@@ -6,9 +6,6 @@ import { generateOgImage } from '../utils/og-image.js';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 
 import type { PlatformLink } from '@devcard/shared';
-import * as publicService from '../services/publicService';
-import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
-
 import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 // ── QR size bounds ────────────────────────────────────────────────────────────
@@ -17,8 +14,6 @@ import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyRepl
 // unbounded memory allocation in the QR rasteriser.
 const MIN_QR_SIZE = 1;
 const MAX_QR_SIZE = 2048;
-
-const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60';
 
 // Represents a CardLink record with the joined PlatformLink relation
 interface CardLinkWithPlatform {
@@ -63,15 +58,6 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
-      const result = await publicService.getPublicProfile(app, username, viewerId, request)
-      if (!result) {
-        return reply.status(404).send({ error: 'User not found' })
-      }
-      reply.header('X-Cache', result.cached ? 'HIT' : 'MISS').header('Cache-Control', CACHE_CONTROL_HEADER)
-      return result.data
-    } catch (err: unknown) {
-      app.log.error({ err }, 'Failed to fetch public profile')
-      return reply.status(500).send({ error: 'Internal server error' })
       const result = await publicService.getPublicProfile(app, username, viewerId, request);
       if (!result) {
         return reply.status(404).send({ error: 'User not found' });
@@ -102,15 +88,6 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     const { cardId } = request.params;
 
     try {
-      const card = await publicService.getCardById(app, cardId)
-      if (!card) {
-        return reply.status(404).send({ error: 'Card not found' })
-      }
-      const response = { id: card.id, title: card.title, owner: { username: card.user.username, displayName: card.user.displayName, bio: card.user.bio, avatarUrl: card.user.avatarUrl, accentColor: card.user.accentColor }, links: card.cardLinks.map((cl: CardLinkWithPlatform) => ({ id: cl.platformLink.id, platform: cl.platformLink.platform, username: cl.platformLink.username, url: cl.platformLink.url })) }
-      return response
-    } catch (err: unknown) {
-      app.log.error({ err }, 'Failed to fetch shared card')
-      return reply.status(500).send({ error: 'Internal server error' })
       const card = await publicService.getCardById(app, cardId);
       if (!card) {
         return reply.status(404).send({ error: 'Card not found' });
@@ -125,7 +102,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
           avatarUrl: card.user.avatarUrl,
           accentColor: card.user.accentColor,
         },
-        links: card.cardLinks.map((cl: any) => ({
+        links: card.cardLinks.map((cl: CardLinkWithPlatform) => ({
           id: cl.platformLink.id,
           platform: cl.platformLink.platform,
           username: cl.platformLink.username,
@@ -166,14 +143,6 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
-      const result = await publicService.getUserCard(app, username, cardId, viewerId, request)
-      if (result.notFound) {
-        return reply.status(404).send({ error: 'User or card not found' })
-      }
-      return result.data
-    } catch (err: unknown) {
-      app.log.error({ err }, 'Failed to fetch user card')
-      return reply.status(500).send({ error: 'Internal server error' })
       const result = await publicService.getUserCard(app, username, cardId, viewerId, request);
       if (result.notFound) {
         return reply.status(404).send({ error: 'User or card not found' });
@@ -198,21 +167,6 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     } as FastifyContextConfig
   }, async (request: FastifyRequest<{ Params: { username: string } }>, reply: FastifyReply) => {
     const { username } = request.params;
-    try {
-      const result = await publicService.getPublicProfile(app, username, null, request)
-      if (!result) {
-        return reply.status(404).send({ error: 'User not found' })
-      }
-      const snapshot = result.data
-      const expiresIn = 600
-      const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString()
-      const token = app.jwt.sign({ profile: snapshot, sub: username }, { expiresIn: '10m' })
-      reply.header('Cache-Control', CACHE_CONTROL_HEADER)
-      return { token, tokenType: 'JWT', expiresIn, expiresAt }
-    } catch (err: unknown) {
-      app.log.error({ err }, 'Failed to create qr-session')
-      return reply.status(500).send({ error: 'Internal server error' })
-
     try {
       const result = await publicService.getPublicProfile(app, username, null, request);
       if (!result) {

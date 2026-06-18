@@ -10,6 +10,7 @@ type EventDetails = {
     slug: string;
     location: string;
     description: string | null;
+    organizerId: string;
     organizerUsername: string;
     organizerDisplayName: string;
     startDate: Date;
@@ -42,7 +43,7 @@ type PaginatedAttendeesResponse = {
 type EventWithAttendees = {
   _count: {
     attendees: number;
-  };
+  } | undefined;
   attendees: {
     user: {
       id: string;
@@ -142,6 +143,7 @@ export async function eventRoutes(app:FastifyInstance) {
             slug: details.slug,
             description: details.description,
             location: details.location,
+            organizerId: details.organizerId,
             organizerUsername: details.organizer.username,
             organizerDisplayName: details.organizer.displayName,
             startDate: details.startDate,
@@ -276,7 +278,7 @@ export async function eventRoutes(app:FastifyInstance) {
             pagination: {
                 page, 
                 limit, 
-                total : event._count.attendees,
+                total : event._count?.attendees ?? attendees.length,
             }
         }
 

@@ -18,6 +18,7 @@ import { connectRoutes } from './routes/connect.js';
 import { eventRoutes } from './routes/event.js';
 import { followRoutes } from './routes/follow.js';
 import { nfcRoutes } from './routes/nfc.js';
+import { profilePageRoutes } from './routes/profilePage.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
 import { teamRoutes } from './routes/team.js';
@@ -141,6 +142,7 @@ export async function buildApp():Promise<FastifyInstance> {
   await app.register(nfcRoutes, { prefix: '/api/nfc' });
   await app.register(eventRoutes, {prefix: '/api/events'})
   await app.register(teamRoutes, {prefix: '/api/teams'})
+  await app.register(profilePageRoutes)
 
 
   // ─── Health Check ───
