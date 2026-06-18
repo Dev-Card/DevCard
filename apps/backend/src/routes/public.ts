@@ -1,4 +1,4 @@
-import * as publicService from '../services/publicService';
+import * as publicService from '../services/publicService.js';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 
 import type { FastifyContextConfig, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
