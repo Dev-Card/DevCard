@@ -29,14 +29,7 @@ interface ParsedOAuthState {
 export async function connectRoutes(app: FastifyInstance): Promise<void> {
   // ─── Status ───
 
-  app.get('/status', {
-    preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
-    }],
-  }, async (request: FastifyRequest, _reply: FastifyReply) => {
+  app.get('/status',{preHandler: [(req, reply) => app.authenticate(req, reply)]}, async (request: FastifyRequest, _reply: FastifyReply) => {
     const userId = (request.user as any).id;
 
     const tokens = await app.prisma.oAuthToken.findMany({
@@ -49,14 +42,7 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── GitHub Connect ───
 
-  app.get('/github', {
-    preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
-    }],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/github',{preHandler: [(req, reply) => app.authenticate(req, reply)]}, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const nonce = generateState();
 
@@ -173,14 +159,7 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
-  app.get('/github/autodiscover', {
-    preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
-    }],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/github/autodiscover',{preHandler: [(req, reply) => app.authenticate(req, reply)]}, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const cacheKey = `github:autodiscover:${userId}`;
 
@@ -262,14 +241,7 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Disconnect ───
 
-  app.delete('/:platform', {
-    preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
-    }],
-  }, async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
+  app.delete<{ Params: { platform: string } }>('/:platform', {preHandler: [(req, reply) => app.authenticate(req, reply)]}, async (request, reply) => {
     const userId = (request.user as any).id;
     const { platform } = request.params;
 
