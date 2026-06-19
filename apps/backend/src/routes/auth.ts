@@ -2,7 +2,7 @@ import { handleDbError, isGitHubTokenError, isGoogleTokenError } from '../utils/
 import { extractRawJwt, blocklistKey, signAccessToken  } from '../utils/jwt.js';
 import { buildOAuthState, getMobileRedirectUri } from '../utils/oauth.js';
 import { generateRefreshToken, hashIp, hashRefreshToken } from '../utils/refreshToken.js';
-import { oAuthStartSchema } from '../validations/auth.validation.js';
+import { oAuthCallbackSchema, oAuthStartSchema } from '../validations/auth.validation.js';
 
 import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
 import type { OAuthCallbackQuery, OAuthStartQuery } from '../validations/auth.validation.js';
@@ -94,17 +94,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // GitHub OAuth callback
   app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
-    //TODO: Add zod validation here
-    const { code, state } = request.query;
     const storedState = request.cookies?.oauth_state;
-    if (!state || !storedState || state !== storedState) {
+    const parsed = oAuthCallbackSchema.safeParse(request.query);
+    if (!parsed.success) {
+      reply.clearCookie('oauth_state', { path: '/' });
+      return reply.status(400).send({ error: 'Invalid callback parameters' });
+    }
+    const { code, state } = parsed.data;
+    if (!storedState || state !== storedState) {
+      reply.clearCookie('oauth_state', { path: '/' });
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
     reply.clearCookie('oauth_state', { path: '/' });
-
-    if (!code) {
-      return reply.status(400).send({ error: 'Missing authorization code' });
-    }
 
     try {
       const tokenRes = await fetch(GITHUB_TOKEN_URL, {
@@ -312,18 +313,19 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // Google callback
   app.get('/google/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
-    //TODO: Add zod validation here
-    const { code, state } = request.query;
-
     const storedState = request.cookies?.oauth_state;
-    if (!state || !storedState || state !== storedState) {
+    const parsed = oAuthCallbackSchema.safeParse(request.query);
+    if (!parsed.success) {
+      reply.clearCookie('oauth_state', { path: '/' });
+      return reply.status(400).send({ error: 'Invalid callback parameters' });
+    }
+    const { code, state } = parsed.data;
+
+    if (!storedState || state !== storedState) {
+      reply.clearCookie('oauth_state', { path: '/' });
       return reply.status(400).send({ error: 'Invalid or missing OAuth state — possible CSRF attack' });
     }
     reply.clearCookie('oauth_state', { path: '/' });
-
-    if (!code) {
-      return reply.status(400).send({ error: 'Missing authorization code' });
-    }
 
     try {
       const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
