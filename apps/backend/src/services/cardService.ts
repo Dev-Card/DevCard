@@ -5,6 +5,15 @@ type CardLinkResponse = { platformLink: unknown };
 type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
 export type CardResponse = { id: string; title: string; isDefault: boolean; links: unknown[] };
 
+function isP2034(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: string }).code === 'P2034'
+  );
+}
+
 function mapCard(card: RawCard): CardResponse {
   return {
     id: card.id,
@@ -165,10 +174,31 @@ export async function setDefaultCard(app: FastifyInstance, userId: string, id: s
     return null;
   }
 
-  await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    await tx.card.updateMany({ where: { userId }, data: { isDefault: false } });
-    await tx.card.update({ where: { id }, data: { isDefault: true } });
-  });
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await app.prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          await tx.card.updateMany({ where: { userId }, data: { isDefault: false } });
+          await tx.card.update({ where: { id }, data: { isDefault: true } });
+        },
+        { isolationLevel: 'Serializable' },
+      );
 
-  return { message: 'Default card updated' };
+      return { message: 'Default card updated' };
+    } catch (error: unknown) {
+      if (isP2034(error)) {
+        if (attempt < maxRetries) {
+          continue;
+        }
+        app.log.error(error);
+        break; // exhausted — fall through to the generic Error below
+      }
+
+      app.log.error(error);
+      throw error;
+    }
+  }
+
+  throw new Error('Failed to set default card after retrying serialization conflicts');
 }
