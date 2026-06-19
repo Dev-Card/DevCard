@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createEventSchema, joinEventSchema} from '../validations/event.validation';
+import { createEventSchema, joinEventSchema} from '../validations/event.validation.js';
 
-import {generateUniqueSlug} from '../utils/slug'
+import {generateUniqueSlug} from '../utils/slug.js'
 
 
 type EventDetails = {

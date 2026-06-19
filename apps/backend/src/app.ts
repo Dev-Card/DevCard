@@ -7,7 +7,7 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import Fastify, {type FastifyInstance} from 'fastify';
+import Fastify, {type FastifyInstance, type FastifyReply, type FastifyRequest} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
@@ -24,6 +24,8 @@ import { publicRoutes } from './routes/public.js';
 import { teamRoutes } from './routes/team.js';
 import { extractRawJwt, blocklistKey } from './utils/jwt.js';
 import { validateEnv } from './utils/validateEnv.js';
+
+import type { AuthenticatedUser } from './types/fastify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -105,7 +107,7 @@ export async function buildApp():Promise<FastifyInstance> {
   // Checks the Redis blocklist before calling jwtVerify so that a logged-out
   // token is rejected immediately even if it has not yet expired.
   // The blocklist check is skipped when Redis is not registered (test env).
-  app.decorate('authenticate', async function (request: any, reply: any) {
+  app.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
     try {
       if (app.hasDecorator('redis')) {
         const raw = extractRawJwt(request);
@@ -123,7 +125,7 @@ export async function buildApp():Promise<FastifyInstance> {
         }
       }
       // Assign verified payload to request.user (upstream addition).
-      const payload = await request.jwtVerify();
+      const payload = await request.jwtVerify<AuthenticatedUser>();
       if (payload) { request.user = payload; }
     } catch (_err) {
       return reply.status(401).send({ error: 'Unauthorized' });

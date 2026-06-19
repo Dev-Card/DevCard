@@ -45,7 +45,7 @@ export default function LandingPage() {
               Get Started Free
             </Link>
             <a
-              href="https://github.com/ShantKhatri/DevCard"
+              href="https://github.com/Dev-Card/DevCard"
               target="_blank"
               rel="noopener noreferrer"
               className="btn-secondary"
@@ -70,7 +70,7 @@ export default function LandingPage() {
           <p>
             Built with ❤️ by the{' '}
             <a
-              href="https://github.com/ShantKhatri/DevCard"
+              href="https://github.com/Dev-Card/DevCard"
               target="_blank"
               rel="noopener noreferrer"
               className="gradient-text"

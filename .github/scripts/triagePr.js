@@ -10,7 +10,7 @@ module.exports = async ({github, context}) => {
     const mobileFiles = []; 
     const devopsFiles = []; 
 
-    const labels = []; 
+    const labels = ['gssoc:approved']; 
     let primaryArea = null;
     let reviewer = null; 
 

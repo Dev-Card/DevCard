@@ -31,7 +31,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('devcard-theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+const toggleTheme = () => {
+  const root = document.documentElement;
+  root.classList.add('theme-transitioning');
+  const cleanup = () => root.classList.remove('theme-transitioning');
+  window.setTimeout(cleanup, 400);
+  root.addEventListener('transitionend', cleanup, { once: true });
+  setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+};
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

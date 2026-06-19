@@ -1,8 +1,8 @@
 import {Prisma, TeamRole } from '@prisma/client';
 import QRCode from 'qrcode'
 
-import {generateUniqueSlug} from '../utils/slug'
-import { createTeamScehma,inviteMembers,updateTeam } from '../validations/team.validation';
+import {generateUniqueSlug} from '../utils/slug.js'
+import { createTeamScehma,inviteMembers,updateTeam } from '../validations/team.validation.js';
 
 import type {PlatformLink, PublicProfile} from '@devcard/shared'
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
