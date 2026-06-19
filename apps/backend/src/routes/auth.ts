@@ -5,7 +5,7 @@ import { generateRefreshToken, hashIp, hashRefreshToken } from '../utils/refresh
 import { oAuthStartSchema } from '../validations/auth.validation.js';
 
 import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
-import type { OAuthStartQuery } from '../validations/auth.validation.js';
+import type { OAuthCallbackQuery, OAuthStartQuery } from '../validations/auth.validation.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 interface GitHubEmailResponse {
@@ -20,11 +20,6 @@ const GITHUB_USER_URL = 'https://api.github.com/user';
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USER_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
-
-interface OAuthCallbackQuery {
-  code: string;
-  state?: string;
-}
 
 interface GoogleUser {
   id: string;
