@@ -1,4 +1,4 @@
-import * as cardService from '../services/cardService'
+import * as cardService from '../services/cardService.js'
 import { handleDbError } from '../utils/error.util.js';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 
