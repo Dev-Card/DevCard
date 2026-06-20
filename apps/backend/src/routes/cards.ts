@@ -80,10 +80,17 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     try {
       const card = await cardService.createCard(app, userId, parsed.data)
       return reply.status(201).send(card)
-    }  catch (error: unknown)  {
-      if (error?.code === 'OWNERSHIP') {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
-      return handleDbError(error, request, reply)
-    }
+    } catch (error: unknown) {
+        const err = error as { code?: string };
+
+        if (err.code === 'OWNERSHIP') {
+          return reply.status(403).send({
+            error: 'One or more links do not belong to your account',
+          });
+        }
+
+        return handleDbError(error, request, reply);
+      }
   });
 
   // ─── Update Card ───
@@ -98,10 +105,17 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       const updated = await cardService.updateCard(app, userId, id, parsed.data)
       if (!updated) {return reply.status(404).send({ error: 'Card not found' })}
       return updated
-    }  catch (error: unknown)  {
-      if (error?.code === 'OWNERSHIP') {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
-      return handleDbError(error, request, reply)
-    }
+    } catch (error: unknown) {
+        const err = error as { code?: string };
+
+        if (err.code === 'OWNERSHIP') {
+          return reply.status(403).send({
+            error: 'One or more links do not belong to your account',
+          });
+        }
+
+        return handleDbError(error, request, reply);
+      }
   });
 
   // ─── Delete Card ───
@@ -114,17 +128,20 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       await cardService.deleteCard(app, userId, id)
       return reply.status(204).send()
     } catch (error: unknown) {
-        if (error?.code === 'NOT_FOUND') {
+        const err = error as { code?: string };
+
+        if (err.code === 'NOT_FOUND') {
           return reply.status(404).send({ error: 'Card not found' });
         }
 
-        if (error?.code === 'LAST_CARD') {
+        if (err.code === 'LAST_CARD') {
           return reply.status(400).send({
             error: 'Cannot delete the last remaining card. A user must have at least one card.',
           });
         }
-      return handleDbError(error, request, reply)
-    }
+
+        return handleDbError(error, request, reply);
+      }
   });
 
   // ─── Set Default Card ───
