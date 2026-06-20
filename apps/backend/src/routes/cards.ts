@@ -50,11 +50,11 @@ interface _CardWithLinks {
 
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', async (request, reply) => {
-    const server = request.server as any;
-    if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-    if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-    try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
-  });
+  const server = request.server;
+  if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+  if (typeof app.authenticate === 'function') { await app.authenticate(request, reply); return }
+  try { await request.jwtVerify() } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
+});
 
   // ─── List Cards ───
 
@@ -80,7 +80,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     try {
       const card = await cardService.createCard(app, userId, parsed.data)
       return reply.status(201).send(card)
-    } catch (error: any) {
+    }  catch (error: unknown)  {
       if (error?.code === 'OWNERSHIP') {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
       return handleDbError(error, request, reply)
     }
@@ -98,7 +98,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       const updated = await cardService.updateCard(app, userId, id, parsed.data)
       if (!updated) {return reply.status(404).send({ error: 'Card not found' })}
       return updated
-    } catch (error: any) {
+    }  catch (error: unknown)  {
       if (error?.code === 'OWNERSHIP') {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
       return handleDbError(error, request, reply)
     }
@@ -113,7 +113,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     try {
       await cardService.deleteCard(app, userId, id)
       return reply.status(204).send()
-    } catch (error:any) {
+    } catch (error: unknown) {
         if (error?.code === 'NOT_FOUND') {
           return reply.status(404).send({ error: 'Card not found' });
         }
