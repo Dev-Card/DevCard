@@ -10,6 +10,10 @@ import {
   Share,
   Platform,
   PermissionsAndroid,
+  Linking,
+  AppState,
+  type AppStateStatus,
+  NativeModules,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -65,6 +69,31 @@ export default function ScanScreen({ navigation }: Props) {
     }
   };
 
+  const checkInitialCameraPermission = useCallback(async () => {
+    if (Platform.OS === 'android') {
+      const hasPerm = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
+      setHasPermission(hasPerm);
+    } else if (Platform.OS === 'ios') {
+      try {
+        const RNCameraKitModule = NativeModules.RNCameraKitModule;
+        if (RNCameraKitModule) {
+          const status = await RNCameraKitModule.checkDeviceCameraAuthorizationStatus();
+          if (status === true || status === -1) {
+            // true: authorized, -1: not determined (iOS will prompt when <Camera /> mounts)
+            setHasPermission(true);
+          } else {
+            setHasPermission(false);
+          }
+        } else {
+          setHasPermission(true);
+        }
+      } catch (err) {
+        console.warn(err);
+        setHasPermission(false);
+      }
+    }
+  }, []);
+
   const requestCameraPermission = async () => {
     if (Platform.OS === 'android') {
       try {
@@ -82,10 +111,36 @@ export default function ScanScreen({ navigation }: Props) {
       } catch (err) {
         console.warn(err);
       }
-    } else {
-      // iOS permissions would typically be handled via react-native-permissions
-      // For this demo, assume true if not Android
-      setHasPermission(true);
+    } else if (Platform.OS === 'ios') {
+      try {
+        const RNCameraKitModule = NativeModules.RNCameraKitModule;
+        if (RNCameraKitModule) {
+          const status = await RNCameraKitModule.checkDeviceCameraAuthorizationStatus();
+          if (status === true) {
+            setHasPermission(true);
+          } else if (status === -1) {
+            // iOS will prompt automatically when the Camera component is rendered.
+            // Since it hasn't been determined, setHasPermission(true) to trigger the prompt.
+            setHasPermission(true);
+          } else {
+            // Denied or restricted. Prompt to open Settings.
+            setHasPermission(false);
+            Alert.alert(
+              'Camera Access Required',
+              'Please enable camera access in your device settings to scan QR codes.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Settings', onPress: () => Linking.openURL('app-settings:') },
+              ],
+            );
+          }
+        } else {
+          setHasPermission(true);
+        }
+      } catch (err) {
+        console.warn(err);
+        setHasPermission(false);
+      }
     }
   };
 
@@ -126,7 +181,8 @@ export default function ScanScreen({ navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       fetchCards();
-    }, [fetchCards])
+      checkInitialCameraPermission();
+    }, [fetchCards, checkInitialCameraPermission])
   );
 
   useEffect(() => {
@@ -143,6 +199,19 @@ export default function ScanScreen({ navigation }: Props) {
 
     loadStoredCardId();
   }, []);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        checkInitialCameraPermission();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [checkInitialCameraPermission]);
 
   useEffect(() => {
     if (!hasLoadedStoredCard) return;
