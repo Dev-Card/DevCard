@@ -29,9 +29,33 @@ export async function updateProfile(app: FastifyInstance, userId: string, data: 
   const currentUser = await app.prisma.user.findUnique({ where: { id: userId }, select: { username: true } })
 
   try {
-    const response = await app.prisma.user.update({ where: { id: userId }, data, select: {
-      id: true, email: true, username: true, displayName: true, bio: true, pronouns: true, role: true, company: true, avatarUrl: true, accentColor: true
-    } })
+    const isUsernameChanging = data.username && currentUser && data.username !== currentUser.username;
+
+    const response = await app.prisma.$transaction(async (tx) => {
+      if (isUsernameChanging) {
+        // Delete any existing redirects where the oldUsername is the new username
+        await tx.usernameRedirect.deleteMany({
+          where: { oldUsername: data.username },
+        });
+
+        // Record the redirect from the old username to the new username
+        await tx.usernameRedirect.create({
+          data: {
+            oldUsername: currentUser.username,
+            newUsername: data.username,
+            userId,
+          },
+        });
+      }
+
+      return tx.user.update({
+        where: { id: userId },
+        data,
+        select: {
+          id: true, email: true, username: true, displayName: true, bio: true, pronouns: true, role: true, company: true, avatarUrl: true, accentColor: true
+        }
+      });
+    });
 
     if (app.redis && currentUser) {
       app.redis.del(`profile:${currentUser.username}`).catch((err: unknown) =>
