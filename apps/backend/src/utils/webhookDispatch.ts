@@ -1,4 +1,5 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+
 import { decrypt } from './encryption.js';
 
 // Use a minimal type for the Prisma client to avoid depending on generated types.
@@ -81,7 +82,9 @@ export async function deliverWebhook(
     where: { id: deliveryId },
   });
 
-  if (!delivery) return;
+  if (!delivery) {
+    return;
+  }
 
   const newAttempts = delivery.attempts + 1;
 
@@ -163,7 +166,9 @@ export async function dispatchWebhook(
     },
   });
 
-  if (endpoints.length === 0) return;
+  if (endpoints.length === 0) {
+    return;
+  }
 
   const payloadString = JSON.stringify(payload);
 

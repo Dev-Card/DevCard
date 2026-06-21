@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import crypto from 'node:crypto';
+
 import Fastify from 'fastify';
-import crypto from 'crypto';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { webhookRoutes } from '../routes/webhooks.js';
 import { signPayload } from '../utils/webhookDispatch.js';
-
 // ─── Mock Encryption ───
 // We mock encryption so tests don't need the ENCRYPTION_KEY env var.
 vi.mock('../utils/encryption.js', () => ({
@@ -56,7 +57,7 @@ const mockDelivery = {
 
 // ─── App Builder ───
 
-async function buildApp() {
+async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify();
   app.decorate('prisma', mockPrisma as any);
   app.decorate('authenticate', async (request: any) => {
@@ -147,7 +148,7 @@ describe('GET /api/webhooks — list endpoints', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('should return user endpoints without secrets', async () => {
-    const { secret, ...endpointWithoutSecret } = mockEndpoint;
+    const { secret: _secret, ...endpointWithoutSecret } = mockEndpoint;
     mockPrisma.webhookEndpoint.findMany.mockResolvedValue([endpointWithoutSecret]);
 
     const app = await buildApp();

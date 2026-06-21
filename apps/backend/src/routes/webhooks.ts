@@ -1,7 +1,10 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+
 import { z } from 'zod';
+
 import { encrypt } from '../utils/encryption.js';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 // ─── Validation Schemas ───
 
@@ -16,9 +19,11 @@ const createWebhookSchema = z.object({
 
 // ─── Route Definitions ───
 
-export async function webhookRoutes(app: FastifyInstance) {
+export async function webhookRoutes(app: FastifyInstance): Promise<void> {
   // All webhook routes require authentication
-  app.addHook('preHandler', app.authenticate);
+  app.addHook('preHandler', async (request, reply) => {
+    await app.authenticate(request, reply);
+  });
 
   // ─── Register Webhook Endpoint ───
   /**
@@ -109,7 +114,7 @@ export async function webhookRoutes(app: FastifyInstance) {
         },
       },
     },
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest, _reply: FastifyReply) => {
     const userId = (request.user as any).id;
     const limit = (request.query as any).limit ?? 20;
 

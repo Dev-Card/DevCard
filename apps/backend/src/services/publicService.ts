@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify'
+
 import { getErrorMessage } from '../utils/error.util.js'
 import { dispatchWebhook } from '../utils/webhookDispatch.js'
 
 const PROFILE_CACHE_TTL = 300
 const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60'
 
-export async function getPublicProfile(app: FastifyInstance, username: string, viewerId: string | null, request: any) {
+export async function getPublicProfile(app: FastifyInstance, username: string, viewerId: string | null, request: any): Promise<{ cached: boolean; data: any; cacheKey: string } | null> {
   const cacheKey = `profile:${username}`
 
   if (app.redis) {
@@ -50,12 +51,12 @@ export async function getPublicProfile(app: FastifyInstance, username: string, v
   return { cached: false, data: response, cacheKey }
 }
 
-export async function getCardById(app: FastifyInstance, cardId: string) {
+export async function getCardById(app: FastifyInstance, cardId: string): Promise<any> {
   const card = await app.prisma.card.findUnique({ where: { id: cardId }, include: { user: true, cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } } })
   return card
 }
 
-export async function getUserCard(app: FastifyInstance, username: string, cardId: string, viewerId: string | null, request: any) {
+export async function getUserCard(app: FastifyInstance, username: string, cardId: string, viewerId: string | null, request: any): Promise<{ notFound: boolean; data?: any }> {
   const user = await app.prisma.user.findUnique({ where: { username } })
   if (!user) return { notFound: true }
   const card = await app.prisma.card.findFirst({ where: { id: cardId, userId: user.id }, include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } } })
