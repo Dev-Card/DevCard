@@ -57,8 +57,22 @@ export async function getPublicProfile(
   return { cached: false, data: response, cacheKey }
 }
 
-export async function getCardById(app: FastifyInstance, cardId: string): Promise<any> {
+export async function getCardById(
+  app: FastifyInstance,
+  cardId: string,
+  viewerId: string | null,
+  request: any,
+  authenticatedUserId: string | null = null,
+): Promise<any> {
   const card = await app.prisma.card.findUnique({ where: { id: cardId }, include: { user: true, cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } } })
+  if (!card) { return null }
+
+  // Block self-views: don't record a cardView if the authenticated user is the owner
+  const isSelfView = authenticatedUserId !== null && authenticatedUserId === card.user.id
+  if (viewerId && !isSelfView) {
+    app.prisma.cardView.create({ data: { ownerId: card.user.id, cardId: card.id, viewerId, viewerIp: request.ip || null, viewerAgent: request.headers['user-agent'] || null, source: request.query?.source || 'link' } }).catch((error: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(error)}`))
+  }
+
   return card
 }
 

@@ -39,7 +39,9 @@ const mockPrisma = {
   followLog: {
     findMany: vi.fn().mockResolvedValue([]),
   },
-  card: {} as any,
+  card: {
+    findUnique: vi.fn(),
+  },
 };
 
 // ── Redis mock ────────────────────────────────────────────────────────────────
@@ -461,6 +463,150 @@ describe('GET /api/public/:username/qr-session', () => {
       expect.any(String),
       'EX',
       300,
+    );
+  });
+});
+
+// ─── Direct card view tracking (Issue #495) ───────────────────────────────────
+
+const mockCard = {
+  id: 'card-abc',
+  title: 'My Dev Card',
+  user: {
+    id: 'user-123',
+    username: 'testuser',
+    displayName: 'Test User',
+    bio: null,
+    avatarUrl: null,
+    accentColor: '#ffffff',
+  },
+  cardLinks: [],
+};
+
+describe('GET /api/public/card/:cardId — direct card view tracking', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
+    mockPrisma.cardView.create.mockReturnValue({ catch: vi.fn() });
+    mockPrisma.card.findUnique.mockResolvedValue(mockCard);
+  });
+
+  it('returns 200 with correct card shape', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/card/card-abc',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.id).toBe('card-abc');
+    expect(body.title).toBe('My Dev Card');
+    expect(body.owner.username).toBe('testuser');
+    expect(Array.isArray(body.links)).toBe(true);
+  });
+
+  it('returns 404 when card does not exist', async () => {
+    mockPrisma.card.findUnique.mockResolvedValue(null);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/card/nonexistent',
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe('Card not found');
+  });
+
+  it('records CardView when authenticated viewer requests card', async () => {
+    const app = await buildApp();
+
+    // Sign a JWT for a different user (viewer-456 ≠ owner user-123)
+    const token = app.jwt.sign({ id: 'viewer-456' });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/card/card-abc',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.cardView.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ownerId: 'user-123',
+          cardId: 'card-abc',
+          viewerId: 'viewer-456',
+        }),
+      }),
+    );
+  });
+
+  it('does not record CardView for anonymous (unauthenticated) request', async () => {
+    const app = await buildApp();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/card/card-abc',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.cardView.create).not.toHaveBeenCalled();
+  });
+
+  it('does not record CardView when viewer is the card owner', async () => {
+    const app = await buildApp();
+
+    // Sign JWT as the owner (user-123 === card.user.id)
+    const token = app.jwt.sign({ id: 'user-123' });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/public/card/card-abc',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.cardView.create).not.toHaveBeenCalled();
+  });
+
+  it('uses "link" as default source for direct card views', async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ id: 'viewer-456' });
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/public/card/card-abc',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(mockPrisma.cardView.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          source: 'link',
+        }),
+      }),
+    );
+  });
+
+  it('records CardView with custom source query param when provided', async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ id: 'viewer-456' });
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/public/card/card-abc?source=web',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(mockPrisma.cardView.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          source: 'web',
+        }),
+      }),
     );
   });
 });
