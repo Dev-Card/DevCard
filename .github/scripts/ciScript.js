@@ -26,6 +26,10 @@ module.exports = async ({ github, context, core }) => {
   const webFiles = [];
   const dbFiles = [];
 
+  let backendChanged = false;
+  let mobileChanged = false;
+  let webChanged = false;
+
   try {
     if (prState === 'closed') {
       console.log(`PR state is: ${prState}`);
@@ -49,11 +53,20 @@ module.exports = async ({ github, context, core }) => {
       const fileName = file.filename;
 
       if (fileName.startsWith('apps/backend/')) {
-        backendFiles.push(fileName);
+        backendChanged = true;
+        if (/\.(js|jsx|ts|tsx)$/.test(fileName)) {
+          backendFiles.push(fileName);
+        }
       } else if (fileName.startsWith('apps/mobile/')) {
-        mobileFiles.push(fileName);
+        mobileChanged = true;
+        if (/\.(js|jsx|ts|tsx)$/.test(fileName)) {
+          mobileFiles.push(fileName);
+        }
       } else if (fileName.startsWith('apps/web/')) {
-        webFiles.push(fileName);
+        webChanged = true;
+        if (/\.(js|jsx|ts|tsx)$/.test(fileName)) {
+          webFiles.push(fileName);
+        }
       }else if(fileName.startsWith('apps/backend/prisma')){
         dbFiles.push(fileName)
       }else if(fileName.includes('schema.prisma') || fileName.includes('/migrations/')){
@@ -72,9 +85,9 @@ module.exports = async ({ github, context, core }) => {
     core.setOutput('webFiles',         webFiles.map(f => f.replace('apps/web/', '')).join(' '));
     core.setOutput('backendTestFiles', deriveTestFiles(strippedBackend).join(' '));
     core.setOutput('mobileTestFiles',  deriveTestFiles(strippedMobile).join(' '));
-    core.setOutput('backendChanged',   backendFiles.length > 0);
-    core.setOutput('mobileChanged',    mobileFiles.length > 0);
-    core.setOutput('webChanged',       webFiles.length > 0);
+    core.setOutput('backendChanged',   backendChanged);
+    core.setOutput('mobileChanged',    mobileChanged);
+    core.setOutput('webChanged',       webChanged);
 
   } catch (error) {
     console.error(error);

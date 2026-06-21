@@ -143,7 +143,24 @@ jobs:
       - name: Mobile lint
         id: mobile_lint
         continue-on-error: true
-        run: cd apps/mobile && npx eslint ${{ needs.detect-changes.outputs.mobileFiles }}
+        run: |
+          cd apps/mobile
+          files="${{ needs.detect-changes.outputs.mobileFiles }}"
+          if [ -z "$files" ]; then
+            echo "No mobile files to lint"
+            exit 0
+          fi
+          filtered_files=""
+          for f in $files; do
+            if [[ "$f" =~ \.(js|jsx|ts|tsx)$ ]]; then
+              filtered_files="$filtered_files $f"
+            fi
+          done
+          if [ -z "${filtered_files// /}" ]; then
+            echo "No mobile code files to lint after filtering"
+            exit 0
+          fi
+          npx eslint $filtered_files
 
       - name: Mobile test
         id: mobile_test
