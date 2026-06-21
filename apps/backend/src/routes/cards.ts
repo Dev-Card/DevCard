@@ -3,7 +3,7 @@ import { handleDbError } from '../utils/error.util.js';
 import { hashIp } from '../utils/refreshToken';
 import { createCardSchema ,updateCardSchema, addPlatformLinkSchema} from '../validations/card.validation';
 
-import type { CardResponse, UpdateCardBody } from '../services/cardService';
+import type { CardResponse, UpdateCardBody, UpdatedCardResponse } from '../services/cardService';
 import type { Card } from '@devcard/shared/src/types.js';
 import type { CardVisibility } from '@prisma/client';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
