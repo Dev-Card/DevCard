@@ -8,9 +8,10 @@ const envPath = path.resolve(__dirname, '../../../.env');
 const result = dotenv.config({ path: envPath });
 
 if (result.error) {
-  // Keep failing fast but avoid leaking via console in production code paths.
-  // This file runs before the Fastify logger is available; throw so the process exits.
-  throw result.error;
-} else {
-  // .env loaded successfully
+  if (process.env.NODE_ENV === 'production') {
+    // In production, env vars come from Kubernetes secrets — .env file is not expected.
+  } else {
+    // In development, .env is required. Fail fast.
+    throw result.error;
+  }
 }

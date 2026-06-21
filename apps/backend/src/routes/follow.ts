@@ -1,4 +1,4 @@
-import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
+import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared/src/platforms.js';
 
 import { decrypt } from '../utils/encryption.js';
 import { getErrorMessage } from '../utils/error.util.js';
