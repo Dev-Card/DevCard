@@ -2,10 +2,10 @@ import { handleDbError, isGitHubTokenError, isGoogleTokenError } from '../utils/
 import { extractRawJwt, blocklistKey, signAccessToken  } from '../utils/jwt.js';
 import { buildOAuthState, getMobileRedirectUri } from '../utils/oauth.js';
 import { generateRefreshToken, hashIp, hashRefreshToken } from '../utils/refreshToken.js';
-import { oAuthStartSchema, oAuthCallbackSchema } from '../validations/auth.validation.js';
+import { oAuthCallbackSchema, oAuthStartSchema } from '../validations/auth.validation.js';
 
 import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
-import type { OAuthStartQuery, OAuthCallbackQuery } from '../validations/auth.validation.js';
+import type { OAuthCallbackQuery, OAuthStartQuery } from '../validations/auth.validation.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 interface GitHubEmailResponse {
