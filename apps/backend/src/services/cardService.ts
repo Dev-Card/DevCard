@@ -10,6 +10,11 @@ type CardLinkResponse = { platformLink: unknown };
 type RawCard = { id: string; title: string; isDefault: boolean; cardLinks: CardLinkResponse[] };
 export type CardResponse = { id: string; title: string; isDefault: boolean; links: unknown[] };
 
+export type UpdatedCardResponse = {
+  id: string; 
+  title: string;
+  isDefault:boolean;
+}
 
 export interface UpdateCardBody{
   title?:string; 
