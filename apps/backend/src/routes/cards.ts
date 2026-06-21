@@ -3,7 +3,6 @@ import { handleDbError } from '../utils/error.util.js';
 import { createCardSchema, updateCardSchema } from '../utils/validators.js';
 
 import type { CardResponse } from '../services/cardService';
-import type { Card } from '@devcard/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 interface CreateCardBody {
@@ -69,7 +68,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Create Card ───
 
-  app.post('/', async (request: FastifyRequest<{ Body: CreateCardBody }>, reply: FastifyReply): Promise<Card | void> => {
+  app.post('/', async (request: FastifyRequest<{ Body: CreateCardBody }>, reply: FastifyReply): Promise<CardResponse | void> => {
     const userId = (request.user as { id: string }).id;
     const parsed = createCardSchema.safeParse(request.body);
 
