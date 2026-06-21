@@ -11,7 +11,7 @@ const nfcQuerySchema = z.object({
   card: z.string().uuid('Invalid card ID format').optional(),
 });
 
-export async function nfcRoutes(app: FastifyInstance) {
+export async function nfcRoutes(app: FastifyInstance): Promise<void> {
   
 
   // GET /api/nfc/payload — returns NDEF URI payload for user's default DevCard URL
