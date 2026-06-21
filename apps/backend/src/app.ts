@@ -29,7 +29,7 @@ import type { AuthenticatedUser } from './types/fastify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function buildApp() {
+export async function buildApp(): Promise<FastifyInstance> {
   validateEnv();
   const app = Fastify({
     logger: {
@@ -41,13 +41,11 @@ export async function buildApp() {
     },
   });
 
-  // Log method + path for every incoming request.
   app.addHook('onRequest', (request, _reply, done) => {
     app.log.info({ method: request.method, url: request.url }, 'incoming request');
     done();
   });
 
-  // ─── Core Plugins ───
   await app.register(cors, {
     origin: process.env.PUBLIC_APP_URL || 'http://localhost:5173',
     credentials: true,
@@ -70,33 +68,27 @@ export async function buildApp() {
     },
   });
 
-  // cookie must be registered before jwt so that @fastify/jwt can read the
-  // `token` cookie during jwtVerify() for browser-based clients.
   await app.register(cookie);
 
   await app.register(jwt, {
-    secret: process.env.JWT_SECRET || 'dev-secret-change-me',
+    secret: process.env.JWT_SECRET!,
+    cookie: {
+      cookieName: 'token',
+      signed: false,
+    },
   });
 
-  await app.register(cookie);
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
+  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } });
+  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
-  // Static file serving for uploads
-  await app.register(fastifyStatic, {
-    root: path.join(__dirname, '..', 'uploads'),
-    prefix: '/uploads/',
-    decorateReply: false,
-  });
-
-  // ─── Database & Cache Plugins ───
- if (process.env.NODE_ENV !== 'test') {
-  await app.register(prismaPlugin); //change 
-}
   if (process.env.NODE_ENV !== 'test') {
-  await app.register(redisPlugin);
-}
-  // ─── Auth Decorator ───
-  app.decorate('authenticate', async function (request: any, reply: any) {
+    await app.register(prismaPlugin);
+  }
+  if (process.env.NODE_ENV !== 'test') {
+    await app.register(redisPlugin);
+  }
+
+  app.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
     try {
       if (app.hasDecorator('redis')) {
         const raw = extractRawJwt(request);
@@ -118,21 +110,18 @@ export async function buildApp() {
     }
   });
 
-  // ─── Routes ───
   await app.register(authRoutes, { prefix: '/auth' });
   await app.register(profileRoutes, { prefix: '/api/profiles' });
   await app.register(cardRoutes, { prefix: '/api/cards' });
-  // Public routes: standardise on `/api/u` (remove duplicate `/api/public`).
   await app.register(publicRoutes, { prefix: '/api/u' });
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
-  await app.register(eventRoutes, {prefix: '/api/events'})
+  await app.register(eventRoutes, { prefix: '/api/events' });
   await app.register(nfcRoutes, { prefix: '/api/nfc' });
   await app.register(teamRoutes, { prefix: '/api/teams' });
   await app.register(webhookRoutes, { prefix: '/api/webhooks' });
 
-  // ─── Health Check ───
   app.get('/health', async () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),

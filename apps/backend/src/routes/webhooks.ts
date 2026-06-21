@@ -111,7 +111,7 @@ export async function webhookRoutes(app: FastifyInstance) {
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = (request.user as any).id;
-    const limit = Math.min(100, parseInt((request.query as any).limit || '20', 10));
+    const limit = (request.query as any).limit ?? 20;
 
     const endpoints = await app.prisma.webhookEndpoint.findMany({
       where: { userId },

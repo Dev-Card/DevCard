@@ -93,6 +93,7 @@ export async function deliverWebhook(
         responseCode: statusCode,
         attempts: newAttempts,
         nextRetryAt: null,
+        deliveredAt: new Date(),
       },
     });
     return;
@@ -109,10 +110,15 @@ export async function deliverWebhook(
         attempts: newAttempts,
         responseCode: statusCode,
         nextRetryAt,
+        errorMessage: `Delivery failed with status ${statusCode ?? 'network error'}`,
       },
     });
 
-    // Schedule retry (non-blocking, in-process)
+    // Schedule retry (non-blocking, in-process).
+    // NOTE: These retries are held in-process memory. A server restart will
+    // silently drop all pending retries. The persisted nextRetryAt field is
+    // stored for observability but is not currently used to recover retries
+    // after a restart. A future improvement would be a DB-driven retry poller.
     setTimeout(() => {
       deliverWebhook(prisma, deliveryId, endpointUrl, encryptedSecret, payloadString).catch(
         () => {}, // Silently catch — delivery status is tracked in DB
@@ -127,6 +133,7 @@ export async function deliverWebhook(
         responseCode: statusCode,
         attempts: newAttempts,
         nextRetryAt: null,
+        errorMessage: `Delivery failed permanently after ${newAttempts} attempts with status ${statusCode ?? 'network error'}`,
       },
     });
   }

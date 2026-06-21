@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { getErrorMessage } from '../utils/error.util.js'
+import { dispatchWebhook } from '../utils/webhookDispatch.js'
 
 const PROFILE_CACHE_TTL = 300
 const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60'
@@ -14,6 +15,7 @@ export async function getPublicProfile(app: FastifyInstance, username: string, v
         const { _userId, ...profileData } = JSON.parse(cached)
         if (viewerId && viewerId !== _userId) {
           app.prisma.cardView.create({ data: { ownerId: _userId, cardId: null, viewerId, viewerIp: request.ip || null, viewerAgent: request.headers['user-agent'] || null, source: request.query?.source || 'link' } }).catch((err: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(err)}`))
+          dispatchWebhook(app.prisma as any, _userId, 'card.viewed', { event: 'card.viewed', cardId: null, viewerId, source: request.query?.source || 'link', timestamp: new Date().toISOString() }).catch((err: unknown) => app.log.error(`Webhook dispatch failed: ${getErrorMessage(err)}`))
         }
         return { cached: true, data: profileData, cacheKey }
       }
@@ -27,6 +29,7 @@ export async function getPublicProfile(app: FastifyInstance, username: string, v
 
   if (viewerId && viewerId !== user.id) {
     app.prisma.cardView.create({ data: { ownerId: user.id, cardId: null, viewerId, viewerIp: request.ip || null, viewerAgent: request.headers['user-agent'] || null, source: request.query?.source || 'link' } }).catch((error: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(error)}`))
+    dispatchWebhook(app.prisma as any, user.id, 'card.viewed', { event: 'card.viewed', cardId: null, viewerId, source: request.query?.source || 'link', timestamp: new Date().toISOString() }).catch((error: unknown) => app.log.error(`Webhook dispatch failed: ${getErrorMessage(error)}`))
   }
 
   let followedLinkIds: string[] = []
@@ -60,6 +63,7 @@ export async function getUserCard(app: FastifyInstance, username: string, cardId
 
   if (viewerId && viewerId !== user.id) {
     app.prisma.cardView.create({ data: { ownerId: user.id, cardId: card.id, viewerId, viewerIp: request.ip || null, viewerAgent: request.headers['user-agent'] || null, source: request.query?.source || 'qr' } }).catch((error: unknown) => app.log.error(`Failed to log view: ${getErrorMessage(error)}`))
+    dispatchWebhook(app.prisma as any, user.id, 'card.viewed', { event: 'card.viewed', cardId: card.id, viewerId, source: request.query?.source || 'qr', timestamp: new Date().toISOString() }).catch((error: unknown) => app.log.error(`Webhook dispatch failed: ${getErrorMessage(error)}`))
   }
 
   const response = { title: card.title, owner: { username: user.username, displayName: user.displayName, bio: user.bio, pronouns: user.pronouns, role: user.role, company: user.company, avatarUrl: user.avatarUrl, accentColor: user.accentColor }, links: card.cardLinks.map((cl: any) => ({ id: cl.platformLink.id, platform: cl.platformLink.platform, username: cl.platformLink.username, url: cl.platformLink.url, displayOrder: cl.displayOrder })) }
