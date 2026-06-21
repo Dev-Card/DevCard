@@ -441,3 +441,97 @@ describe('PUT /api/cards/:id/default', () => {
     expect(mockPrisma.card.update).toHaveBeenCalled();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/cards/:id — concurrency guard
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DELETE /api/cards/:id — concurrency guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    wireTransaction();
+  });
+
+  it('runs the count check and deletion inside a single transaction', async () => {
+    // Verifies that $transaction wraps both the last-card guard and the delete,
+    // closing the TOCTOU window where two concurrent requests could both see
+    // count > 1 and both proceed to delete.
+    mockPrisma.card.findFirst.mockResolvedValue({ ...mockCard, isDefault: false });
+    mockPrisma.card.count.mockResolvedValue(2);
+    mockPrisma.card.delete.mockResolvedValue(mockCard);
+
+    const app = await buildApp();
+    await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}` });
+
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
+    // Both the guard and the mutation run through the transaction client.
+    expect(mockPrisma.card.count).toHaveBeenCalledWith({ where: { userId: USER_ID } });
+    expect(mockPrisma.card.delete).toHaveBeenCalledWith({ where: { id: CARD_ID } });
+  });
+
+  it('blocks a concurrent request whose transaction-internal count reflects a prior committed delete', async () => {
+    // Simulates: another request committed its delete first so the count is
+    // now 1 by the time this transaction's count query executes.
+    // The last-card guard must fire and prevent deletion.
+    mockPrisma.card.findFirst.mockResolvedValue({ ...mockCard, isDefault: false });
+    mockPrisma.card.count.mockResolvedValue(1);
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}` });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('Cannot delete the last remaining card. A user must have at least one card.');
+    expect(mockPrisma.card.delete).not.toHaveBeenCalled();
+  });
+
+  it('allows exactly one of two racing deletes (user has 2 cards) to succeed', async () => {
+    // User starts with 2 cards. Two delete requests arrive.
+    // The first request's transaction sees count=2 and commits.
+    // The second request's transaction sees count=1 (after the first committed)
+    // and is correctly rejected — the user is never left with zero cards.
+    const CARD_B = 'card-xyz';
+    const app = await buildApp();
+
+    // Request A: ownership passes, count inside tx = 2, delete succeeds
+    mockPrisma.card.findFirst.mockResolvedValueOnce({ ...mockCard, isDefault: false });
+    mockPrisma.card.count.mockResolvedValueOnce(2);
+    mockPrisma.card.delete.mockResolvedValueOnce(mockCard);
+
+    // Request B: ownership passes, but count inside tx = 1 (A already committed)
+    mockPrisma.card.findFirst.mockResolvedValueOnce({ ...mockCard, id: CARD_B, isDefault: false });
+    mockPrisma.card.count.mockResolvedValueOnce(1);
+
+    const resA = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}` });
+    const resB = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_B}` });
+
+    expect(resA.statusCode).toBe(204); // first request succeeds
+    expect(resB.statusCode).toBe(400); // second is blocked by the guard
+    // Exactly one card deleted — user retains at least one.
+    expect(mockPrisma.card.delete).toHaveBeenCalledOnce();
+  });
+
+  it('user always retains at least one card regardless of which concurrent request wins', async () => {
+    // Invariant assertion: one request must succeed and one must be blocked,
+    // with the database having been written exactly once.
+    const CARD_B = 'card-xyz';
+    const app = await buildApp();
+
+    mockPrisma.card.findFirst
+      .mockResolvedValueOnce({ ...mockCard, isDefault: false })
+      .mockResolvedValueOnce({ ...mockCard, id: CARD_B, isDefault: false });
+    mockPrisma.card.count
+      .mockResolvedValueOnce(2)  // Tx A's count inside the transaction
+      .mockResolvedValueOnce(1); // Tx B's count inside the transaction (after A committed)
+    mockPrisma.card.delete.mockResolvedValueOnce(mockCard);
+
+    const resA = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}` });
+    const resB = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_B}` });
+
+    const succeeded = [resA, resB].filter((r) => r.statusCode === 204).length;
+    const blocked = [resA, resB].filter((r) => r.statusCode === 400).length;
+    expect(succeeded).toBe(1);
+    expect(blocked).toBe(1);
+    // Exactly one delete reached the database — invariant preserved.
+    expect(mockPrisma.card.delete).toHaveBeenCalledOnce();
+  });
+});
