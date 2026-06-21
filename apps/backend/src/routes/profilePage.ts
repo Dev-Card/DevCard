@@ -113,7 +113,7 @@ export async function profilePageRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const indexHtml = await readWebIndex();
-    const html = injectProfileMeta(indexHtml, buildProfileMeta(result.data));
+    const html = injectProfileMeta(indexHtml, buildProfileMeta(result.data as PublicProfile));
 
     return reply
       .header('Cache-Control', 'public, max-age=300, stale-while-revalidate=60')

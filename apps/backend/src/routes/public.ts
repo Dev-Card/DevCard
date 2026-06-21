@@ -3,7 +3,6 @@ import { PLATFORMS } from '@devcard/shared';
 import * as publicService from '../services/publicService.js';
 import { getErrorMessage } from '../utils/error.util.js';
 import { generateOgImage } from '../utils/og-image.js';
-import * as publicService from '../services/publicService.js';
 import { generateQRBuffer, generateQRSvg } from '../utils/qr.js';
 
 import type { PlatformLink } from '@devcard/shared';
@@ -200,7 +199,6 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     // parseInt safely handles non-numeric strings (returns NaN) and ignores any
     // trailing fractional part, so '400.9' → 400 which is within bounds.
     const rawSize = request.query.size;
-    const rawSize = (request.query as any).size;
     const size = rawSize !== undefined ? parseInt(rawSize, 10) : 400;
 
     if (!Number.isInteger(size) || size < MIN_QR_SIZE || size > MAX_QR_SIZE) {
@@ -340,5 +338,4 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(500).send({ error: 'Failed to generate OG image' });
     }
   });
-}
 }

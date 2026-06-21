@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 import Redis from 'ioredis';
+
 import type { FastifyInstance } from 'fastify';
 
 declare module 'fastify' {
@@ -17,7 +18,7 @@ export const redisPlugin = fp(async (app: FastifyInstance) => {
   try {
     await redis.connect();
     app.log.info('🔴 Redis connected');
-  } catch (error) {
+  } catch (_error) {
     app.log.warn('⚠️  Redis connection failed — running without cache');
   }
 
