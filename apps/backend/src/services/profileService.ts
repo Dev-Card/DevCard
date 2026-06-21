@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { getProfileUrl } from '@devcard/shared'
-import type { PlatformLink } from '@devcard/shared'
+import { getProfileUrl } from '@devcard/shared/src/platforms.js'
 import { getErrorMessage } from '../utils/error.util.js'
 
 export async function getOwnProfile(app: FastifyInstance, userId: string) {

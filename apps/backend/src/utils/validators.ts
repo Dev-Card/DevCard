@@ -1,4 +1,4 @@
-import { getPlatform } from '@devcard/shared';
+import { getPlatform } from '@devcard/shared/src/platforms';
 import { z } from 'zod';
 
 export const updateProfileSchema = z.object({
