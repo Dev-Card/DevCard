@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { PLATFORMS, getProfileUrl } from '../shared';
 import type { PublicProfile } from '../shared';
 import { apiFetch } from '../lib/api';
@@ -15,6 +15,7 @@ const platformColors: Record<string, string> = {
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,6 +34,9 @@ export default function ProfilePage() {
       .then((data) => {
         setProfile(data);
         setError(null);
+        if (data.username && data.username !== username) {
+          navigate(`/u/${data.username}`, { replace: true });
+        }
       })
       .catch(() => {
         setProfile(null);
