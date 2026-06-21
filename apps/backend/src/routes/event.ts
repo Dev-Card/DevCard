@@ -57,7 +57,7 @@ type EventWithAttendees = {
   }[];
 }
 
-export async function eventRoutes(app:FastifyInstance) {
+export async function eventRoutes(app:FastifyInstance): Promise<void> {
         app.post<{Body: { name: string; description?: string; startDate: string; location: string; endDate: string; isPublic?: boolean; }}>('/', { preHandler: [(req, reply) => app.authenticate(req, reply)] }, async (request, reply) => {
          const userId = request.user.id;
         const parsed = createEventSchema.safeParse(request.body); 
@@ -197,7 +197,7 @@ export async function eventRoutes(app:FastifyInstance) {
                     }
                 }
             })
-            return reply.status(204).send({message: 'User left'})
+            return reply.status(204).send()
         } catch (error:any) {
             if(error.code === 'P2025'){
                 return reply.status(404).send({error: 'User not found'})
