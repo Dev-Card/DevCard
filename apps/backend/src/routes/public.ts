@@ -71,8 +71,20 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
   }, async (request: FastifyRequest<{ Params: { cardId: string } }>, reply: FastifyReply) => {
     const { cardId } = request.params;
 
+    let viewerId: string | null = null;
+    let authenticatedUserId: string | null = null;
     try {
-      const card = await publicService.getCardById(app, cardId);
+      if (request.headers.authorization) {
+        const decoded = (await request.jwtVerify()) as { id?: string };
+        authenticatedUserId = decoded?.id ?? null;
+        viewerId = authenticatedUserId;
+      }
+    } catch {
+      // ignored
+    }
+
+    try {
+      const card = await publicService.getCardById(app, cardId, viewerId, request, authenticatedUserId);
       if (!card) {
         return reply.status(404).send({ error: 'Card not found' });
       }
