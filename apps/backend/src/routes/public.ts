@@ -30,7 +30,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
 
     const visited = new Set<string>();
 
-    while (redirect && redirect.createdAt >= ninetyDaysAgo && !visited.has(current)) {
+    while (redirect && redirect.createdAt >= ninetyDaysAgo && !visited.has(redirect.newUsername)) {
       visited.add(current);
       current = redirect.newUsername;
       redirect = await app.prisma.usernameRedirect.findUnique({
