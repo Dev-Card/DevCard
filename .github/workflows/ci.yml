@@ -56,6 +56,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install shared dependencies
+        run: npm --prefix packages/shared install
+
+      - name: Build shared package
+        run: npm --prefix packages/shared run build
+
       - name: Install backend dependencies
         run: npm --prefix apps/backend install
 
