@@ -1,4 +1,5 @@
 import { getProfileUrl } from '@devcard/shared/src/platforms.js'
+
 import { getErrorMessage } from '../utils/error.util.js'
 
 import type { FastifyInstance } from 'fastify'
