@@ -36,8 +36,7 @@ module.exports = async ({ github, context }) => {
     );
 
     for (const pr of mergedPrs) {
-        if (!pr.merged_at) continue;
-        if (!pr.user) continue;
+        if (!pr.merged_at || !pr.user) continue;
 
         const login = pr.user.login;
 
@@ -89,8 +88,7 @@ module.exports = async ({ github, context }) => {
     );
 
     for (const issue of issues) {
-        if (issue.pull_request) continue;
-        if (!issue.user) continue;
+        if (issue.pull_request || !issue.user) continue;
 
         const login = issue.user.login;
 
@@ -114,13 +112,19 @@ module.exports = async ({ github, context }) => {
     );
 
     const fs = require('fs');
+    const path = require('path');
 
-    fs.mkdirSync('public', { recursive: true });
+    const outputDir = path.join('apps', 'web', 'public');
+    const outputFile = path.join(outputDir, 'leaderboard.json');
+
+    fs.mkdirSync(outputDir, { recursive: true });
 
     fs.writeFileSync(
-        'public/leaderboard.json',
-        JSON.stringify(leaderboard, null, 2)
+        outputFile,
+        JSON.stringify(leaderboard, null, 2),
+        'utf8'
     );
 
     console.log(`Generated ${leaderboard.length} contributors`);
+    console.log(`Leaderboard written to ${outputFile}`);
 };
