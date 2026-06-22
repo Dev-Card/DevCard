@@ -220,6 +220,72 @@ export async function eventRoutes(app:FastifyInstance) {
         }
     })
 
+    app.post('/:id/rsvp', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {id: string}}>, reply: FastifyReply) => {
+        const userId = (request.user as any).id;
+        const eventId = request.params.id;
+
+        const event = await app.prisma.event.findUnique({
+            where: { id: eventId }
+        })
+
+        if(!event){
+            return reply.status(404).send({error: 'Event not found'})
+        }
+
+        if(event.organizerId === userId){
+            return reply.status(400).send({error: 'Organizer cannot RSVP to their own event'})
+        }
+
+        try {
+            await app.prisma.eventAttendee.create({
+                data: {
+                    eventId: event.id,
+                    userId: userId,
+                    joinedAt: new Date()
+                }
+            })
+
+            return reply.status(201).send({message: 'RSVP confirmed'})
+        } catch (error:any) {
+            if(error.code === "P2002"){
+                return reply.status(400).send({error: 'Already RSVPed to this event'})
+            }
+            app.log.error((error as Error).message);
+            return reply.status(500).send({error: 'Failed to RSVP'})
+        }
+    })
+
+    app.delete('/:id/rsvp', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {id: string}}>, reply: FastifyReply) => {
+        const userId = (request.user as any).id;
+        const eventId = request.params.id;
+
+        const event = await app.prisma.event.findUnique({
+            where: { id: eventId }
+        })
+
+        if(!event){
+            return reply.status(404).send({error: 'Event not found'})
+        }
+
+        try {
+            await app.prisma.eventAttendee.delete({
+                where: {
+                    userId_eventId: {
+                        userId: userId,
+                        eventId: event.id
+                    }
+                }
+            })
+            return reply.status(204).send()
+        } catch (error:any) {
+            if(error.code === 'P2025'){
+                return reply.status(404).send({error: 'RSVP not found'})
+            }
+            app.log.error((error as Error).message)
+            return reply.status(500).send({error: 'Failed to cancel RSVP'})
+        }
+    })
+
     app.get('/:slug/attendees', async(request: FastifyRequest<{Params: {slug: string}, Querystring: {page?:string; limit?: string}}>, reply: FastifyReply) => {
         const paramsSlug = request.params.slug; 
         const page = Math.max(1, Number(request.query.page) || 1); 

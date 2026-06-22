@@ -209,7 +209,7 @@ model Event {
   createdAt DateTime @default(now()) @map("created_at")
   attendees EventAttendee[]
 
-  organizer User @relation(fields: [organizerId], references: [id])
+  organizer User @relation(fields: [organizerId], references: [id], onDelete: Cascade)
 }
 
 model EventAttendee {
@@ -218,8 +218,8 @@ model EventAttendee {
   eventId String   
   joinedAt DateTime 
 
-  event Event @relation(fields: [eventId] , references: [id])
-  user User @relation(fields: [userId],references: [id])
+  event Event @relation(fields: [eventId] , references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId],references: [id], onDelete: Cascade)
 
   @@unique([userId, eventId])
 }
