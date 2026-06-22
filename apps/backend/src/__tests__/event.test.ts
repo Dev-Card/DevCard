@@ -1,10 +1,10 @@
-import Fastify,{LightMyRequestResponse} from 'fastify';
+import Fastify from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import { eventRoutes } from '../routes/event';
 
 import type { PrismaClient } from '@prisma/client';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance,LightMyRequestResponse } from 'fastify';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
