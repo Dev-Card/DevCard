@@ -1,4 +1,4 @@
-import { getPlatform } from '@devcard/shared';
+import { getPlatform } from '@devcard/shared/src/platforms';
 import { z } from 'zod';
 
 export const updateProfileSchema = z.object({
@@ -45,12 +45,3 @@ export const reorderLinksSchema = z.object({
   ),
 });
 
-export const createCardSchema = z.object({
-  title: z.string().min(1).max(100),
-  linkIds: z.array(z.string().uuid()),
-});
-
-export const updateCardSchema = z.object({
-  title: z.string().min(1).max(100).optional(),
-  linkIds: z.array(z.string().uuid()).optional(),
-});

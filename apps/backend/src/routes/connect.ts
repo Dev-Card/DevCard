@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
 
 import { decrypt, encrypt } from '../utils/encryption.js';
-import { getErrorMessage } from '../utils/error.util.js';
+import { getErrorMessage, isGitHubTokenError } from '../utils/error.util.js';
 
+import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
@@ -30,14 +31,10 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
   // ─── Status ───
 
   app.get('/status', {
-    preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
-    }],
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    preHandler: [app.authenticate],
   }, async (request: FastifyRequest, _reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
 
     const tokens = await app.prisma.oAuthToken.findMany({
       where: { userId },
@@ -50,14 +47,10 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
   // ─── GitHub Connect ───
 
   app.get('/github', {
-    preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
-    }],
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    preHandler: [app.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const nonce = generateState();
 
     // Store nonce in Redis with 10-minute TTL.
@@ -127,10 +120,10 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
         }),
       });
 
-      const tokenData = (await tokenRes.json()) as any;
+      const tokenData = (await tokenRes.json()) as GitHubTokenResponse | GitHubTokenErrorResponse;
 
-      if (tokenData.error) {
-        app.log.error('GitHub connect token error:', tokenData);
+      if (isGitHubTokenError(tokenData)) {
+        app.log.error(tokenData, 'GitHub connect token error:');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
@@ -174,14 +167,10 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/github/autodiscover', {
-    preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
-    }],
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    preHandler: [app.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const cacheKey = `github:autodiscover:${userId}`;
 
     if (app.redis) {
@@ -262,15 +251,11 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Disconnect ───
 
-  app.delete('/:platform', {
-    preHandler: [async (request, reply) => {
-      const server = request.server as any;
-      if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-      if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-      try { await request.jwtVerify() } catch { reply.status(401).send({ error: 'Unauthorized' }) }
-    }],
+  app.delete<{ Params: { platform: string } }>('/:platform', {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    preHandler: [app.authenticate],
   }, async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const { platform } = request.params;
 
     const SUPPORTED_PLATFORMS = ['github', 'google', 'twitter', 'linkedin'];
