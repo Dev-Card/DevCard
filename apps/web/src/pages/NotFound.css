@@ -4,49 +4,104 @@
   align-items: center;
   justify-content: center;
   padding: 2rem;
+  background: var(--bg);
 }
 
+/* 🔥 BIGGER CARD */
 .not-found-card {
   text-align: center;
-  padding: 3.5rem 2.5rem;
+  padding: 7rem 5rem;     /* increased significantly */
   border-radius: var(--radius-xl);
-  width: min(100%, 480px);
+  width: min(100%, 760px); /* wider card */
 }
 
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+}
+
+.not-found-brand {
+  font-size: clamp(4rem, 6vw, 5.2rem);  /* same visual weight as 404 */
+  font-weight: 900;                     /* match 404 boldness */
+  letter-spacing: 0.08em;               /* slightly tighter for strength */
+  text-transform: uppercase;
+  margin-bottom: 2rem;
+  display: inline-block;
+
+  /* SAME strong gradient style as 404 */
+  background: linear-gradient(
+    135deg,
+    var(--primary),
+    var(--accent)
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+
+  /* slightly stronger glow to match 404 impact */
+  text-shadow: 0 0 25px rgba(99, 102, 241, 0.22);
+}
+
+/* Icon */
 .not-found-icon {
-  font-size: 3.5rem;
-  margin-bottom: 1rem;
+  font-size: 4.5rem;
+  margin-bottom: 1.5rem;
 }
 
+/* 404 */
 .not-found-card h1 {
-  font-size: clamp(4rem, 8vw, 6rem);
+  font-size: clamp(5rem, 10vw, 7rem);
   font-weight: 900;
   line-height: 1;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   background: linear-gradient(135deg, var(--primary), var(--accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
+/* Title */
 .not-found-title {
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   font-weight: 700;
   font-family: 'Outfit', sans-serif;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 
+/* Description */
 .not-found-desc {
   color: var(--text-secondary);
   line-height: 1.7;
-  margin-bottom: 2rem;
-  max-width: 360px;
+  margin-bottom: 2.5rem;
+  max-width: 420px;
   margin-left: auto;
   margin-right: auto;
 }
 
+/* Button */
+.btn-primary {
+  display: inline-block;
+  padding: 0.85rem 1.4rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px);
+  opacity: 0.9;
+}
+
+/* Mobile */
 @media (max-width: 520px) {
   .not-found-card {
-    padding: 2.5rem 1.5rem;
+    padding: 3.5rem 1.8rem;
   }
 }
