@@ -1,7 +1,9 @@
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Fastify, { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+
 import { eventRoutes } from '../routes/event';
+
+import type { PrismaClient } from '@prisma/client';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -15,6 +17,10 @@ const MOCK_EVENT = {
   description: 'Annual DevCard conference',
   location: 'San Francisco, CA',
   organizerId: MOCK_USER_ID,
+  organizer: {
+    username: 'johndoe',
+    displayName: 'John Doe',
+  },
   startDate: new Date('2025-09-01T09:00:00Z'),
   endDate: new Date('2025-09-02T18:00:00Z'),
   isPublic: true,
@@ -64,7 +70,7 @@ const prismaMock = {
 //
 // This mirrors the real app setup without touching a real DB or real JWT keys.
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
@@ -74,8 +80,12 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Decorate jwtVerify on the request prototype so request.jwtVerify() resolves
   // to whatever the current test wants.
-  app.decorateRequest('jwtVerify', function () {
-    return mockJwtVerify();
+  app.decorateRequest('jwtVerify', async function (this: any) {
+    const payload = await mockJwtVerify();
+    if (payload) {
+      this.user = payload;
+    }
+    return payload;
   });
 
   // Register with the same prefix used in production (app.ts) so that

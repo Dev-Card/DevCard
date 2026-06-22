@@ -58,14 +58,22 @@ export default function ProfilePage() {
     setTimeout(() => setCopyMessage(''), 3000);
   }
 
-  // Update document title
   useEffect(() => {
+    if (error) {
+      document.title = 'User Not Found | DevCard';
+      return;
+    }
+
     if (profile) {
       document.title = `${profile.displayName} | DevCard`;
-    } else if (error) {
-      document.title = 'User Not Found | DevCard';
     }
-  }, [profile, error]);
+  }, [profile, error, username]);
+
+  useEffect(() => {
+    return () => {
+      document.title = 'DevCard';
+    };
+  }, []);
 
   if (loading) {
     return (
