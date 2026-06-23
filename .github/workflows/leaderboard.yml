@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
   issues: read
 
 jobs:
@@ -31,17 +31,13 @@ jobs:
             const script = require('./.github/scripts/generateLeaderboard.js');
             await script({ github, context });
 
-      - name: Commit leaderboard
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add apps/web/public/leaderboard.json
-
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-
-          git commit -m "chore: update leaderboard"
-          git push
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update leaderboard"
+          title: "chore: update leaderboard"
+          body: "Automated update of contributor leaderboard data."
+          branch: "automation/leaderboard-update"
+          base: "main"
+          delete-branch: true
