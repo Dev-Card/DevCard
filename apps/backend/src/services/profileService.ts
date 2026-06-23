@@ -1,6 +1,8 @@
-import type { FastifyInstance } from 'fastify'
 import { getProfileUrl } from '@devcard/shared'
+
 import { getErrorMessage } from '../utils/error.util.js'
+
+import type { FastifyInstance } from 'fastify'
 
 export async function getOwnProfile(app: FastifyInstance, userId: string) {
   const user = await app.prisma.user.findUnique({
@@ -11,9 +13,9 @@ export async function getOwnProfile(app: FastifyInstance, userId: string) {
     },
   })
 
-  if (!user) return null
+  if (!user) {return null}
 
-  const { provider, providerId, ...profileData } = user as any
+  const { provider: _provider, providerId: _providerId, ...profileData } = user as any
   return { ...profileData, defaultCardId: user.cards[0]?.id || null }
 }
 
@@ -23,7 +25,7 @@ export async function updateProfile(app: FastifyInstance, userId: string, data: 
     const existing = await app.prisma.user.findFirst({
       where: { username: data.username, NOT: { id: userId } },
     })
-    if (existing) throw Object.assign(new Error('Username taken'), { code: 'P2002' })
+    if (existing) {throw Object.assign(new Error('Username taken'), { code: 'P2002' })}
   }
 
   const currentUser = await app.prisma.user.findUnique({ where: { id: userId }, select: { username: true } })
@@ -41,7 +43,7 @@ export async function updateProfile(app: FastifyInstance, userId: string, data: 
 
     return response
   } catch (err: any) {
-    if (err?.code === 'P2002') throw err
+    if (err?.code === 'P2002') {throw err}
     app.log.error({ err }, 'DB error in updateProfile')
     throw err
   }
@@ -55,14 +57,14 @@ export async function createPlatformLink(app: FastifyInstance, userId: string, l
 
 export async function updatePlatformLink(app: FastifyInstance, userId: string, id: string, linkData: any) {
   const existing = await app.prisma.platformLink.findFirst({ where: { id, userId } })
-  if (!existing) return null
+  if (!existing) {return null}
   const url = linkData.url || getProfileUrl(linkData.platform, linkData.username)
   return app.prisma.platformLink.update({ where: { id }, data: { platform: linkData.platform, username: linkData.username, url } })
 }
 
 export async function deletePlatformLink(app: FastifyInstance, userId: string, id: string) {
   const existing = await app.prisma.platformLink.findFirst({ where: { id, userId } })
-  if (!existing) return false
+  if (!existing) {return false}
   await app.prisma.platformLink.delete({ where: { id } })
   return true
 }
