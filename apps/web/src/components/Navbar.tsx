@@ -31,7 +31,7 @@ export default function Navbar() {
     <nav className="navbar glass" id="main-nav">
       <div className="nav-content">
         <Link to="/" className="logo" id="nav-logo">
-          <span>⚡</span>
+          <div className="logo-icon-wrap">⚡</div>
           <span className="gradient-text">DevCard</span>
         </Link>
         <button
