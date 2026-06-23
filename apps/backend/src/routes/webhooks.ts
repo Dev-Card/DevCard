@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { encrypt } from '../utils/encryption.js';
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-
 // ─── Validation Schemas ───
 
 const ALLOWED_EVENTS = ['card.viewed', 'contact.saved'] as const;
@@ -176,7 +175,6 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
     const page = Math.max(1, parseInt((request.query as any).page || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt((request.query as any).limit || '20', 10)));
 
-    // Verify ownership
     const endpoint = await app.prisma.webhookEndpoint.findFirst({
       where: { id, userId },
     });
