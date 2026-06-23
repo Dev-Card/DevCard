@@ -36,7 +36,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add public/leaderboard.json
+          git add apps/web/public/leaderboard.json
 
           if git diff --staged --quiet; then
             echo "No changes to commit"
