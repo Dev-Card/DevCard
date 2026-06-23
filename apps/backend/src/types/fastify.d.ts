@@ -19,6 +19,6 @@ declare module 'fastify' {
   }
 
   interface FastifyInstance {
-    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    authenticate: (this: void, request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }

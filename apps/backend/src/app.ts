@@ -11,6 +11,7 @@ import Fastify, {type FastifyInstance, type FastifyReply, type FastifyRequest} f
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
+import { refreshTokenCleanupPlugin } from './plugins/refreshTokenCleanup.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { authRoutes } from './routes/auth.js';
 import { cardRoutes } from './routes/cards.js';
@@ -95,13 +96,16 @@ export async function buildApp():Promise<FastifyInstance> {
 // Files must be served through authenticated route handlers
 // with ownership validation.
 
-  // ─── Database & Cache Plugins ───
- if (process.env.NODE_ENV !== 'test') {
-  await app.register(prismaPlugin); //change 
+// ─── Database & Cache Plugins ───
+if (process.env.NODE_ENV !== 'test') {
+  await app.register(prismaPlugin);
 }
-  if (process.env.NODE_ENV !== 'test') {
+
+if (process.env.NODE_ENV !== 'test') {
   await app.register(redisPlugin);
+  await app.register(refreshTokenCleanupPlugin);
 }
+
   // ─── Auth Decorator ───
   // Checks the Redis blocklist before calling jwtVerify so that a logged-out
   // token is rejected immediately even if it has not yet expired.

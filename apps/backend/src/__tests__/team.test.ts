@@ -1,6 +1,7 @@
+import { type PrismaClient, TeamRole } from '@prisma/client';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Fastify, { FastifyInstance } from 'fastify';
-import { PrismaClient, TeamRole } from '@prisma/client';
+
 import { teamRoutes } from '../routes/team';
 
 // ─── Shared mock data ─────────────────────────────────────────────────────────
@@ -92,7 +93,7 @@ const prismaMock = {
 
 // ─── App factory ──────────────────────────────────────────────────────────────
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
@@ -102,7 +103,14 @@ async function buildApp(): Promise<FastifyInstance> {
   app.decorateRequest('jwtVerify', function () {
     return mockJwtVerify();
   });
-
+  app.decorate('authenticate', async function (request, reply) {
+  try {
+    const payload = await request.jwtVerify();
+    if (payload) {request.user = payload as typeof request.user;}
+  } catch {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+  });
   await app.register(teamRoutes);
   await app.ready();
   return app;
@@ -118,7 +126,7 @@ async function createTeam(
   app: FastifyInstance,
   body: Record<string, unknown>,
   authenticated = true,
-) {
+): Promise<Awaited<ReturnType<typeof app.inject>>> {
   return app.inject({
     method: 'POST',
     url: '/',

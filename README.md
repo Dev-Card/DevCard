@@ -307,6 +307,8 @@ Thanks to all the amazing people who contribute to **DevCard** 🚀
   </a>
 </p>
 
+> 🏆 **Contributor Leaderboard** — contributors are also ranked by merged PRs, issues, and open PRs in the web app at the [`/leaderboard`](https://devcard.app/leaderboard) route (`apps/web`).
+
 <br>
 
 ## Project Support

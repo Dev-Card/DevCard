@@ -10,6 +10,7 @@ type EventDetails = {
     slug: string;
     location: string;
     description: string | null;
+    organizerId: string; 
     organizerUsername: string;
     organizerDisplayName: string;
     startDate: Date;
@@ -129,6 +130,7 @@ export async function eventRoutes(app:FastifyInstance): Promise<void> {
             slug: details.slug,
             description: details.description,
             location: details.location,
+            organizerId: details.organizerId,  
             organizerUsername: details.organizer.username,
             organizerDisplayName: details.organizer.displayName,
             startDate: details.startDate,
