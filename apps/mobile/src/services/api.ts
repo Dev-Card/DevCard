@@ -13,11 +13,6 @@ type DemoLink = {
 type DemoCard = {
   id: string;
   title: string;
-  description: string | null;
-  slug: string;
-  visibility: 'PUBLIC' | 'UNLISTED' | 'PRIVATE';
-  qrEnabled: boolean;
-  viewCount: number;
   profileId: string;
   isDefault: boolean;
   createdAt: string;
@@ -60,11 +55,6 @@ const demoState: {
     {
       id: 'card-1',
       title: 'Main Card',
-      description: 'Demo developer links',
-      slug: 'main-card',
-      visibility: 'PUBLIC',
-      qrEnabled: true,
-      viewCount: 0,
       profileId: 'demo-user-1',
       isDefault: true,
       createdAt: nowIso(),
@@ -112,11 +102,6 @@ function handleDemoRequest<T>(path: string, method: RequestOptions['method'], bo
     const card = {
       id,
       title: body?.title || 'New Card',
-      description: body?.description || null,
-      slug: `${body?.title || 'new-card'}-${Date.now()}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      visibility: body?.visibility || 'PUBLIC',
-      qrEnabled: true,
-      viewCount: 0,
       profileId: demoState.profile.id,
       isDefault: false,
       createdAt: nowIso(),
@@ -130,35 +115,6 @@ function handleDemoRequest<T>(path: string, method: RequestOptions['method'], bo
       })),
     };
     demoState.cards.unshift(card);
-    return card as T;
-  }
-
-  if (path.startsWith('/api/cards/') && path.endsWith('/update') && method === 'PUT') {
-    const id = path.split('/')[3];
-    const card = demoState.cards.find(item => item.id === id);
-    if (!card) return null as T;
-    card.title = body?.title ?? card.title;
-    card.description = body?.description ?? card.description;
-    card.visibility = body?.visibility ?? card.visibility;
-    card.qrEnabled = body?.qrEnabled ?? card.qrEnabled;
-    if (body?.linkIds) {
-      card.cardLinks = demoState.links
-        .filter(link => body.linkIds.includes(link.id))
-        .map((link, index) => ({ id: `${id}-${link.id}`, cardId: id, linkId: link.id, displayOrder: index, link }));
-    }
-    return card as T;
-  }
-
-  if (path.startsWith('/api/cards/') && path.endsWith('/share') && method === 'POST') {
-    const id = path.split('/')[3];
-    const card = demoState.cards.find(item => item.id === id);
-    return { shareUrl: `/cards/share/${card?.slug || id}`, slug: card?.slug || id } as T;
-  }
-
-  if (path.startsWith('/api/cards/share/') && method === 'GET') {
-    const slug = path.split('/')[4];
-    const card = demoState.cards.find(item => item.slug === slug);
-    if (card) card.viewCount += 1;
     return card as T;
   }
 
@@ -187,7 +143,7 @@ function handleDemoRequest<T>(path: string, method: RequestOptions['method'], bo
       id,
       platform,
       username,
-      url: body?.url || (platform === 'custom' ? username : `https://${platform}.com/${username}`),
+      url: `https://${platform}.com/${username}`,
       displayOrder: demoState.links.length,
     };
     demoState.links.push(link);
@@ -289,14 +245,14 @@ export async function apiRequest<T>(
   }
 
   const headers: Record<string, string> = {
-    ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
   if (res.status === 401 || res.status === 403) {
@@ -306,7 +262,7 @@ export async function apiRequest<T>(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.message ?? (err as any)?.error ?? `Request failed: ${res.status}`);
+    throw new Error((err as any)?.message ?? `Request failed: ${res.status}`);
   }
 
   // Some endpoints may return empty responses

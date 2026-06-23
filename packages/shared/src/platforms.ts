@@ -1,19 +1,37 @@
+// ─── Follow Strategy Types ───
+
 export type FollowStrategy = 'api' | 'webview' | 'link' | 'copy';
 
+// ─── Platform Definition ───
+
 export interface PlatformDef {
+  /** Unique platform identifier */
   id: string;
+  /** Display name */
   name: string;
+  /** Icon name (maps to platform icon set) */
   icon: string;
+  /** Brand color hex */
   color: string;
+  /** URL pattern — {username} is replaced */
   urlPattern: string;
+  /** Deep link pattern for mobile — null if not supported */
   deepLinkPattern: string | null;
+  /** WebView profile URL pattern (for Layer 2) */
   webViewUrlPattern: string | null;
+  /** Follow/connect strategy */
   followStrategy: FollowStrategy;
+  /** OAuth scopes needed for API follow (Layer 1) */
   oauthScopes: string[];
+  /** Placeholder text for username input */
   usernamePlaceholder: string;
+  /** Whether the platform uses full URL instead of username */
   usesFullUrl: boolean;
+  /** Regex pattern to validate usernames */
   validationRegex?: RegExp;
 }
+
+// ─── Platform Registry ───
 
 export const PLATFORMS: Record<string, PlatformDef> = {
   github: {
@@ -180,7 +198,7 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     name: 'Discord',
     icon: 'discord',
     color: '#5865F2',
-    urlPattern: '',
+    urlPattern: '', // no profile URL — copy to clipboard
     deepLinkPattern: null,
     webViewUrlPattern: null,
     followStrategy: 'copy',
@@ -219,7 +237,7 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     name: 'Portfolio',
     icon: 'globe',
     color: '#6366F1',
-    urlPattern: '{username}',
+    urlPattern: '{username}', // full URL provided
     deepLinkPattern: null,
     webViewUrlPattern: null,
     followStrategy: 'link',
@@ -232,7 +250,7 @@ export const PLATFORMS: Record<string, PlatformDef> = {
     name: 'Custom Link',
     icon: 'link',
     color: '#8B5CF6',
-    urlPattern: '{username}',
+    urlPattern: '{username}', // full URL provided
     deepLinkPattern: null,
     webViewUrlPattern: null,
     followStrategy: 'link',
@@ -242,26 +260,38 @@ export const PLATFORMS: Record<string, PlatformDef> = {
   },
 };
 
+// ─── Helpers ───
+
+/** Get ordered list of all platform definitions */
 export function getAllPlatforms(): PlatformDef[] {
   return Object.values(PLATFORMS);
 }
 
+/** Get a platform by ID */
 export function getPlatform(id: string): PlatformDef | undefined {
   return PLATFORMS[id];
 }
 
+/** Check whether a platform ID exists in the registry */
+export function isSupportedPlatform(id: string): boolean {
+  return Object.prototype.hasOwnProperty.call(PLATFORMS, id);
+}
+
+/** Get the profile URL for a given platform and username */
 export function getProfileUrl(platformId: string, username: string): string {
   const platform = PLATFORMS[platformId];
   if (!platform) return '';
   return platform.urlPattern.replace(/{username}/g, username);
 }
 
+/** Get the WebView URL for Layer 2 platforms */
 export function getWebViewUrl(platformId: string, username: string): string | null {
   const platform = PLATFORMS[platformId];
   if (!platform?.webViewUrlPattern) return null;
   return platform.webViewUrlPattern.replace(/{username}/g, username);
 }
 
+/** Get the deep link URL for mobile */
 export function getDeepLinkUrl(platformId: string, username: string): string | null {
   const platform = PLATFORMS[platformId];
   if (!platform?.deepLinkPattern) return null;

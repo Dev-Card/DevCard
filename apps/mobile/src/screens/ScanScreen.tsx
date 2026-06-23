@@ -46,7 +46,7 @@ export default function ScanScreen({ navigation }: Props) {
   const [loadingCards, setLoadingCards] = useState(false);
   const sheetRef = useRef<BottomSheetModal>(null);
 
-  const qrRef = useRef<ViewShot>(null);
+  const qrRef = useRef<any>(null);
   const [hasPermission, setHasPermission] = useState(false);
 
   // Extract username from DevCard URL

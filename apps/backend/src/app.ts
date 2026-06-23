@@ -7,11 +7,11 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import fastifyStatic from '@fastify/static';
-import Fastify, {type FastifyInstance} from 'fastify';
+import Fastify, {type FastifyInstance, type FastifyReply, type FastifyRequest} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
+import { refreshTokenCleanupPlugin } from './plugins/refreshTokenCleanup.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { authRoutes } from './routes/auth.js';
 import { cardRoutes } from './routes/cards.js';
@@ -21,8 +21,11 @@ import { followRoutes } from './routes/follow.js';
 import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
-import { validateEnv } from './utils/validateEnv.js';
 import { teamRoutes } from './routes/team.js';
+import { extractRawJwt, blocklistKey } from './utils/jwt.js';
+import { validateEnv } from './utils/validateEnv.js';
+
+import type { AuthenticatedUser } from './types/fastify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -40,6 +43,12 @@ export async function buildApp():Promise<FastifyInstance> {
           ? { target: 'pino-pretty', options: { colorize: true } }
           : undefined,
     },
+  });
+
+  // Log method + path for every incoming request.
+  app.addHook('onRequest', (request, _reply, done) => {
+    app.log.info({ method: request.method, url: request.url }, 'incoming request');
+    done();
   });
 
   // ─── Core Plugins ───
@@ -65,12 +74,19 @@ export async function buildApp():Promise<FastifyInstance> {
     },
   });
 
+  // cookie must be registered before jwt so that @fastify/jwt can read the
+  // `token` cookie during jwtVerify() for browser-based clients.
+  await app.register(cookie);
+
   await app.register(jwt, {
     // validateEnv() above guarantees JWT_SECRET is present and safe.
     secret: process.env.JWT_SECRET!,
+    cookie: {
+      // Matches the cookie name set in the OAuth callback handlers.
+      cookieName: 'token',
+      signed: false,
+    },
   });
-
-  await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
   await app.register(rateLimit, {
     max: 100,
@@ -80,21 +96,42 @@ export async function buildApp():Promise<FastifyInstance> {
 // Files must be served through authenticated route handlers
 // with ownership validation.
 
-  // ─── Database & Cache Plugins ───
- if (process.env.NODE_ENV !== 'test') {
-  await app.register(prismaPlugin); //change 
+// ─── Database & Cache Plugins ───
+if (process.env.NODE_ENV !== 'test') {
+  await app.register(prismaPlugin);
 }
-  if (process.env.NODE_ENV !== 'test') {
+
+if (process.env.NODE_ENV !== 'test') {
   await app.register(redisPlugin);
+  await app.register(refreshTokenCleanupPlugin);
 }
+
   // ─── Auth Decorator ───
-  app.decorate('authenticate', async function (request: any, reply: any) {
+  // Checks the Redis blocklist before calling jwtVerify so that a logged-out
+  // token is rejected immediately even if it has not yet expired.
+  // The blocklist check is skipped when Redis is not registered (test env).
+  app.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
     try {
-      // Ensure the verified payload is assigned to `request.user` like the original plugin.
-      const payload = await request.jwtVerify();
-      if (payload) request.user = payload;
-    } catch (error) {
-      reply.status(401).send({ error: 'Unauthorized' });
+      if (app.hasDecorator('redis')) {
+        const raw = extractRawJwt(request);
+        if (raw) {
+          try {
+            const revoked = await app.redis.exists(blocklistKey(raw));
+            if (revoked) {
+              return reply.status(401).send({ error: 'Token has been revoked' });
+            }
+          } catch (redisErr) {
+            // Redis is unavailable — fail open to avoid an outage on every
+            // authenticated request. The JWT expiry is still the safety net.
+            app.log.warn({ err: redisErr }, 'Redis blocklist check failed — proceeding with JWT verification');
+          }
+        }
+      }
+      // Assign verified payload to request.user (upstream addition).
+      const payload = await request.jwtVerify<AuthenticatedUser>();
+      if (payload) { request.user = payload; }
+    } catch (_err) {
+      return reply.status(401).send({ error: 'Unauthorized' });
     }
   });
 

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { get } from '../services/api';
+import { DEMO_TOKEN } from '../services/api';
 
 // ── Storage Keys ──────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ interface AuthContextType {
   login: (token: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  enterDemoMode: () => Promise<void>;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -122,6 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [token]);
 
+  const enterDemoMode = useCallback(async () => {
+    await login(DEMO_TOKEN);
+  }, [login]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -133,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         refreshUser,
+        enterDemoMode,
       }}>
       {children}
     </AuthContext.Provider>

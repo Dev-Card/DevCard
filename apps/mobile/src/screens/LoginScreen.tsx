@@ -8,10 +8,13 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme/tokens';
+import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { API_BASE_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
+  const { enterDemoMode } = useAuth();
+
   const handleGitHubLogin = () => {
     Linking.openURL(`${API_BASE_URL}/auth/github?state=mobile_github`);
   };
@@ -25,21 +28,32 @@ export default function LoginScreen() {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bgPrimary} />
 
       <View style={styles.content}>
+        <View style={styles.topSpace} />
+
         <View style={styles.header}>
-          <Text style={styles.logo}>⚡</Text>
-          <Text style={styles.title}>Welcome to DevCard</Text>
-          <Text style={styles.subtitle}>
-            Sign in to create your developer card
-          </Text>
+          <View style={styles.logoCard}>
+            <Text style={styles.logo}>⚡</Text>
+            <Text style={styles.logoText}>DevCard</Text>
+          </View>
+          <Text style={styles.title}>One Tap.{"\n"}Every Profile.</Text>
+          <Text style={styles.subtitle}>Stop sharing one profile at a time.</Text>
         </View>
 
-        <View style={styles.card}>
+        <View style={styles.authBlock}>
           <TouchableOpacity
             style={[styles.oauthButton, styles.githubButton]}
             onPress={handleGitHubLogin}
             activeOpacity={0.85}>
             <Text style={styles.oauthIcon}>🐙</Text>
             <Text style={styles.oauthText}>Continue with GitHub</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.oauthButton, styles.demoButton]}
+            onPress={enterDemoMode}
+            activeOpacity={0.85}>
+            <Text style={styles.oauthIcon}>🧪</Text>
+            <Text style={styles.demoText}>Continue in Demo Mode</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -50,9 +64,18 @@ export default function LoginScreen() {
             <Text style={styles.oauthText}>Continue with Google</Text>
           </TouchableOpacity>
 
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>or</Text>
+            <View style={styles.orLine} />
+          </View>
+
+          <TouchableOpacity activeOpacity={0.8}>
+            <Text style={styles.emailLink}>Sign up with email →</Text>
+          </TouchableOpacity>
+
           <Text style={styles.terms}>
-            By signing in, you agree to the DevCard Terms of Service and
-            Privacy Policy.
+            By continuing you agree to our Terms & Privacy Policy.
           </Text>
         </View>
       </View>
@@ -67,34 +90,52 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xl,
+  },
+  topSpace: {
+    height: SPACING.md,
   },
   header: {
     alignItems: 'center',
-    marginBottom: SPACING.xxl,
+    marginTop: SPACING.xl,
+    marginBottom: SPACING.xl,
   },
-  logo: {
-    fontSize: 48,
-    marginBottom: SPACING.md,
-  },
-  title: {
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  subtitle: {
-    fontSize: FONT_SIZE.md,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
-  },
-  card: {
-    backgroundColor: COLORS.bgCardGlass,
+  logoCard: {
+    width: 126,
+    height: 126,
     borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.card,
+    backgroundColor: COLORS.bgCard,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.lg,
+  },
+  logo: {
+    fontSize: 36,
+    marginBottom: SPACING.xs,
+  },
+  logoText: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+  },
+  title: {
+    textAlign: 'center',
+    fontSize: 40,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    lineHeight: 44,
+  },
+  subtitle: {
+    textAlign: 'center',
+    fontSize: FONT_SIZE.lg,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.md,
+  },
+  authBlock: {
+    gap: SPACING.md,
   },
   oauthButton: {
     flexDirection: 'row',
@@ -102,13 +143,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.md,
+    borderWidth: 1,
   },
   githubButton: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.bgCard,
+    borderColor: COLORS.borderLight,
   },
   googleButton: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.bgCard,
+    borderColor: COLORS.border,
+  },
+  demoButton: {
+    backgroundColor: COLORS.primaryDark,
+    borderColor: COLORS.primary,
   },
   oauthIcon: {
     fontSize: 20,
@@ -117,13 +164,39 @@ const styles = StyleSheet.create({
   oauthText: {
     fontSize: FONT_SIZE.md,
     fontWeight: '600',
-    color: COLORS.textInverse,
+    color: COLORS.textPrimary,
+  },
+  demoText: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.xs,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  orText: {
+    color: COLORS.textMuted,
+    marginHorizontal: SPACING.md,
+    fontSize: FONT_SIZE.sm,
+  },
+  emailLink: {
+    textAlign: 'center',
+    color: COLORS.primaryLight,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '600',
   },
   terms: {
     fontSize: FONT_SIZE.xs,
     color: COLORS.textMuted,
     textAlign: 'center',
-    marginTop: SPACING.sm,
+    marginTop: SPACING.md,
     lineHeight: 18,
   },
 });
