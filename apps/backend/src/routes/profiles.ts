@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 
-import * as profileService from '../services/profileService';
+import * as profileService from '../services/profileService.js';
 import { updateProfileSchema, createLinkSchema, reorderLinksSchema } from '../utils/validators.js';
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';

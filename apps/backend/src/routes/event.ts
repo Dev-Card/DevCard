@@ -12,6 +12,7 @@ type EventDetails = {
     slug: string;
     location: string;
     description: string | null;
+    organizerId: string; 
     organizerUsername: string;
     organizerDisplayName: string;
     startDate: Date;

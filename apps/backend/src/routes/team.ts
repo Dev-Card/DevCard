@@ -4,8 +4,8 @@ import QRCode from 'qrcode'
 import {generateUniqueSlug} from '../utils/slug.js'
 import { createTeamScehma,inviteMembers,updateTeam } from '../validations/team.validation.js';
 
-import type {PlatformLink, PublicProfile} from '@devcard/shared/src/types.js'
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type {PlatformLink, PublicProfile} from '@devcard/shared'
+import type { FastifyInstance } from 'fastify';
 
 type TeamMember = PublicProfile & {
     teamRole: TeamRole
@@ -24,16 +24,11 @@ type TeamProfile = {
   members: TeamMember[];
 }
 
-export async function teamRoutes(app:FastifyInstance){
-        app.post('/', { preHandler: [async (request, reply) => {
-            const server = request.server as any;
-            if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-            if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-            try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
-        }] }, async(request:FastifyRequest<{
-        Body: {name: string, description? : string, avatarUrl?: string }
-    }>, reply: FastifyReply) => {
-        const userId = (request.user as any).id;
+export async function teamRoutes(app: FastifyInstance): Promise<void> {
+        app.post<{
+            Body: {name: string, description? : string, avatarUrl?: string }
+        }>('/',{ preHandler: [app.authenticate] }, async (request, reply): Promise<void> => {
+        const userId = request.user.id;
         const parsed = createTeamScehma.safeParse(request.body); 
         if(!parsed.success){
             return reply.status(400).send({error: 'Bad request'})
@@ -48,7 +43,7 @@ export async function teamRoutes(app:FastifyInstance){
 
         try {
             const team = await app.prisma.$transaction(async (tx) => {
-                const team = await tx.team.create({
+                const createdTeam = await tx.team.create({
                     data: {
                         name, 
                         slug: finalSlug, 
@@ -60,13 +55,13 @@ export async function teamRoutes(app:FastifyInstance){
     
                 await tx.teamMember.create({
                     data: {
-                        teamId : team.id, 
+                        teamId : createdTeam.id, 
                         userId, 
                         role: TeamRole.OWNER, 
                         joinedAt: new Date(), 
                     }
                 })
-                return team
+                return createdTeam
             })   
             return reply.status(201).send(team)
 
@@ -91,7 +86,7 @@ export async function teamRoutes(app:FastifyInstance){
         }
     })
 
-    app.get('/:slug', async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+    app.get<{Params: {slug: string}}>('/:slug', async (request, reply): Promise<void> => {
         const paramsSlug = request.params.slug;
 
         try {
@@ -149,7 +144,7 @@ export async function teamRoutes(app:FastifyInstance){
                 members 
             }
 
-            return response; 
+            return reply.status(200).send(response);
         } catch (error) {
             app.log.error(error); 
             return reply.status(500).send('Database query failed')
@@ -157,14 +152,9 @@ export async function teamRoutes(app:FastifyInstance){
 
     })
 
-        app.post('/:slug/members', { preHandler: [async (request, reply) => {
-            const server = request.server as any;
-            if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-            if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-            try { const payload = await request.jwtVerify(); if (payload) (request as any).user = payload; } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
-        }] }, async(request: FastifyRequest<{Params: {slug:string}, Body:{username:string}}>, reply: FastifyReply) => {
+        app.post<{Params: {slug:string}, Body:{username:string}}>('/:slug/members', { preHandler: [app.authenticate] }, async (request, reply): Promise<void> => {
         const paramsSlug = request.params.slug; 
-        const userId = (request.user as any).id;
+        const userId = request.user.id;
         const parsed = inviteMembers.safeParse(request.body); 
         if(!parsed.success){
             return reply.status(400).send({error: 'Bad request'})
@@ -224,10 +214,10 @@ export async function teamRoutes(app:FastifyInstance){
         }
     })
 
-    app.delete('/:slug/members/:userId', { preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string, userId: string}}>, reply: FastifyReply)  => {
+    app.delete<{Params: {slug: string, userId: string}}>('/:slug/members/:userId',{ preHandler: [app.authenticate] }, async (request, reply): Promise<void> => {
         const paramsSlug = request.params.slug 
         const paramsUserId = request.params.userId
-        const userID = (request.user as any).id; 
+        const userId = request.user.id;
         const teamDetails = await app.prisma.team.findUnique(
             {where: {slug: paramsSlug},
             include: {
@@ -251,8 +241,8 @@ export async function teamRoutes(app:FastifyInstance){
             });
         }
 
-        const isOwner = teamDetails.ownerId === userID; 
-        const isSelfRemove = paramsUserId === userID; 
+        const isOwner = teamDetails.ownerId === userId; 
+        const isSelfRemove = paramsUserId === userId; 
 
         if (!isOwner && !isSelfRemove) {
             return reply.status(403).send({
@@ -286,8 +276,10 @@ export async function teamRoutes(app:FastifyInstance){
         }
     })
 
-    app.patch('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request: FastifyRequest<{Params: {slug: string},Body: {description?:string, name?:string, avatarUrl?:string}}>, reply: FastifyReply) => {
-        const userId = (request.user as any).id; 
+    app.patch<{Params: {slug: string},Body: {description?:string, name?:string, avatarUrl?:string}}>('/:slug',{ preHandler: [app.authenticate
+        
+    ] }, async (request, reply): Promise<void> => {
+        const userId = request.user.id;
         const paramsSlug = request.params.slug; 
         const parsed = updateTeam.safeParse(request.body); 
         if(!parsed.success){
@@ -328,8 +320,8 @@ export async function teamRoutes(app:FastifyInstance){
         
     })
 
-    app.delete('/:slug',{ preHandler: [async (request, reply) => { const server = request.server as any; if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return } if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return } try { await request.jwtVerify() } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) } }] }, async(request:FastifyRequest<{Params:{slug: string}}>, reply:FastifyReply) => {
-        const userId = (request.user as any).id; 
+   app.delete<{Params:{slug: string}}>('/:slug',{ preHandler: [app.authenticate] }, async (request, reply): Promise<void> => {
+        const userId = request.user.id;
         const paramsSlug = request.params.slug; 
 
 
@@ -364,7 +356,7 @@ export async function teamRoutes(app:FastifyInstance){
         }
     })
 
-    app.get('/:slug/qr',async(request:FastifyRequest<{Params:{slug:string}}>, reply: FastifyReply) => {
+    app.get<{Params:{slug:string}}>('/:slug/qr', async (request, reply): Promise<void> => {
         const paramsSlug = request.params.slug; 
         try {
             const teamDetails = await app.prisma.team.findUnique({

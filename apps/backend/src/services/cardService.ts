@@ -1,7 +1,7 @@
 import { type Card, CardVisibility, type Prisma } from '@prisma/client';
 import QRCode from 'qrcode';
 
-import { generateUniqueSlug } from '../utils/slug';
+import { generateUniqueSlug } from '../utils/slug.js';
 
 import type { CreateCardBody } from '../routes/cards';
 import type { FastifyInstance } from 'fastify';
