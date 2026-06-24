@@ -1,7 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
+import Fastify from 'fastify';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { connectRoutes } from '../routes/connect.js';
+import { encrypt } from '../utils/encryption.js';
+
 import type { PrismaClient } from '@prisma/client';
 
 process.env.PUBLIC_APP_URL = 'http://localhost:3000';
@@ -20,6 +23,7 @@ const mockRedis = {
 const mockPrisma = {
   oAuthToken: {
     findMany: vi.fn(),
+    findUnique: vi.fn(),
     upsert: vi.fn(),
     delete: vi.fn(),
   },
@@ -27,16 +31,16 @@ const mockPrisma = {
 
 global.fetch = vi.fn();
 
-async function buildApp() {
+async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify();
   await app.register(jwt, { secret: 'test-secret' });
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
   app.decorate('redis', mockRedis as any);
-  
+
   app.decorate('authenticate', async (request: any, reply: any) => {
     try {
       await request.jwtVerify();
-    } catch (err) {
+    } catch {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
@@ -44,6 +48,10 @@ async function buildApp() {
   app.register(connectRoutes, { prefix: '/api/connect' });
   await app.ready();
   return app;
+}
+
+function authHeader(app: any): { authorization: string } {
+  return { authorization: `Bearer ${app.jwt.sign({ id: 'user-1' })}` };
 }
 
 describe('GET /api/connect/github/callback', () => {
@@ -183,5 +191,120 @@ describe('GET /api/connect/github/callback', () => {
     expect(mockPrisma.oAuthToken.upsert).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe('http://localhost:3000/settings?error=connect_failed');
+  });
+
+  it('returns cached discovery suggestions when Redis stores the response', async () => {
+    const cachedResponse = [{ platform: 'twitter', username: 'octocat', confidence: 'high' }];
+    mockRedis.get.mockResolvedValue(JSON.stringify(cachedResponse));
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/connect/github/autodiscover',
+      headers: authHeader(app),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(cachedResponse);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns discovery suggestions and caches the result', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockPrisma.oAuthToken.findUnique.mockResolvedValue({ accessToken: encrypt('github-access-token') });
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        twitter_username: 'octocat',
+        blog: 'https://dev.to/octocat',
+        company: 'GitHub',
+        bio: 'Developer',
+        html_url: 'https://github.com/octocat',
+      }),
+    });
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/connect/github/autodiscover',
+      headers: authHeader(app),
+    });
+
+    const expected = [
+      { platform: 'twitter', username: 'octocat', confidence: 'high' },
+      { platform: 'devto', username: 'octocat', confidence: 'low' },
+    ];
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(expected);
+    expect(mockRedis.set).toHaveBeenCalledWith('github:autodiscover:user-1', JSON.stringify(expected), 'EX', 3600);
+  });
+
+  it('returns unauthorized when GitHub API returns 401', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockPrisma.oAuthToken.findUnique.mockResolvedValue({ accessToken: encrypt('github-access-token') });
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: vi.fn().mockResolvedValue('Bad credentials'),
+    });
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/connect/github/autodiscover',
+      headers: authHeader(app),
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ error: 'GitHub token expired or revoked', requiresAuth: true });
+    expect(mockRedis.del).toHaveBeenCalledWith('github:autodiscover:user-1');
+  });
+
+  it('returns an error when the GitHub follow token is missing', async () => {
+    mockRedis.get.mockResolvedValue(null);
+    mockPrisma.oAuthToken.findUnique.mockResolvedValue(null);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/connect/github/autodiscover',
+      headers: authHeader(app),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ error: 'Not connected to GitHub. Please connect GitHub first.', requiresAuth: true });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('falls back to live GitHub discovery when Redis read fails', async () => {
+    mockRedis.get.mockRejectedValue(new Error('Redis unavailable'));
+    mockPrisma.oAuthToken.findUnique.mockResolvedValue({ accessToken: encrypt('github-access-token') });
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        twitter_username: 'octocat',
+        blog: 'https://npmjs.com/~octocat',
+        company: 'GitHub',
+        bio: 'Developer',
+        html_url: 'https://github.com/octocat',
+      }),
+    });
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/connect/github/autodiscover',
+      headers: authHeader(app),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual([
+      { platform: 'twitter', username: 'octocat', confidence: 'high' },
+      { platform: 'npm', username: 'octocat', confidence: 'low' },
+    ]);
+    expect(global.fetch).toHaveBeenCalled();
   });
 });

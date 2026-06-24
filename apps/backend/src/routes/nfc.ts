@@ -1,5 +1,6 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+
+import type { FastifyInstance} from 'fastify';
 
 type NfcPayloadResponse = {
   type: 'URI';
@@ -10,33 +11,16 @@ const nfcQuerySchema = z.object({
   card: z.string().uuid('Invalid card ID format').optional(),
 });
 
-export async function nfcRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', async (request, reply) => {
-        const server = request.server as any;
-        if (typeof server?.authenticate === 'function') {
-          await server.authenticate(request, reply);
-          return;
-        }
-        if (typeof (app as any).authenticate === 'function') {
-          await (app as any).authenticate(request, reply);
-          return;
-        }
-        try {
-          await request.jwtVerify();
-        } catch (e) {
-          reply.status(401).send({ error: 'Unauthorized' });
-        }
-  });
+export async function nfcRoutes(app: FastifyInstance): Promise<void> {
+  
 
   // GET /api/nfc/payload — returns NDEF URI payload for user's default DevCard URL
   // GET /api/nfc/payload?card=<cardId> — returns payload for a specific card
-  app.get(
-    '/payload',
-    async (
-      request: FastifyRequest<{ Querystring: { card?: string } }>,
-      reply: FastifyReply
-    ) => {
-      const userId = (request.user as any).id;
+  app.get<{ Querystring: { card?: string } }>(
+  '/payload',
+  { preHandler: [(req, reply) => app.authenticate(req, reply)] },
+  async (request, reply) => {
+    const userId = request.user.id;
 
       // Validate query params with Zod
       const parseResult = nfcQuerySchema.safeParse(request.query);

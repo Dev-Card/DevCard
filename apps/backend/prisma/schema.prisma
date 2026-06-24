@@ -6,7 +6,12 @@ datasource db {
   url      = env("DATABASE_URL")
 
 }
-
+enum Role{
+  SUPERADMIN
+  ADMIN
+  USER
+  
+}
 model User {
   id          String   @id @default(uuid())
   email       String   @unique
@@ -15,28 +20,66 @@ model User {
   bio         String?
   pronouns    String?
   role        String?
+  authRole    Role @default(USER)
   company     String?
   avatarUrl   String?  @map("avatar_url")
   accentColor String   @default("#6366f1") @map("accent_color")
-  provider    String
-  providerId  String   @map("provider_id")
+  emailVerified Boolean @default(false) @map("email_verified") 
+  phoneNumber   String? @unique @map("phone_number")           
+  lastSignInAt  DateTime? @map("last_sign_in_at")           
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  isActive    Boolean  @default(false)
 
+  identities    UserIdentity[]   
+  refreshTokens RefreshToken[]   
   platformLinks PlatformLink[]
   cards         Card[]
   oauthTokens   OAuthToken[]
   ownedViews    CardView[]     @relation("cardOwner")
   viewedCards   CardView[]     @relation("cardViewer")
   followLogs    FollowLog[]
-  organizer     Event[]    
-  attendedEvents EventAttendee[] 
+  organizer     Event[]
+  attendedEvents EventAttendee[]
+  ownedTeams    Team[]         @relation("TeamOwner")
+  teamMemberships TeamMember[] @relation("TeamMember")
 
-  ownedTeams       Team[]          @relation("TeamOwner")
-  teamMemberships  TeamMember[]    @relation("TeamMember")
+  @@map("users")
+}
+
+model UserIdentity {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  provider   String   // "google.com" | "apple.com" | "firebase" | "phone"
+  providerId String   @map("provider_id")  // Google sub / Apple sub / Firebase UID
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerId])
-  @@map("users")
+  @@index([userId])
+  @@map("user_identities")
+}
+
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash") //SHA-256 hash
+  family    String    // token rotation
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")         // null = still valid
+  createdAt DateTime  @default(now()) @map("created_at")
+  userAgent String?   @map("user_agent")          
+  ip        String?   //hash
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("refresh_tokens")
 }
 
 model PlatformLink {
@@ -54,19 +97,40 @@ model PlatformLink {
   @@map("platform_links")
 }
 
+enum CardVisibility {
+  PUBLIC    // Anyone can view the card
+  UNLISTED  // Anyone with the link can view, but not publicly listed
+  PRIVATE   // Only the card owner can view
+}
+
 model Card {
   id        String     @id @default(uuid())
   userId    String     @map("user_id")
+
   title     String
+  description String? 
+
+  slug    String @unique
+
+  visibility CardVisibility @default(PUBLIC)
+
+  qrEnabled Boolean    @default(true)
+
+  viewCount Int @default(0)
+
   isDefault Boolean    @default(false) @map("is_default")
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
   cardLinks CardLink[]
   views     CardView[]
+  
 
   @@map("cards")
+  @@index([userId])
+  @@index([viewCount])
 }
 
 model CardLink {
@@ -104,7 +168,7 @@ model CardView {
   cardId      String?  @map("card_id")       // null = default profile view
   ownerId     String   @map("owner_id")      // card/profile owner
   viewerId    String?  @map("viewer_id")     // null = anonymous web viewer
-  viewerIp    String?  @map("viewer_ip")
+  viewerIp    String?  @map("viewer_ip")     //hashed
   viewerAgent String?  @map("viewer_agent")
   source      String   @default("qr")        // "qr" | "link" | "web" | "app"
   createdAt   DateTime @default(now()) @map("created_at")
@@ -114,6 +178,8 @@ model CardView {
   viewer  User? @relation("cardViewer", fields: [viewerId], references: [id], onDelete: SetNull)
 
   @@map("card_views")
+  @@index([cardId])
+  @@index([ownerId])
 }
 
 model FollowLog {

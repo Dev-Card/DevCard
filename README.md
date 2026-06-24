@@ -22,6 +22,22 @@
 
 ---
 
+## Table of Contents
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [API Endpoints](#api-endpoints)
+- [Good First Issues](#good-first-issues)
+- [Contributing](#contributing)
+- [Contributors](#contributors)
+- [Project Support](#project-support)
+- [License](#license)
+
+---
+
 ## The Problem
 
 At every developer meetup, hackathon, or conference, the same friction plays out:
@@ -290,6 +306,8 @@ Thanks to all the amazing people who contribute to **DevCard** 🚀
     <img src="https://contrib.rocks/image?repo=Dev-Card/DevCard" alt="Contributors"/>
   </a>
 </p>
+
+> 🏆 **Contributor Leaderboard** — contributors are also ranked by merged PRs, issues, and open PRs in the web app at the [`/leaderboard`](https://devcard.app/leaderboard) route (`apps/web`).
 
 <br>
 
