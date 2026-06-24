@@ -62,7 +62,7 @@ function hasErrorCode(
 }
 
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
- 
+
   // ─── List Cards ───
   app.get('/', {preHandler: [(req, reply) => app.authenticate(req, reply)] },async (request: FastifyRequest, reply: FastifyReply): Promise<CardResponse[] | void> => {
     const userId = request.user.id;
@@ -85,10 +85,12 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     try {
       const card = await cardService.createCard(app, userId, parsed.data)
       return reply.status(201).send(card)
+
     } catch (error) {
       if (hasErrorCode(error, 'OWNERSHIP')) {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
       return handleDbError(error, request, reply)
     }
+
   });
 
   // ─── Update Card ───
@@ -103,10 +105,12 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       const updated = await cardService.updateCard(app, userId, id, parsed.data)
       if (!updated) {return reply.status(404).send({ error: 'Card not found' })}
       return updated
+
     } catch (error) {
       if (hasErrorCode(error, 'OWNERSHIP')) {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
       return handleDbError(error, request, reply)
     }
+
   });
 
   // ─── Delete Card ───
@@ -118,18 +122,21 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     try {
       await cardService.deleteCard(app, userId, id)
       return reply.status(204).send()
+
     } catch (error) {
         if (hasErrorCode(error, 'NOT_FOUND')) {
           return reply.status(404).send({ error: 'Card not found' });
         }
 
         if (hasErrorCode(error, 'LAST_CARD')) {
+
           return reply.status(400).send({
             error: 'Cannot delete the last remaining card. A user must have at least one card.',
           });
         }
-      return handleDbError(error, request, reply)
-    }
+
+        return handleDbError(error, request, reply);
+      }
   });
 
   // ─── Set Default Card ───
