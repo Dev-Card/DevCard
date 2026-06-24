@@ -16,6 +16,13 @@ export default tseslint.config(
       'coverage/**',
       'prisma/migrations/**',
       '**/*.d.ts',
+      'postman/**',
+      // Source is TypeScript only; JS-family files are config/scripts that the
+      // type-checked ruleset cannot parse (no tsconfig project). Skip them so
+      // CI linting of changed files does not crash on e.g. push.mjs or this config.
+      '**/*.mjs',
+      '**/*.cjs',
+      '**/*.js',
     ],
   },
 

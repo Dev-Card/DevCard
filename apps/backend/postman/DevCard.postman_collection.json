@@ -1,0 +1,670 @@
+{
+  "info": {
+    "name": "DevCard API",
+    "description": "DevCard backend (Fastify). Base URL and token are driven by the DevCard environment.\n\nAuth: most routes require a JWT. Run `Auth > Dev Login` first — its test script saves the returned token into the `token` variable, so every subsequent request is authenticated automatically. You can also paste a token manually.\n\nChaining: `Cards > Create card`, `Profiles > Add platform link`, `Events > Create event`, and `Teams > Create team` save the created id/slug into collection variables (`cardId`, `linkId`, `eventSlug`, `teamSlug`) so the update/delete requests below them work without manual editing. Use `Collection > Run` to execute the whole suite top-to-bottom.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "cardId", "value": "" },
+    { "key": "linkId", "value": "" },
+    { "key": "eventSlug", "value": "" },
+    { "key": "teamSlug", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reports ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Dev Login (saves token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('returns a token', () => pm.expect(json).to.have.property('token').that.is.a('string'));",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "  pm.environment.set('token', json.token);",
+                  "  console.log('Saved JWT to {{token}}');",
+                  "} else {",
+                  "  console.warn('No token — is devcard-demo seeded? Run: npm run db:seed');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/dev-login", "host": ["{{baseUrl}}"], "path": ["auth", "dev-login"] },
+            "description": "Development-only login bypass. Mints a 30-day JWT for the seeded `devcard-demo` user. Disabled when NODE_ENV=production."
+          }
+        },
+        {
+          "name": "Get current user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json();",
+                  "pm.test('has id and username', () => {",
+                  "  pm.expect(u).to.have.property('id');",
+                  "  pm.expect(u).to.have.property('username');",
+                  "});",
+                  "pm.test('exposes connectedPlatforms array', () => pm.expect(u.connectedPlatforms).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+          }
+        },
+        {
+          "name": "Refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('responds 200 or 401', () => pm.expect(pm.response.code).to.be.oneOf([200, 401]));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] }
+          }
+        },
+        {
+          "name": "Mobile exchange",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"<one-time-code>\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/mobile/exchange", "host": ["{{baseUrl}}"], "path": ["auth", "mobile", "exchange"] }
+          }
+        },
+        {
+          "name": "GitHub OAuth start",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/github", "host": ["{{baseUrl}}"], "path": ["auth", "github"] },
+            "description": "Redirects to GitHub. Open in a browser rather than Postman to complete the OAuth flow."
+          }
+        },
+        {
+          "name": "Google OAuth start",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/google", "host": ["{{baseUrl}}"], "path": ["auth", "google"] },
+            "description": "Redirects to Google. Open in a browser rather than Postman to complete the OAuth flow."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profiles",
+      "item": [
+        {
+          "name": "Get my profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('has username', () => pm.expect(pm.response.json()).to.have.property('username'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/profiles/me", "host": ["{{baseUrl}}"], "path": ["api", "profiles", "me"] }
+          }
+        },
+        {
+          "name": "Update my profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"displayName\": \"Ada Lovelace\",\n  \"bio\": \"Building DevCard.\",\n  \"pronouns\": \"she/her\",\n  \"role\": \"Engineer\",\n  \"company\": \"DevCard\",\n  \"accentColor\": \"#6C5CE7\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/profiles/me", "host": ["{{baseUrl}}"], "path": ["api", "profiles", "me"] }
+          }
+        },
+        {
+          "name": "Add platform link (saves linkId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('created (2xx)', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const link = pm.response.json();",
+                  "if (link && link.id) { pm.collectionVariables.set('linkId', link.id); console.log('Saved linkId', link.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"platform\": \"github\",\n  \"username\": \"octocat\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/profiles/me/links", "host": ["{{baseUrl}}"], "path": ["api", "profiles", "me", "links"] }
+          }
+        },
+        {
+          "name": "Update platform link",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"platform\": \"github\",\n  \"username\": \"octocat\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/profiles/me/links/{{linkId}}", "host": ["{{baseUrl}}"], "path": ["api", "profiles", "me", "links", "{{linkId}}"] }
+          }
+        },
+        {
+          "name": "Reorder links",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"links\": [\n    { \"id\": \"{{linkId}}\", \"displayOrder\": 0 }\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/profiles/me/links/reorder", "host": ["{{baseUrl}}"], "path": ["api", "profiles", "me", "links", "reorder"] }
+          }
+        },
+        {
+          "name": "Delete platform link",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/profiles/me/links/{{linkId}}", "host": ["{{baseUrl}}"], "path": ["api", "profiles", "me", "links", "{{linkId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cards",
+      "item": [
+        {
+          "name": "List cards",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/cards", "host": ["{{baseUrl}}"], "path": ["api", "cards"] }
+          }
+        },
+        {
+          "name": "Create card (saves cardId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const card = pm.response.json();",
+                  "pm.test('has id, title, isDefault', () => {",
+                  "  pm.expect(card).to.have.property('id');",
+                  "  pm.expect(card).to.have.property('title');",
+                  "  pm.expect(card).to.have.property('isDefault');",
+                  "});",
+                  "if (card.id) { pm.collectionVariables.set('cardId', card.id); console.log('Saved cardId', card.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"My Card\",\n  \"linkIds\": []\n}" },
+            "url": { "raw": "{{baseUrl}}/api/cards", "host": ["{{baseUrl}}"], "path": ["api", "cards"] }
+          }
+        },
+        {
+          "name": "Update card",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Updated Card\",\n  \"linkIds\": []\n}" },
+            "url": { "raw": "{{baseUrl}}/api/cards/{{cardId}}", "host": ["{{baseUrl}}"], "path": ["api", "cards", "{{cardId}}"] }
+          }
+        },
+        {
+          "name": "Set card as default",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/cards/{{cardId}}/default", "host": ["{{baseUrl}}"], "path": ["api", "cards", "{{cardId}}", "default"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Get public profile by username",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/u/devcard-demo", "host": ["{{baseUrl}}"], "path": ["api", "u", "devcard-demo"] }
+          }
+        },
+        {
+          "name": "Get public card by cardId",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/u/card/{{cardId}}", "host": ["{{baseUrl}}"], "path": ["api", "u", "card", "{{cardId}}"] }
+          }
+        },
+        {
+          "name": "Get public user card",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/u/devcard-demo/card/{{cardId}}", "host": ["{{baseUrl}}"], "path": ["api", "u", "devcard-demo", "card", "{{cardId}}"] }
+          }
+        },
+        {
+          "name": "Get QR session",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/u/devcard-demo/qr-session", "host": ["{{baseUrl}}"], "path": ["api", "u", "devcard-demo", "qr-session"] }
+          }
+        },
+        {
+          "name": "Get QR image",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/u/devcard-demo/qr", "host": ["{{baseUrl}}"], "path": ["api", "u", "devcard-demo", "qr"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Follow",
+      "item": [
+        {
+          "name": "Follow target",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/follow/github/octocat", "host": ["{{baseUrl}}"], "path": ["api", "follow", "github", "octocat"] }
+          }
+        },
+        {
+          "name": "Log follow attempt",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"success\",\n  \"layer\": \"foreground\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/follow/github/octocat/log", "host": ["{{baseUrl}}"], "path": ["api", "follow", "github", "octocat", "log"] }
+          }
+        },
+        {
+          "name": "Delete follow log",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/follow/github/octocat/log", "host": ["{{baseUrl}}"], "path": ["api", "follow", "github", "octocat", "log"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Connect",
+      "item": [
+        {
+          "name": "Connection status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/connect/status", "host": ["{{baseUrl}}"], "path": ["api", "connect", "status"] }
+          }
+        },
+        {
+          "name": "GitHub connect start",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/connect/github", "host": ["{{baseUrl}}"], "path": ["api", "connect", "github"] },
+            "description": "Redirects to GitHub OAuth for account linking. Open in a browser."
+          }
+        },
+        {
+          "name": "GitHub autodiscover",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/connect/github/autodiscover", "host": ["{{baseUrl}}"], "path": ["api", "connect", "github", "autodiscover"] }
+          }
+        },
+        {
+          "name": "Disconnect platform",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/connect/github", "host": ["{{baseUrl}}"], "path": ["api", "connect", "github"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Overview",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/analytics/overview", "host": ["{{baseUrl}}"], "path": ["api", "analytics", "overview"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "NFC",
+      "item": [
+        {
+          "name": "Get NFC payload",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/nfc/payload?card={{cardId}}", "host": ["{{baseUrl}}"], "path": ["api", "nfc", "payload"], "query": [{ "key": "card", "value": "{{cardId}}" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Create event (saves eventSlug)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('created (2xx)', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const ev = pm.response.json();",
+                  "const slug = ev.slug || (ev.event && ev.event.slug);",
+                  "if (slug) { pm.collectionVariables.set('eventSlug', slug); console.log('Saved eventSlug', slug); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"DevCard Meetup\",\n  \"description\": \"Community meetup\",\n  \"location\": \"Online\",\n  \"startDate\": \"2026-07-01T18:00:00.000Z\",\n  \"endDate\": \"2026-07-01T20:00:00.000Z\",\n  \"isPublic\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/events", "host": ["{{baseUrl}}"], "path": ["api", "events"] }
+          }
+        },
+        {
+          "name": "Get event by slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/events/{{eventSlug}}", "host": ["{{baseUrl}}"], "path": ["api", "events", "{{eventSlug}}"] }
+          }
+        },
+        {
+          "name": "Join event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/events/{{eventSlug}}/join", "host": ["{{baseUrl}}"], "path": ["api", "events", "{{eventSlug}}", "join"] }
+          }
+        },
+        {
+          "name": "Leave event",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/events/{{eventSlug}}/leave", "host": ["{{baseUrl}}"], "path": ["api", "events", "{{eventSlug}}", "leave"] }
+          }
+        },
+        {
+          "name": "List attendees",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/events/{{eventSlug}}/attendees?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "events", "{{eventSlug}}", "attendees"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teams",
+      "item": [
+        {
+          "name": "Create team (saves teamSlug)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('created (2xx)', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const t = pm.response.json();",
+                  "const slug = t.slug || (t.team && t.team.slug);",
+                  "if (slug) { pm.collectionVariables.set('teamSlug', slug); console.log('Saved teamSlug', slug); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"DevCard Core\",\n  \"description\": \"Core maintainers\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/teams", "host": ["{{baseUrl}}"], "path": ["api", "teams"] }
+          }
+        },
+        {
+          "name": "Get team by slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/teams/{{teamSlug}}", "host": ["{{baseUrl}}"], "path": ["api", "teams", "{{teamSlug}}"] }
+          }
+        },
+        {
+          "name": "Invite member",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"octocat\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/teams/{{teamSlug}}/members", "host": ["{{baseUrl}}"], "path": ["api", "teams", "{{teamSlug}}", "members"] }
+          }
+        },
+        {
+          "name": "Update team",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Updated description\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/teams/{{teamSlug}}", "host": ["{{baseUrl}}"], "path": ["api", "teams", "{{teamSlug}}"] }
+          }
+        },
+        {
+          "name": "Team QR",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/teams/{{teamSlug}}/qr", "host": ["{{baseUrl}}"], "path": ["api", "teams", "{{teamSlug}}", "qr"] }
+          }
+        },
+        {
+          "name": "Remove member",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/teams/{{teamSlug}}/members/:userId", "host": ["{{baseUrl}}"], "path": ["api", "teams", "{{teamSlug}}", "members", ":userId"], "variable": [{ "key": "userId", "value": "<user-id>" }] }
+          }
+        },
+        {
+          "name": "Delete team",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/teams/{{teamSlug}}", "host": ["{{baseUrl}}"], "path": ["api", "teams", "{{teamSlug}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session (run last)",
+      "item": [
+        {
+          "name": "Delete card (cleanup)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 204', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/cards/{{cardId}}", "host": ["{{baseUrl}}"], "path": ["api", "cards", "{{cardId}}"] }
+          }
+        },
+        {
+          "name": "Logout (revoke token)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth", "logout"] }
+          }
+        },
+        {
+          "name": "Logout (DELETE variant)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth", "logout"] }
+          }
+        }
+      ]
+    }
+  ]
+}

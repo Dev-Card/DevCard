@@ -1,0 +1,63 @@
+name: API Tests (Newman)
+
+# Runs the DevCard Postman collection against a freshly-booted backend.
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/**'
+      - 'packages/shared/**'
+      - '.github/workflows/api-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  newman:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: devcard
+          POSTGRES_PASSWORD: devcard
+          POSTGRES_DB: devcard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U devcard"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://devcard:devcard@localhost:5432/devcard
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-test-secret-not-for-production-ci-test-secret-not-for-production
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      NODE_ENV: development
+      PORT: '3000'
+      PUBLIC_APP_URL: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install shared dependencies
+        run: npm --prefix packages/shared install
+
+      - name: Install backend dependencies
+        run: npm --prefix apps/backend install
+
+      - name: Run API tests
+        run: bash ./.github/scripts/run-api-tests.sh
