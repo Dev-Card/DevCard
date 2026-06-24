@@ -505,6 +505,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     if (storedToken.revokedAt) {
+      await app.prisma.refreshToken.updateMany({
+        where: { family: storedToken.family, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+
+      app.log.warn(
+        { family: storedToken.family, userId: storedToken.userId },
+        'Refresh token reuse detected — entire family revoked (possible theft)',
+      );
+
       return reply.status(401).send({
         error: 'Refresh token revoked',
       });
