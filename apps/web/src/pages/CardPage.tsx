@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import type { PublicCard } from '../shared';
 import { apiFetch } from '../lib/api';
 import './CardPage.css';
+import { useExportPDF } from '../hooks/useExportPDF';
 
 function getPlatformColor(platform: string): string {
   const colors: Record<string, string> = {
@@ -21,6 +22,12 @@ export default function CardPage() {
   const [card, setCard] = useState<PublicCard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { exportAsPDF } = useExportPDF();
+
+  const handleExportPDF = (size: 'us' | 'eu' = 'us') => {
+    const name = card?.owner.displayName?.replace(/\s+/g, '_') ?? 'DevCard';
+    exportAsPDF('premium-card', `DevCard_${name}.pdf`, size);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -153,6 +160,23 @@ export default function CardPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="export-actions">
+          <button
+            className="export-btn"
+            onClick={() => handleExportPDF('us')}
+            title="Standard US business card size (3.5 × 2 in)"
+          >
+            ⬇ Export as PDF (US)
+          </button>
+          <button
+            className="export-btn export-btn-secondary"
+            onClick={() => handleExportPDF('eu')}
+            title="Standard EU business card size (85 × 55 mm)"
+          >
+            ⬇ Export as PDF (EU)
+          </button>
         </div>
 
         <footer className="card-page-footer">
