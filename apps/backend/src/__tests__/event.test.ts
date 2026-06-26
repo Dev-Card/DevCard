@@ -1,7 +1,9 @@
+import { type PrismaClient, Prisma } from '@prisma/client';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Fastify, { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+
 import { eventRoutes } from '../routes/event';
+
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -64,7 +66,7 @@ const prismaMock = {
 //
 // This mirrors the real app setup without touching a real DB or real JWT keys.
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
@@ -77,7 +79,14 @@ async function buildApp(): Promise<FastifyInstance> {
   app.decorateRequest('jwtVerify', function () {
     return mockJwtVerify();
   });
-
+  app.decorate('authenticate', async function (request, reply) {
+  try {
+    const payload = await request.jwtVerify();
+    if (payload) { request.user = payload as typeof request.user; }
+    } catch {
+    return reply.status(401).send({ error: 'Unauthorized' });
+    }
+  });
   // Register with the same prefix used in production (app.ts) so that
   // tests exercise routes at their real paths — /api/events, /api/events/:slug, etc.
   await app.register(eventRoutes, { prefix: '/api/events' });
@@ -97,7 +106,7 @@ async function createEvent(
   app: FastifyInstance,
   body: Record<string, unknown>,
   authenticated = true,
-) {
+): Promise<Awaited<ReturnType<FastifyInstance['inject']>>> {
   return app.inject({
     method: 'POST',
     url: '/api/events',
@@ -251,6 +260,7 @@ describe('Events API', () => {
     it('200 — returns event info with attendee count', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        organizer: { username: 'johndoe', displayName: 'John Doe' },
         _count: { attendees: 42 },
       });
 
@@ -258,7 +268,7 @@ describe('Events API', () => {
         method: 'GET',
         url: '/api/events/devcard-conf-2025',
       });
-
+      console.log(JSON.stringify(res.json(), null, 2));
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.slug).toBe('devcard-conf-2025');
@@ -275,7 +285,7 @@ describe('Events API', () => {
         method: 'GET',
         url: '/api/events/ghost-event',
       });
-
+      
       expect(res.statusCode).toBe(404);
       expect(res.json()).toMatchObject({ error: 'Event not found' });
     });
@@ -285,6 +295,7 @@ describe('Events API', () => {
       mockJwtVerify.mockRejectedValue(new Error('Should not be called'));
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        organizer: { username: 'johndoe', displayName: 'John Doe' },
         _count: { attendees: 0 },
       });
 
@@ -355,9 +366,10 @@ describe('Events API', () => {
     it('409 — returns 409 when user already joined the event', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
       // Prisma unique constraint error
-      const uniqueError = Object.assign(new Error('Unique constraint'), {
-        code: 'P2002',
-      });
+      const uniqueError = new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed',
+          { code: 'P2002', clientVersion: '6.0.0' },
+      );
       prismaMock.eventAttendee.create.mockRejectedValue(uniqueError);
 
       const res = await app.inject({
@@ -440,9 +452,10 @@ describe('Events API', () => {
     it('404 — returns 404 when user was never an attendee (P2025)', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
       // Prisma record-not-found error
-      const notFoundError = Object.assign(new Error('Record not found'), {
-        code: 'P2025',
-      });
+      const notFoundError = new Prisma.PrismaClientKnownRequestError(
+          'Record not found',
+          { code: 'P2025', clientVersion: '6.0.0' },
+      );
       prismaMock.eventAttendee.delete.mockRejectedValue(notFoundError);
 
       const res = await app.inject({
@@ -476,7 +489,13 @@ describe('Events API', () => {
     /** Builds a raw EventAttendee row as Prisma returns it (with nested user) */
     function makeAttendeeRow(
       profile: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE,
-    ) {
+    ): {
+      id: string;
+      userId: string;
+      eventId: string;
+      joinedAt: Date;
+      user: typeof profile;
+    } {
       return {
         id: `attendee-${profile.id}`,
         userId: profile.id,
@@ -495,6 +514,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         attendees: attendeeRows,
+        _count: { attendees: 2 },  
       });
 
       const res = await app.inject({
@@ -523,6 +543,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         attendees: [makeAttendeeRow(MOCK_OTHER_USER_PROFILE)],
+        _count: { attendees: 1 },
       });
 
       const res = await app.inject({
@@ -545,6 +566,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         attendees: [],
+        _count: { attendees: 0 },
       });
 
       const res = await app.inject({
@@ -561,6 +583,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         attendees: [],
+        _count: { attendees: 0 },
       });
 
       const res = await app.inject({
@@ -577,6 +600,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         attendees: [],
+        _count: { attendees: 0 }, 
       });
 
       const res = await app.inject({
@@ -594,6 +618,7 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
+        _count: { attendees: 1 },
       });
 
       const res = await app.inject({
