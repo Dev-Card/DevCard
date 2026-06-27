@@ -118,7 +118,7 @@ export async function eventRoutes(
                 where: { slug: paramsSlug },
                 include: {
                     _count: { select: { attendees: true } },
-                    organizer: { select: { username: true, displayName: true } },
+                    organizer: { select: { id:true, username: true, displayName: true } },
                  },
             });
 
@@ -132,6 +132,7 @@ export async function eventRoutes(
                 slug: details.slug,
                 description: details.description,
                 location: details.location,
+                organizerId: details.organizer.id,
                 organizerUsername: details.organizer.username,
                 organizerDisplayName: details.organizer.displayName,
                 startDate: details.startDate,
