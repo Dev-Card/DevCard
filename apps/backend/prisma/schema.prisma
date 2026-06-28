@@ -43,6 +43,7 @@ model User {
   attendedEvents EventAttendee[]
   ownedTeams    Team[]         @relation("TeamOwner")
   teamMemberships TeamMember[] @relation("TeamMember")
+  usernameRedirects UsernameRedirect[]
 
   @@map("users")
 }
@@ -260,4 +261,17 @@ model TeamMember{
   @@unique([userId, teamId])
   @@index([userId])
   @@map("team_members")
+}
+
+model UsernameRedirect {
+  id          String   @id @default(uuid())
+  oldUsername String   @unique @map("old_username")
+  newUsername String   @map("new_username")
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([oldUsername])
+  @@map("username_redirects")
 }

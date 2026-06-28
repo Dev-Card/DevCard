@@ -11,6 +11,48 @@ const MAX_QR_SIZE = 2048;
 const CACHE_CONTROL_HEADER = 'public, max-age=300, stale-while-revalidate=60';
 
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
+  // ─── Username Redirect Hook ───
+  app.addHook('preHandler', async (request, reply) => {
+    const params = request.params as Record<string, string> | undefined;
+    if (!params || !params.username) {
+      return;
+    }
+
+    const { username } = params;
+
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    let current = username;
+    let redirect = await app.prisma.usernameRedirect.findUnique({
+      where: { oldUsername: current },
+    });
+
+    const visited = new Set<string>();
+
+    while (redirect && redirect.createdAt >= ninetyDaysAgo && !visited.has(redirect.newUsername)) {
+      visited.add(current);
+      current = redirect.newUsername;
+      redirect = await app.prisma.usernameRedirect.findUnique({
+        where: { oldUsername: current },
+      });
+    }
+
+    if (current !== username) {
+      const urlParts = request.url.split('?');
+      const path = urlParts[0];
+      const query = urlParts[1] ? `?${urlParts[1]}` : '';
+
+      const pathSegments = path.split('/');
+      const index = pathSegments.indexOf(username);
+      if (index !== -1) {
+        pathSegments[index] = current;
+        const newPath = pathSegments.join('/') + query;
+        return reply.status(301).redirect(newPath);
+      }
+    }
+  });
+
   // ─── Public Profile ───────────────────────────────────────────────────────
   /**
    * GET /api/u/:username
