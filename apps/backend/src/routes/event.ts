@@ -130,6 +130,7 @@ export async function eventRoutes(
                 id: details.id,
                 name: details.name,
                 slug: details.slug,
+                organizerId: details.organizerId,
                 description: details.description,
                 location: details.location,
                 organizerUsername: details.organizer.username,
