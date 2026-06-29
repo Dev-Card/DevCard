@@ -45,28 +45,13 @@ export async function listCards(app: FastifyInstance, userId: string): Promise<C
   return cards.map(mapCard);
 }
 
-//Creates card service
-export async function createCard(app: FastifyInstance, userId: string, body: CreateCardBody): Promise<CardResponse> {
-  const {title , description , linkIds , visibility} = body
-
-  const ownedLinks = await app.prisma.platformLink.findMany({
-    where: { id: { in: linkIds }, userId },
-    select: { id: true },
-  });
-
-  if (ownedLinks.length !== linkIds.length) {
-    throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' });
-  } 
-
-  const finalSlug = await generateUniqueSlug(title, async(slug) => {
-    const existing = await app.prisma.card.findUnique({
-      where: {
-        slug
-      }
-    })
-    return !!existing
-  })
-
+export async function createCard(app: FastifyInstance, userId: string, body: { title: string; linkIds: string[] }): Promise<CardResponse> {
+  if (body.linkIds.length > 0) {
+    const ownedLinks = await app.prisma.platformLink.findMany({ where: { id: { in: body.linkIds }, userId }, select: { id: true } })
+    if (ownedLinks.length !== body.linkIds.length) {
+      throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' })
+    }
+  }
 
   const maxRetries = 3;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -114,46 +99,63 @@ export async function createCard(app: FastifyInstance, userId: string, body: Cre
   throw new Error('Failed to create card after retrying serialization conflicts');
 }
 
-//Update card service
-export async function updateCard(
-  app: FastifyInstance,
-  userId: string,
-  id: string,
-  body: UpdateCardBody,
-): Promise<Card> {
-  const {title, description, visibility, qrEnabled} = body
+export async function updateCard(app: FastifyInstance, userId: string, id: string, body: { title?: string; linkIds?: string[] }): Promise<CardResponse | null> {
+  const existing = await app.prisma.card.findFirst({ where: { id, userId } })
+  if (!existing) {
+    return null
+  }
 
-  const existing = await app.prisma.card.findFirst({ where: { id, userId } });
-    if (!existing) {
-      throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' });
+  if (body.linkIds && body.linkIds.length > 0) {
+    const ownedLinks = await app.prisma.platformLink.findMany({
+      where: { id: { in: body.linkIds }, userId },
+      select: { id: true },
+    })
+    if (ownedLinks.length !== body.linkIds.length) {
+      throw Object.assign(new Error('Link ownership mismatch'), { code: 'OWNERSHIP' })
+    }
+  }
+
+  const linkIds = body.linkIds
+
+  await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    if (body.title) {
+      await tx.card.update({ where: { id }, data: { title: body.title } })
     }
 
-  const updated = await app.prisma.card.update({
-      where: {
-        id, 
-      },
-      data:{
-        title, 
-        description, 
-        visibility, 
-        qrEnabled
+    if (linkIds !== undefined) {
+      await tx.cardLink.deleteMany({ where: { cardId: id } })
+      if (linkIds.length > 0) {
+        await tx.cardLink.createMany({
+          data: linkIds.map((linkId, index) => ({
+            cardId: id,
+            platformLinkId: linkId,
+            displayOrder: index,
+          })),
+        })
       }
+    }
   })
 
-  return updated;
+  const updated = (await app.prisma.card.findUnique({
+    where: { id },
+    include: { cardLinks: { include: { platformLink: true }, orderBy: { displayOrder: 'asc' } } },
+  })) as unknown as RawCard | null;
+
+  if (!updated) {return null;}
+  return mapCard(updated);
 }
 
 //Delete card service
 export async function deleteCard(app: FastifyInstance, userId: string, id: string): Promise<null> {
   return await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    const existing = await tx.card.findFirst({ where: { id, userId } });
+    const existing = await tx.card.findFirst({ where: { id, userId } })
     if (!existing) {
-      throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' });
+      throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' })
     }
 
-    const userCardCount = await tx.card.count({ where: { userId } });
+    const userCardCount = await tx.card.count({ where: { userId } })
     if (userCardCount <= 1) {
-      throw Object.assign(new Error('Cannot delete last card'), { code: 'LAST_CARD' });
+      throw Object.assign(new Error('Cannot delete last card'), { code: 'LAST_CARD' })
     }
 
     if (existing.isDefault) {
@@ -174,18 +176,17 @@ export async function deleteCard(app: FastifyInstance, userId: string, id: strin
 
 //Set default card service
 export async function setDefaultCard(app: FastifyInstance, userId: string, id: string): Promise<{ message: string } | null> {
-  const existing = await app.prisma.card.findFirst({ where: { id, userId } });
-
-    if (!existing) {
-      throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' });
-    }
+  const existing = await app.prisma.card.findFirst({ where: { id, userId } })
+  if (!existing) {
+    return null
+  }
 
   await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.card.updateMany({ where: { userId }, data: { isDefault: false } });
     await tx.card.update({ where: { id }, data: { isDefault: true } });
   });
 
-  return { message: 'Default card updated' };
+  return { message: 'Default card updated' }
 }
 
 //Adds platfrom link

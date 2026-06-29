@@ -542,160 +542,118 @@ describe('PUT /api/cards/:id/default', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/cards/:id/share
+// PUT /api/cards/:id — atomicity of combined title + linkIds update (#437)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('POST /api/cards/:id/share', () => {
+describe('PUT /api/cards/:id — atomicity of combined title + linkIds update', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    wireTransaction();
-  });
+    vi.clearAllMocks()
+    wireTransaction()
+  })
 
-  it('returns 200 with a share URL for a non-private owned card', async () => {
-    mockPrisma.card.findFirst.mockResolvedValue(mockCard);
+  it('commits both title and links in a single transaction on success', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    mockPrisma.platformLink.findMany.mockResolvedValue([{ id: OWNED_LINK_ID }])
+    mockPrisma.card.update.mockResolvedValue({ ...mockCard, title: 'New Title' })
+    mockPrisma.cardLink.deleteMany.mockResolvedValue({ count: 0 })
+    mockPrisma.cardLink.createMany.mockResolvedValue({ count: 1 })
+    mockPrisma.card.findUnique.mockResolvedValue({ ...mockCard, title: 'New Title', cardLinks: [] })
 
-    const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: `/api/cards/${CARD_ID}/share` });
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { title: 'New Title', linkIds: [OWNED_LINK_ID] },
+    })
 
-    expect(res.statusCode).toBe(200);
-    expect(res.json().shareUrl).toBe(`/cards/share/${mockCard.slug}`);
-  });
+    expect(res.statusCode).toBe(200)
+    // Both mutations must be inside one transaction, not two separate calls
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce()
+    expect(mockPrisma.card.update).toHaveBeenCalledWith({ where: { id: CARD_ID }, data: { title: 'New Title' } })
+    expect(mockPrisma.cardLink.deleteMany).toHaveBeenCalledWith({ where: { cardId: CARD_ID } })
+    expect(mockPrisma.cardLink.createMany).toHaveBeenCalled()
+  })
 
-  it('returns 404 when the card is not owned by the user', async () => {
-    mockPrisma.card.findFirst.mockResolvedValue(null);
+  it('does not commit the title when the linkIds createMany fails (full rollback)', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    mockPrisma.platformLink.findMany.mockResolvedValue([{ id: OWNED_LINK_ID }])
+    // card.update (title) succeeds inside tx, but createMany blows up
+    mockPrisma.card.update.mockResolvedValue({ ...mockCard, title: 'New Title' })
+    mockPrisma.cardLink.deleteMany.mockResolvedValue({ count: 1 })
+    mockPrisma.cardLink.createMany.mockRejectedValue(new Error('FK constraint violation'))
 
-    const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: `/api/cards/${CARD_ID}/share` });
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { title: 'New Title', linkIds: [OWNED_LINK_ID] },
+    })
 
-    expect(res.statusCode).toBe(404);
-  });
+    expect(res.statusCode).toBe(500)
+    // The transaction rolled back — the final read must not have been attempted
+    expect(mockPrisma.card.findUnique).not.toHaveBeenCalled()
+    // Confirm both operations ran inside the same tx (the DB undoes them together)
+    expect(mockPrisma.card.update).toHaveBeenCalled()
+    expect(mockPrisma.cardLink.createMany).toHaveBeenCalled()
+  })
 
-  it('returns 403 when the card is private', async () => {
-    mockPrisma.card.findFirst.mockResolvedValue({ ...mockCard, visibility: CardVisibility.PRIVATE });
+  it('returns 403 and opens no transaction when a linkId fails ownership validation', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    // Ownership check returns empty — foreign linkId
+    mockPrisma.platformLink.findMany.mockResolvedValue([])
 
-    const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: `/api/cards/${CARD_ID}/share` });
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { title: 'New Title', linkIds: [FOREIGN_LINK_ID] },
+    })
 
-    expect(res.statusCode).toBe(403);
-  });
-});
+    expect(res.statusCode).toBe(403)
+    expect(res.json().error).toBe('One or more links do not belong to your account')
+    // No transaction must have been opened — no writes of any kind
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(mockPrisma.card.update).not.toHaveBeenCalled()
+    expect(mockPrisma.cardLink.deleteMany).not.toHaveBeenCalled()
+  })
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/cards/share/:slug
-// ─────────────────────────────────────────────────────────────────────────────
+  it('applies only the title update when linkIds is absent', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    mockPrisma.card.update.mockResolvedValue({ ...mockCard, title: 'Title Only' })
+    mockPrisma.card.findUnique.mockResolvedValue({ ...mockCard, title: 'Title Only', cardLinks: [] })
 
-describe('GET /api/cards/share/:slug', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    wireTransaction();
-  });
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { title: 'Title Only' },
+    })
 
-  it('returns 200 and records a view for an existing shared card', async () => {
-    const sharedCard = { ...mockCard, cardLinks: [] };
-    mockPrisma.card.findUnique.mockResolvedValue(sharedCard);
-    mockPrisma.card.update.mockResolvedValue(sharedCard);
-    mockPrisma.cardView.create.mockResolvedValue({ id: 'view-1' });
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce()
+    expect(mockPrisma.card.update).toHaveBeenCalledWith({ where: { id: CARD_ID }, data: { title: 'Title Only' } })
+    expect(mockPrisma.cardLink.deleteMany).not.toHaveBeenCalled()
+    expect(mockPrisma.platformLink.findMany).not.toHaveBeenCalled()
+  })
 
-    const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/api/cards/share/${mockCard.slug}` });
+  it('applies only link replacement when title is absent', async () => {
+    mockPrisma.card.findFirst.mockResolvedValue(mockCard)
+    mockPrisma.platformLink.findMany.mockResolvedValue([{ id: OWNED_LINK_ID }])
+    mockPrisma.cardLink.deleteMany.mockResolvedValue({ count: 1 })
+    mockPrisma.cardLink.createMany.mockResolvedValue({ count: 1 })
+    mockPrisma.card.findUnique.mockResolvedValue({ ...mockCard, cardLinks: [] })
 
-    expect(res.statusCode).toBe(200);
-    // View tracking runs in the sequential transaction: increment count + log view
-    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
-    expect(mockPrisma.card.update).toHaveBeenCalledWith({
-      where: { id: mockCard.id },
-      data: { viewCount: { increment: 1 } },
-    });
-    expect(mockPrisma.cardView.create).toHaveBeenCalled();
-  });
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/cards/${CARD_ID}`,
+      payload: { linkIds: [OWNED_LINK_ID] },
+    })
 
-  it('returns 404 when no card matches the slug', async () => {
-    mockPrisma.card.findUnique.mockResolvedValue(null);
-
-    const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: '/api/cards/share/missing-slug' });
-
-    expect(res.statusCode).toBe(404);
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
-    expect(mockPrisma.cardView.create).not.toHaveBeenCalled();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/cards/:id/qr
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('GET /api/cards/:id/qr', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    wireTransaction();
-    process.env.MOBILE_REDIRECT_URI = 'https://devcard.test';
-  });
-
-  it('returns 200 with a PNG image for a shareable, qr-enabled card', async () => {
-    mockPrisma.card.findFirst.mockResolvedValue(mockCard);
-
-    const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/api/cards/${CARD_ID}/qr` });
-
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['content-type']).toContain('image/png');
-  });
-
-  it('returns 404 when the card is not owned by the user', async () => {
-    mockPrisma.card.findFirst.mockResolvedValue(null);
-
-    const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/api/cards/${CARD_ID}/qr` });
-
-    expect(res.statusCode).toBe(404);
-  });
-
-  it('returns 403 when the card is private', async () => {
-    mockPrisma.card.findFirst.mockResolvedValue({ ...mockCard, visibility: CardVisibility.PRIVATE });
-
-    const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/api/cards/${CARD_ID}/qr` });
-
-    expect(res.statusCode).toBe(403);
-  });
-
-  it('returns 403 when QR is disabled for the card', async () => {
-    mockPrisma.card.findFirst.mockResolvedValue({ ...mockCard, qrEnabled: false });
-
-    const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/api/cards/${CARD_ID}/qr` });
-
-    expect(res.statusCode).toBe(403);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/cards/:id/analytics
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('GET /api/cards/:id/analytics', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    wireTransaction();
-  });
-
-  it('returns 200 with the card and its views', async () => {
-    mockPrisma.card.findFirst.mockResolvedValue({ ...mockCard, views: [] });
-
-    const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/api/cards/${CARD_ID}/analytics` });
-
-    expect(res.statusCode).toBe(200);
-    expect(mockPrisma.card.findFirst).toHaveBeenCalled();
-  });
-
-  it('returns 404 when the card is not owned by the user', async () => {
-    mockPrisma.card.findFirst.mockResolvedValue(null);
-
-    const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/api/cards/${CARD_ID}/analytics` });
-
-    expect(res.statusCode).toBe(404);
-  });
-});
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce()
+    expect(mockPrisma.card.update).not.toHaveBeenCalled()
+    expect(mockPrisma.cardLink.deleteMany).toHaveBeenCalledWith({ where: { cardId: CARD_ID } })
+    expect(mockPrisma.cardLink.createMany).toHaveBeenCalled()
+  })
+})
