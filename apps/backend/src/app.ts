@@ -7,10 +7,11 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import Fastify, {type FastifyInstance} from 'fastify';
+import Fastify, {type FastifyInstance, type FastifyReply, type FastifyRequest} from 'fastify';
 
 import { prismaPlugin } from './plugins/prisma.js';
 import { redisPlugin } from './plugins/redis.js';
+import { refreshTokenCleanupPlugin } from './plugins/refreshTokenCleanup.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { authRoutes } from './routes/auth.js';
 import { cardRoutes } from './routes/cards.js';
@@ -21,17 +22,16 @@ import { nfcRoutes } from './routes/nfc.js';
 import { profileRoutes } from './routes/profiles.js';
 import { publicRoutes } from './routes/public.js';
 import { teamRoutes } from './routes/team.js';
+import { webhookRoutes } from './routes/webhooks.js';
 import { extractRawJwt, blocklistKey } from './utils/jwt.js';
 import { validateEnv } from './utils/validateEnv.js';
 
+import type { AuthenticatedUser } from './types/fastify.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function buildApp():Promise<FastifyInstance> {
-  // Validate all required secrets before registering any plugin.
-  // If validation fails the process exits here — no partially-initialised
-  // auth state can exist because Fastify is not yet instantiated.
+export async function buildApp(): Promise<FastifyInstance> {
   validateEnv();
-
   const app = Fastify({
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
@@ -42,13 +42,11 @@ export async function buildApp():Promise<FastifyInstance> {
     },
   });
 
-  // Log method + path for every incoming request.
   app.addHook('onRequest', (request, _reply, done) => {
     app.log.info({ method: request.method, url: request.url }, 'incoming request');
     done();
   });
 
-  // ─── Core Plugins ───
   await app.register(cors, {
     origin: process.env.PUBLIC_APP_URL || 'http://localhost:5173',
     credentials: true,
@@ -71,40 +69,34 @@ export async function buildApp():Promise<FastifyInstance> {
     },
   });
 
-  // cookie must be registered before jwt so that @fastify/jwt can read the
-  // `token` cookie during jwtVerify() for browser-based clients.
   await app.register(cookie);
 
   await app.register(jwt, {
-    // validateEnv() above guarantees JWT_SECRET is present and safe.
     secret: process.env.JWT_SECRET!,
     cookie: {
-      // Matches the cookie name set in the OAuth callback handlers.
       cookieName: 'token',
       signed: false,
     },
   });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
-  await app.register(rateLimit, {
-    max: 100,
-    timeWindow: '1 minute',
-  });
 
-// Files must be served through authenticated route handlers
-// with ownership validation.
+  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } });
+  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
-  // ─── Database & Cache Plugins ───
- if (process.env.NODE_ENV !== 'test') {
-  await app.register(prismaPlugin); //change 
+// ─── Database & Cache Plugins ───
+if (process.env.NODE_ENV !== 'test') {
+  await app.register(prismaPlugin);
 }
-  if (process.env.NODE_ENV !== 'test') {
+
+if (process.env.NODE_ENV !== 'test') {
   await app.register(redisPlugin);
+  await app.register(refreshTokenCleanupPlugin);
 }
+
   // ─── Auth Decorator ───
   // Checks the Redis blocklist before calling jwtVerify so that a logged-out
   // token is rejected immediately even if it has not yet expired.
   // The blocklist check is skipped when Redis is not registered (test env).
-  app.decorate('authenticate', async function (request: any, reply: any) {
+  app.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
     try {
       if (app.hasDecorator('redis')) {
         const raw = extractRawJwt(request);
@@ -115,56 +107,34 @@ export async function buildApp():Promise<FastifyInstance> {
               return reply.status(401).send({ error: 'Token has been revoked' });
             }
           } catch (redisErr) {
-            // Redis is unavailable — fail open to avoid an outage on every
-            // authenticated request. The JWT expiry is still the safety net.
-            app.log.warn({ err: redisErr }, 'Redis blocklist check failed — proceeding with JWT verification');
+            app.log.warn({ err: redisErr }, 'Redis blocklist check failed');
           }
         }
       }
-      // Assign verified payload to request.user (upstream addition).
-      const payload = await request.jwtVerify();
+      const payload = await request.jwtVerify<AuthenticatedUser>();
       if (payload) { request.user = payload; }
     } catch (_err) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
   });
 
-  // ─── Routes ───
   await app.register(authRoutes, { prefix: '/auth' });
   await app.register(profileRoutes, { prefix: '/api/profiles' });
   await app.register(cardRoutes, { prefix: '/api/cards' });
-  // Public routes: standardise on `/api/u` (remove duplicate `/api/public`).
   await app.register(publicRoutes, { prefix: '/api/u' });
   await app.register(followRoutes, { prefix: '/api/follow' });
   await app.register(connectRoutes, { prefix: '/api/connect' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
+  await app.register(eventRoutes, { prefix: '/api/events' });
   await app.register(nfcRoutes, { prefix: '/api/nfc' });
-  await app.register(eventRoutes, {prefix: '/api/events'})
-  await app.register(teamRoutes, {prefix: '/api/teams'})
+  await app.register(teamRoutes, { prefix: '/api/teams' });
+  await app.register(webhookRoutes, { prefix: '/api/webhooks' });
 
+  app.get('/health', async () => ({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'devcard-api',
+  }));
 
-  // ─── Health Check ───
-type HealthResponse = {
-  status: 'ok';
-};
-
-app.get('/health', async (): Promise<HealthResponse> => {
-  return { status: 'ok' };
-});
-
-  // Centralized error handler: log and return a consistent 500 shape for unhandled errors.
-  app.setErrorHandler((error, request, reply) => {
-    app.log.error({ err: error }, 'Unhandled error');
-    // Also print to console to aid test diagnostics when logger is disabled.
-    // This helps surface stack traces in CI/test runs.
-    // eslint-disable-next-line no-console
-    console.error(error);
-    // If headers were already sent, fall back to default behaviour.
-    if (reply.sent) {
-      return;
-    }
-    // Keep response shape consistent across the API.
-    reply.status(500).send({ error: 'Internal server error' });
-  });
   return app;
 }

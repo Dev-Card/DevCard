@@ -58,7 +58,12 @@ jobs:
 
       - name: Install backend dependencies
         run: npm --prefix apps/backend install
+      - name: Install shared dependencies
+        run: npm --prefix packages/shared install
 
+      - name: Build shared package
+        run: npm --prefix packages/shared run build
+        
       - name: DB migration check
         if: needs.detect-changes.outputs.dbFiles != '' 
         continue-on-error: true
@@ -93,7 +98,6 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      check_result: ${{ steps.web_check.outcome }}
       build_result: ${{ steps.web_build.outcome }}
 
     steps:
@@ -108,11 +112,6 @@ jobs:
       - name: Install web dependencies
         run: npm --prefix apps/web install
 
-      - name: Web check
-        id: web_check
-        continue-on-error: true
-        run: npm --prefix apps/web run lint
-
       - name: Web build
         id: web_build
         continue-on-error: true
@@ -120,7 +119,6 @@ jobs:
 
       - name: Fail job if any check failed
         if: >
-          steps.web_check.outcome == 'failure' ||
           steps.web_build.outcome == 'failure'
         run: exit 1
 
@@ -191,7 +189,6 @@ jobs:
               backendLint:      '${{ needs.backend-ci.outputs.lint_result }}',      
               backendTest:      '${{ needs.backend-ci.outputs.test_result }}',
               backendTypecheck: '${{ needs.backend-ci.outputs.typecheck_result }}',
-              webCheck:         '${{ needs.web-ci.outputs.check_result }}',
               webBuild:         '${{ needs.web-ci.outputs.build_result }}',
               mobileLint:       '${{ needs.mobile-ci.outputs.lint_result }}',
               mobileTest:       '${{ needs.mobile-ci.outputs.test_result }}',

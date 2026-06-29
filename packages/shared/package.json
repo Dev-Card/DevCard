@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "types": "./src/index.ts",
   "scripts": {
+    "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
