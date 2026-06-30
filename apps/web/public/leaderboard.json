@@ -52,7 +52,7 @@
     "avatarUrl": "https://avatars.githubusercontent.com/u/275992250?v=4",
     "profileUrl": "https://github.com/yachikadev",
     "mergedPrs": 4,
-    "openPrs": 0,
+    "openPrs": 1,
     "issues": 3
   },
   {
@@ -85,6 +85,14 @@
     "profileUrl": "https://github.com/amritbej",
     "mergedPrs": 3,
     "openPrs": 1,
+    "issues": 0
+  },
+  {
+    "login": "Dipti45sktech",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/263665627?v=4",
+    "profileUrl": "https://github.com/Dipti45sktech",
+    "mergedPrs": 3,
+    "openPrs": 0,
     "issues": 0
   },
   {
@@ -136,9 +144,9 @@
     "issues": 2
   },
   {
-    "login": "Dipti45sktech",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/263665627?v=4",
-    "profileUrl": "https://github.com/Dipti45sktech",
+    "login": "github-actions[bot]",
+    "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+    "profileUrl": "https://github.com/apps/github-actions",
     "mergedPrs": 2,
     "openPrs": 1,
     "issues": 0
@@ -147,6 +155,14 @@
     "login": "Jai-Shankar1033",
     "avatarUrl": "https://avatars.githubusercontent.com/u/218094488?v=4",
     "profileUrl": "https://github.com/Jai-Shankar1033",
+    "mergedPrs": 2,
+    "openPrs": 1,
+    "issues": 0
+  },
+  {
+    "login": "pari7maheshwari",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/235702143?v=4",
+    "profileUrl": "https://github.com/pari7maheshwari",
     "mergedPrs": 2,
     "openPrs": 1,
     "issues": 0
@@ -168,28 +184,12 @@
     "issues": 0
   },
   {
-    "login": "pari7maheshwari",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/235702143?v=4",
-    "profileUrl": "https://github.com/pari7maheshwari",
-    "mergedPrs": 2,
-    "openPrs": 0,
-    "issues": 0
-  },
-  {
     "login": "Nareshkumawat-star",
     "avatarUrl": "https://avatars.githubusercontent.com/u/207768679?v=4",
     "profileUrl": "https://github.com/Nareshkumawat-star",
     "mergedPrs": 1,
     "openPrs": 1,
     "issues": 11
-  },
-  {
-    "login": "Pcmhacker-piro",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/181658297?v=4",
-    "profileUrl": "https://github.com/Pcmhacker-piro",
-    "mergedPrs": 1,
-    "openPrs": 2,
-    "issues": 9
   },
   {
     "login": "Kartikeyji17",
@@ -270,14 +270,6 @@
     "mergedPrs": 1,
     "openPrs": 0,
     "issues": 1
-  },
-  {
-    "login": "github-actions[bot]",
-    "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
-    "profileUrl": "https://github.com/apps/github-actions",
-    "mergedPrs": 1,
-    "openPrs": 1,
-    "issues": 0
   },
   {
     "login": "rajesh-puripanda",
