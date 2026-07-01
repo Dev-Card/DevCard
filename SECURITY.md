@@ -2,20 +2,16 @@
 
 ## Supported Versions
 
-The following versions of **DevCard** are currently supported with security updates:
-
-| Version | Supported          |
-| ------- | ------------------ |
-| main    | ✅ Yes             |
+| Version | Supported |
+|---------|-----------|
+| latest  | ✅        |
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in **DevCard**, please **do not open a public issue**.
+Please report via **GitHub Private Security Advisory**:
+[Report here](https://github.com/Dev-Card/DevCard/security/advisories/new)
 
-Instead, report it responsibly by:
-
-- 📧 Reaching out to the maintainer directly via their [GitHub profile](https://github.com/Dev-Card)
-- 💬 Sending a private message through GitHub's messaging or social links listed in the profile
+**Do NOT open a public issue for security vulnerabilities.**
 
 ### What to include in your report:
 - A clear description of the vulnerability
@@ -25,18 +21,30 @@ Instead, report it responsibly by:
 
 ## Response Timeline
 
-| Action                        | Timeframe         |
-| ----------------------------- | ----------------- |
-| Acknowledgement of report     | Within 48 hours   |
-| Status update                 | Within 7 days     |
-| Patch / fix release           | Within 30 days    |
+- Acknowledgement: within 48–72 hours
+- Status update: within 7 days
+- Patch / fix release: within 30 days
+
+## In Scope
+- Authentication bypass
+- Sensitive data exposure via API endpoints
+- XSS in profile/card rendering
+- Unauthorized access to user contact data
+
+## Out of Scope
+- Rate limiting / brute force without impact
+- Spam or social engineering
+- Issues in third-party dependencies (report upstream)
 
 ## Responsible Disclosure
 
-We follow a **responsible disclosure** policy. Please give us adequate time to patch the issue before any public disclosure. We deeply appreciate security researchers who help keep **DevCard** safe. 🙏
+Please give us adequate time to patch the issue before any public disclosure.
+We deeply appreciate security researchers who help keep **DevCard** safe. 🙏
+
+## Acknowledgements
+
+Responsible reporters will be credited in release notes (with permission).
 
 ## References
-
-- [DevCard Repository](https://github.com/Dev-Card/DevCard)
-- [GitHub Security Advisories](https://docs.github.com/en/code-security/security-advisories)
-- [Adding a Security Policy to your repo](https://docs.github.com/en/code-security/getting-started/adding-a-security-policy-to-your-repository)
+- [GitHub Security Advisories Docs](https://docs.github.com/en/code-security/security-advisories)
+- [Adding a Security Policy](https://docs.github.com/en/code-security/getting-started/adding-a-security-policy-to-your-repository)
