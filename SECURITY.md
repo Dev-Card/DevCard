@@ -2,9 +2,11 @@
 
 ## Supported Versions
 
-| Version | Supported |
-|---------|-----------|
-| latest  | ✅        |
+## Supported Versions
+
+| Version | Supported          |
+| ------- | ------------------ |
+| main    | ✅ Yes             |
 
 ## Reporting a Vulnerability
 
