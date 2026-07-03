@@ -8,6 +8,8 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
+const LINKEDIN_AUTH_URL = 'https://www.linkedin.com/oauth/v2/authorization';
+const LINKEDIN_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken';
 
 // Follow-capable tokens are stored under a dedicated platform key so that
 // the authentication flow (read:user user:email scope, key = 'github') and
@@ -248,6 +250,259 @@ export async function connectRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(suggestions);
   });
 
+
+  // ─── GitHub Profile (for verification) ───
+
+  app.get('/github/profile', {
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.user.id;
+
+    const oauthToken = await app.prisma.oAuthToken.findUnique({
+      where: {
+        userId_platform: {
+          userId,
+          platform: GITHUB_FOLLOW_PLATFORM,
+        },
+      },
+      select: { accessToken: true },
+    });
+
+    if (!oauthToken) {
+      return reply.status(400).send({ error: 'Not connected to GitHub.', requiresAuth: true });
+    }
+
+    let accessToken: string;
+    try {
+      accessToken = decrypt(oauthToken.accessToken);
+    } catch (err: unknown) {
+      app.log.error({ err, userId }, 'GitHub token decrypt failed');
+      return reply.status(500).send({ error: 'Failed to access GitHub connection' });
+    }
+
+    let response: Response;
+    try {
+      response = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      });
+    } catch (error: unknown) {
+      app.log.error({ userId, error: getErrorMessage(error) }, 'GitHub profile fetch failed');
+      return reply.status(502).send({ error: 'Failed to fetch GitHub profile' });
+    }
+
+    if (response.status === 401) {
+      return reply.status(401).send({ error: 'GitHub token expired or revoked', requiresAuth: true });
+    }
+
+    if (!response.ok) {
+      return reply.status(502).send({ error: 'Failed to fetch GitHub profile' });
+    }
+
+    const githubUser = await response.json() as { login: string; id: number; html_url: string; name?: string };
+
+    return reply.send({
+      login: githubUser.login,
+      name: githubUser.name,
+      htmlUrl: githubUser.html_url,
+    });
+  });
+
+  // ─── LinkedIn Connect ───
+
+  app.get('/linkedin', {
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.user.id;
+    const nonce = generateState();
+
+    await app.redis.set(
+      `oauth:nonce:${nonce}`,
+      userId,
+      'EX',
+      600
+    );
+
+    const state = JSON.stringify({ userId, nonce });
+
+    const redirectUri = `${process.env.BACKEND_URL}/api/connect/linkedin/callback`;
+    const params = new URLSearchParams({
+      client_id: process.env.LINKEDIN_CLIENT_ID || '',
+      redirect_uri: redirectUri,
+      scope: 'openid profile email',
+      state: Buffer.from(state).toString('base64'),
+      response_type: 'code',
+    });
+
+    return reply.redirect(`${LINKEDIN_AUTH_URL}?${params}`);
+  });
+
+  app.get('/linkedin/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+    const { code, state } = request.query;
+
+    if (!code || !state) {
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=missing_params`);
+    }
+
+    try {
+      const decodedState = parseOAuthState(state);
+
+      if (!decodedState) {
+        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+      }
+
+      const storedUserId = app.redis ? await app.redis.get(`oauth:nonce:${decodedState.nonce}`) : null;
+
+      if (app.redis && (!storedUserId || storedUserId !== decodedState.userId)) {
+        app.log.warn({ nonce: decodedState.nonce }, 'LinkedIn OAuth CSRF check failed: nonce mismatch');
+        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
+      }
+
+      if (app.redis) {
+        await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+      }
+
+      const userId = decodedState.userId;
+
+      const tokenRes = await fetch(LINKEDIN_TOKEN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: process.env.LINKEDIN_CLIENT_ID || '',
+          client_secret: process.env.LINKEDIN_CLIENT_SECRET || '',
+          code,
+          redirect_uri: `${process.env.BACKEND_URL}/api/connect/linkedin/callback`,
+          grant_type: 'authorization_code',
+        }).toString(),
+      });
+
+      const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
+
+      if (!tokenData.access_token) {
+        app.log.error(tokenData, 'LinkedIn connect token error:');
+        return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
+      }
+
+      const encryptedToken = encrypt(tokenData.access_token);
+
+      await app.prisma.oAuthToken.upsert({
+        where: {
+          userId_platform: {
+            userId,
+            platform: 'linkedin',
+          },
+        },
+        update: {
+          accessToken: encryptedToken,
+          scopes: 'openid profile email',
+        },
+        create: {
+          userId,
+          platform: 'linkedin',
+          accessToken: encryptedToken,
+          scopes: 'openid profile email',
+        },
+      });
+
+      if (decodedState.nonce.startsWith('mobile_')) {
+        return reply.redirect(`${process.env.MOBILE_REDIRECT_URI}?connected=linkedin`);
+      }
+
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?connected=linkedin`);
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      app.log.error({ error, message }, 'LinkedIn connect error');
+      return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=server_error`);
+    }
+  });
+
+  app.get('/linkedin/profile', {
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.user.id;
+
+    const oauthToken = await app.prisma.oAuthToken.findUnique({
+      where: {
+        userId_platform: {
+          userId,
+          platform: 'linkedin',
+        },
+      },
+      select: { accessToken: true },
+    });
+
+    if (!oauthToken) {
+      return reply.status(400).send({ error: 'Not connected to LinkedIn. Please connect LinkedIn first.', requiresAuth: true });
+    }
+
+    let accessToken: string;
+    try {
+      accessToken = decrypt(oauthToken.accessToken);
+    } catch (err: unknown) {
+      app.log.error({ err, userId }, 'LinkedIn token decrypt failed');
+      return reply.status(500).send({ error: 'Failed to access LinkedIn connection' });
+    }
+
+    let response: Response;
+    try {
+      response = await fetch('https://api.linkedin.com/v2/userinfo', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    } catch (error: unknown) {
+      app.log.error({ userId, error: getErrorMessage(error) }, 'LinkedIn profile fetch failed');
+      return reply.status(502).send({ error: 'Failed to fetch LinkedIn profile' });
+    }
+
+    if (response.status === 401) {
+      return reply.status(401).send({ error: 'LinkedIn token expired or revoked', requiresAuth: true });
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      app.log.error({ status: response.status, body, userId }, 'LinkedIn user API request failed');
+      return reply.status(502).send({ error: 'Failed to fetch LinkedIn profile' });
+    }
+
+    const linkedinUser = await response.json() as {
+      sub: string;
+      name?: string;
+      given_name?: string;
+      family_name?: string;
+      picture?: string;
+      email?: string;
+    };
+
+    // Also fetch vanity name for profile URL verification
+    let vanityName: string | null = null;
+    try {
+      const meRes = await fetch('https://api.linkedin.com/v2/me?projection=(id,vanityName)', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (meRes.ok) {
+        const meData = await meRes.json() as { vanityName?: string };
+        vanityName = meData.vanityName || null;
+      }
+    } catch {
+      // Non-critical, continue without vanity name
+    }
+
+    return reply.send({
+      id: linkedinUser.sub,
+      name: linkedinUser.name,
+      givenName: linkedinUser.given_name,
+      familyName: linkedinUser.family_name,
+      email: linkedinUser.email,
+      picture: linkedinUser.picture,
+      vanityName,
+    });
+  });
 
   // ─── Disconnect ───
 

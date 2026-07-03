@@ -47,19 +47,22 @@ export const ConnectPlatformsScreen: React.FC<Props> = ({ navigation: _navigatio
       Alert.alert('Login required', 'Please log in again to connect platforms.');
       return;
     }
+
+    let authUrl: string;
     if (platform === 'github') {
-      const authUrl = `${API_BASE_URL}/api/connect/github`;
-      
-      try {
-        await Linking.openURL(authUrl);
-        // User will be redirected back to the app via deep link
-        // A real app would listen to the Linking.addEventListener('url') here to refresh
-        setTimeout(fetchConnections, 5000); // Polling fallback
-      } catch {
-        Alert.alert('Error', 'Failed to open connection page');
-      }
+      authUrl = `${API_BASE_URL}/api/connect/github`;
+    } else if (platform === 'linkedin') {
+      authUrl = `${API_BASE_URL}/api/connect/linkedin`;
     } else {
       Alert.alert('Coming Soon', `OAuth connect for ${platform} is not yet available.`);
+      return;
+    }
+
+    try {
+      await Linking.openURL(authUrl);
+      setTimeout(fetchConnections, 5000);
+    } catch {
+      Alert.alert('Error', 'Failed to open connection page');
     }
   };
 

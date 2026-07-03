@@ -15,6 +15,7 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORMS, getAllPlatforms } from '@devcard/shared';
 import { get, post, put, del } from '../services/api';
+import { API_BASE_URL } from '../config';
 import { EmptyState } from '../components/EmptyState';
 import { LoadingPlaceholder } from '../components/LoadingPlaceholder';
 import type { PlatformDef } from '@devcard/shared';
@@ -52,17 +53,64 @@ export default function LinksScreen() {
     fetchLinks();
   }, [fetchLinks]);
 
+  const verifyWithOAuth = async (platform: string, username: string): Promise<{ verified: boolean; message: string }> => {
+    try {
+      if (platform === 'github') {
+        const profile = await get<{ login: string; name?: string }>('/api/connect/github/profile', token).catch(() => null);
+        if (!profile) return { verified: false, message: 'Not connected to GitHub OAuth. Connect in settings to verify ownership.' };
+        if (profile.login.toLowerCase() === username.toLowerCase()) {
+          return { verified: true, message: `✅ Verified as GitHub user @${profile.login}` };
+        }
+        return { verified: false, message: `⚠️ OAuth account (@${profile.login}) doesn't match entered username (@${username}). Add anyway?` };
+      }
+      if (platform === 'linkedin') {
+        const profile = await get<{ name?: string; email?: string; vanityName?: string | null }>('/api/connect/linkedin/profile', token).catch(() => null);
+        if (!profile) return { verified: false, message: 'Not connected to LinkedIn OAuth. Connect in settings to verify ownership.' };
+        if (profile.vanityName && profile.vanityName.toLowerCase() === username.toLowerCase()) {
+          return { verified: true, message: `✅ Verified as LinkedIn user ${profile.name}` };
+        }
+        return { verified: false, message: `⚠️ LinkedIn OAuth account (${profile.vanityName ? '@'+profile.vanityName : profile.email || profile.name}) doesn't match entered username (@${username}). Add anyway?` };
+      }
+      return { verified: false, message: '' };
+    } catch {
+      return { verified: false, message: 'Could not verify ownership. You can still add the link.' };
+    }
+  };
+
   const addLink = async () => {
     if (!selectedPlatform || !usernameInput.trim()) return;
-    try {
-      await post('/api/profiles/me/links', { platform: selectedPlatform.id, username: usernameInput.trim() }, token);
-      setShowAddModal(false);
-      setSelectedPlatform(null);
-      setUsernameInput('');
-      fetchLinks();
-    } catch {
-      Alert.alert('Error', 'Failed to add link');
-    }
+    const platformName = selectedPlatform.name;
+    const enteredUsername = usernameInput.trim();
+
+    const { verified, message } = await verifyWithOAuth(selectedPlatform.id, enteredUsername);
+
+    const confirmMessage = verified
+      ? `✅ Verified: Link ${platformName} as @${enteredUsername}?`
+      : message
+        ? `Link ${platformName} as @${enteredUsername}?\n\n${message}`
+        : `Link ${platformName} as @${enteredUsername}?`;
+
+    Alert.alert(
+      verified ? 'Verified Link' : 'Add Link',
+      confirmMessage,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: verified ? 'Add Verified' : 'Add Anyway',
+          onPress: async () => {
+            try {
+              await post('/api/profiles/me/links', { platform: selectedPlatform.id, username: enteredUsername }, token);
+              setShowAddModal(false);
+              setSelectedPlatform(null);
+              setUsernameInput('');
+              fetchLinks();
+            } catch {
+              Alert.alert('Error', 'Failed to add link');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const deleteLink = async (id: string) => {

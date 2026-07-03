@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -56,6 +56,8 @@ export default function CardsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [cardDeepLinks, setCardDeepLinks] = useState<Record<string, string>>({});
+  const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const [cardLinkIds, setCardLinkIds] = useState<string[]>([]);
 
   const loadCardDeepLinks = useCallback(async () => {
     try {
@@ -172,6 +174,22 @@ export default function CardsScreen() {
     fetchData();
   };
 
+  const openEditCard = (card: Card) => {
+    setEditingCard(card);
+    setCardLinkIds(card.links.map(l => l.id));
+  };
+
+  const addPlatformLinkToCard = async (platformLinkId: string) => {
+    if (!editingCard) return;
+    try {
+      await put(`/api/cards/${editingCard.id}/platform-link`, { platformLinkId }, token);
+      setCardLinkIds(prev => [...prev, platformLinkId]);
+      fetchData();
+    } catch {
+      Alert.alert('Error', 'Failed to add link to card');
+    }
+  };
+
   const onCardPress = (card: Card) => {
     const deepLink = cardDeepLinks[card.id];
     if (!deepLink) {
@@ -273,7 +291,7 @@ export default function CardsScreen() {
                     <Text style={styles.activePillText}>ACTIVE</Text>
                   </View>
                 ) : <View />}
-                <TouchableOpacity onPress={() => setDefault(item.id)}>
+                <TouchableOpacity onPress={() => openEditCard(item)}>
                   <Text style={styles.editText}>Edit</Text>
                 </TouchableOpacity>
               </View>
@@ -385,6 +403,70 @@ export default function CardsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Card Modal */}
+      <Modal visible={!!editingCard} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={themed.modalContent}>
+            {editingCard && (
+              <>
+                <Text style={styles.modalTitle}>Edit "{editingCard.title}"</Text>
+
+                <View style={styles.editSection}>
+                  <TouchableOpacity
+                    style={[styles.editActionBtn, editingCard.isDefault && styles.editActionBtnActive]}
+                    onPress={() => { setDefault(editingCard.id); setEditingCard(null); }}>
+                    <Text style={styles.editActionBtnText}>
+                      {editingCard.isDefault ? '✓ Default Card' : 'Set as Default'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.selectLabel}>Platforms on this card:</Text>
+                {editingCard.links.length === 0 ? (
+                  <Text style={styles.noLinksHintText}>No platforms linked yet.</Text>
+                ) : (
+                  editingCard.links.map(link => (
+                    <View key={link.id} style={[themed.linkOption, styles.linkOnCard]}>
+                      <View style={[styles.dot, { backgroundColor: PLATFORMS[link.platform]?.color || COLORS.primary }]} />
+                      <Text style={themed.linkOptionText}>
+                        {PLATFORMS[link.platform]?.name || link.platform} — {link.username}
+                      </Text>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                  ))
+                )}
+
+                {allLinks.filter(l => !cardLinkIds.includes(l.id)).length > 0 && (
+                  <>
+                    <Text style={[styles.selectLabel, { marginTop: SPACING.md }]}>Add more platforms:</Text>
+                    {allLinks
+                      .filter(l => !cardLinkIds.includes(l.id))
+                      .map(link => (
+                        <TouchableOpacity
+                          key={link.id}
+                          style={themed.linkOption}
+                          onPress={() => addPlatformLinkToCard(link.id)}>
+                          <View style={[styles.dot, { backgroundColor: PLATFORMS[link.platform]?.color || COLORS.primary }]} />
+                          <Text style={themed.linkOptionText}>
+                            {PLATFORMS[link.platform]?.name || link.platform} — {link.username}
+                          </Text>
+                          <Text style={styles.addLinkIcon}>+</Text>
+                        </TouchableOpacity>
+                      ))}
+                  </>
+                )}
+
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => { setEditingCard(null); setCardLinkIds([]); }}>
+                  <Text style={styles.cancelBtnText}>Done</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -471,6 +553,38 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: FONT_SIZE.sm,
     textAlign: 'center',
+  },
+  editSection: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  editActionBtn: {
+    flex: 1,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  editActionBtnActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+  },
+  editActionBtnText: {
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+    fontSize: FONT_SIZE.sm,
+  },
+  linkOnCard: {
+    opacity: 0.9,
+  },
+  addLinkIcon: {
+    color: COLORS.primary,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '700',
+    marginLeft: SPACING.sm,
   },
   // Premium Card Styles
   cardContainer: { marginBottom: SPACING.md },

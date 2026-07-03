@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -12,7 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme/tokens';
-import { get, put } from '../services/api';
+import { get, put, del } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { PLATFORMS } from '@devcard/shared';
@@ -48,8 +48,23 @@ export default function ProfileScreen() {
     loadProfile();
   }, [token]);
 
-  const shownLinks = useMemo(() => links.slice(0, 2), [links]);
-  const hiddenCount = Math.max(links.length - shownLinks.length, 0);
+  const handleDeleteLink = (id: string) => {
+    Alert.alert('Remove Link', 'Are you sure you want to remove this link?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await del(`/api/profiles/me/links/${id}`, undefined, token);
+            setLinks(prev => prev.filter(l => l.id !== id));
+          } catch {
+            Alert.alert('Error', 'Failed to remove link');
+          }
+        },
+      },
+    ]);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -96,33 +111,37 @@ export default function ProfileScreen() {
         <Field label="Pronouns (optional)" value={pronouns} onChangeText={setPronouns} />
 
         <View style={styles.platformHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Connected Platforms</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('ConnectPlatforms')}>
-            <Text style={[styles.addText, { color: colors.primaryLight }]}>+ Add</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Platform Links</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Links')}>
+            <Text style={[styles.addText, { color: colors.primaryLight }]}>Manage</Text>
           </TouchableOpacity>
         </View>
 
-        {shownLinks.map(link => {
-          const platform = PLATFORMS[link.platform];
-          return (
-            <View key={link.id} style={styles.platformCard}>
-              <View style={[styles.platformDot, { backgroundColor: platform?.color || COLORS.primary }]} />
-              <View style={styles.platformBody}>
-                <Text style={styles.platformName}>{platform?.name || link.platform}</Text>
-                <Text style={styles.platformHandle}>@{link.username}</Text>
+        {links.length === 0 ? (
+          <TouchableOpacity
+            style={[styles.emptyLinks, { borderColor: colors.border }]}
+            onPress={() => navigation.navigate('Links')}>
+            <Text style={[styles.emptyLinksText, { color: colors.textMuted }]}>
+              No links yet — tap to add your first platform link
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          links.map(link => {
+            const platform = PLATFORMS[link.platform];
+            return (
+              <View key={link.id} style={styles.platformCard}>
+                <View style={[styles.platformDot, { backgroundColor: platform?.color || COLORS.primary }]} />
+                <View style={styles.platformBody}>
+                  <Text style={styles.platformName}>{platform?.name || link.platform}</Text>
+                  <Text style={styles.platformHandle}>@{link.username}</Text>
+                </View>
+                <TouchableOpacity onPress={() => handleDeleteLink(link.id)} style={styles.removeBtn}>
+                  <Text style={styles.removeBtnText}>✕</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.checkMark}>✓</Text>
-            </View>
-          );
-        })}
-
-        <TouchableOpacity style={[styles.addMoreCard, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]} onPress={() => navigation.navigate('ConnectPlatforms')}>
-          <Text style={[styles.addMoreText, { color: colors.textMuted }]}>
-            {hiddenCount > 0
-              ? `+ Add Devfolio, Twitter, Discord... (${hiddenCount} more linked)`
-              : '+ Add Devfolio, Twitter, Discord...'}
-          </Text>
-        </TouchableOpacity>
+            );
+          })
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -228,18 +247,15 @@ const styles = StyleSheet.create({
   platformBody: { flex: 1 },
   platformName: { color: COLORS.textPrimary, fontSize: FONT_SIZE.lg, fontWeight: '500' },
   platformHandle: { color: COLORS.textMuted, fontSize: FONT_SIZE.sm },
-  checkMark: { color: '#9EDB7B', fontSize: FONT_SIZE.xl, fontWeight: '700' },
-  addMoreCard: {
-    marginTop: SPACING.xs,
-    borderRadius: BORDER_RADIUS.md,
+  removeBtn: { padding: SPACING.sm, marginLeft: SPACING.sm },
+  removeBtnText: { color: COLORS.error, fontSize: FONT_SIZE.md, fontWeight: '700' },
+  emptyLinks: {
     borderWidth: 1,
-    borderColor: COLORS.border,
     borderStyle: 'dashed',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.bgSecondary,
+    marginBottom: SPACING.sm,
   },
-  addMoreText: { color: COLORS.textMuted, fontSize: FONT_SIZE.md },
+  emptyLinksText: { fontSize: FONT_SIZE.sm },
 });
