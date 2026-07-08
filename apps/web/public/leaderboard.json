@@ -32,12 +32,20 @@
     "issues": 6
   },
   {
+    "login": "yachikadev",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/275992250?v=4",
+    "profileUrl": "https://github.com/yachikadev",
+    "mergedPrs": 5,
+    "openPrs": 0,
+    "issues": 3
+  },
+  {
     "login": "anshul23102",
     "avatarUrl": "https://avatars.githubusercontent.com/u/167362756?v=4",
     "profileUrl": "https://github.com/anshul23102",
     "mergedPrs": 4,
     "openPrs": 1,
-    "issues": 8
+    "issues": 13
   },
   {
     "login": "roshankumar0036singh",
@@ -46,14 +54,6 @@
     "mergedPrs": 4,
     "openPrs": 0,
     "issues": 6
-  },
-  {
-    "login": "yachikadev",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/275992250?v=4",
-    "profileUrl": "https://github.com/yachikadev",
-    "mergedPrs": 4,
-    "openPrs": 1,
-    "issues": 3
   },
   {
     "login": "ramnnn2006",
@@ -88,6 +88,14 @@
     "issues": 0
   },
   {
+    "login": "github-actions[bot]",
+    "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+    "profileUrl": "https://github.com/apps/github-actions",
+    "mergedPrs": 3,
+    "openPrs": 1,
+    "issues": 0
+  },
+  {
     "login": "Dipti45sktech",
     "avatarUrl": "https://avatars.githubusercontent.com/u/263665627?v=4",
     "profileUrl": "https://github.com/Dipti45sktech",
@@ -99,6 +107,14 @@
     "login": "nazneen-p1",
     "avatarUrl": "https://avatars.githubusercontent.com/u/186559888?v=4",
     "profileUrl": "https://github.com/nazneen-p1",
+    "mergedPrs": 3,
+    "openPrs": 0,
+    "issues": 0
+  },
+  {
+    "login": "pari7maheshwari",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/235702143?v=4",
+    "profileUrl": "https://github.com/pari7maheshwari",
     "mergedPrs": 3,
     "openPrs": 0,
     "issues": 0
@@ -144,25 +160,9 @@
     "issues": 2
   },
   {
-    "login": "github-actions[bot]",
-    "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
-    "profileUrl": "https://github.com/apps/github-actions",
-    "mergedPrs": 2,
-    "openPrs": 1,
-    "issues": 0
-  },
-  {
     "login": "Jai-Shankar1033",
     "avatarUrl": "https://avatars.githubusercontent.com/u/218094488?v=4",
     "profileUrl": "https://github.com/Jai-Shankar1033",
-    "mergedPrs": 2,
-    "openPrs": 1,
-    "issues": 0
-  },
-  {
-    "login": "pari7maheshwari",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/235702143?v=4",
-    "profileUrl": "https://github.com/pari7maheshwari",
     "mergedPrs": 2,
     "openPrs": 1,
     "issues": 0
