@@ -1,48 +1,50 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-
 }
-enum Role{
+
+enum Role {
   SUPERADMIN
   ADMIN
   USER
-  
 }
-model User {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  username    String   @unique
-  displayName String   @map("display_name")
-  bio         String?
-  pronouns    String?
-  role        String?
-  authRole    Role @default(USER)
-  company     String?
-  avatarUrl   String?  @map("avatar_url")
-  accentColor String   @default("#6366f1") @map("accent_color")
-  emailVerified Boolean @default(false) @map("email_verified") 
-  phoneNumber   String? @unique @map("phone_number")           
-  lastSignInAt  DateTime? @map("last_sign_in_at")           
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  isActive    Boolean  @default(false)
 
-  identities    UserIdentity[]   
-  refreshTokens RefreshToken[]   
-  platformLinks PlatformLink[]
-  cards         Card[]
-  oauthTokens   OAuthToken[]
-  ownedViews    CardView[]     @relation("cardOwner")
-  viewedCards   CardView[]     @relation("cardViewer")
-  followLogs    FollowLog[]
-  organizer     Event[]
-  attendedEvents EventAttendee[]
-  ownedTeams    Team[]         @relation("TeamOwner")
-  teamMemberships TeamMember[] @relation("TeamMember")
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  username      String    @unique
+  displayName   String    @map("display_name")
+  bio           String?
+  pronouns      String?
+  role          String?
+  authRole      Role      @default(USER)
+  company       String?
+  avatarUrl     String?   @map("avatar_url")
+  accentColor   String    @default("#6366f1") @map("accent_color")
+  emailVerified Boolean   @default(false) @map("email_verified")
+  phoneNumber   String?   @unique @map("phone_number")
+  lastSignInAt  DateTime? @map("last_sign_in_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  isActive      Boolean   @default(false)
+
+  identities       UserIdentity[]
+  refreshTokens    RefreshToken[]
+  platformLinks    PlatformLink[]
+  cards            Card[]
+  oauthTokens      OAuthToken[]
+  ownedViews       CardView[]        @relation("cardOwner")
+  viewedCards      CardView[]        @relation("cardViewer")
+  followLogs       FollowLog[]
+  organizer        Event[]
+  attendedEvents   EventAttendee[]
+  ownedTeams       Team[]            @relation("TeamOwner")
+  teamMemberships  TeamMember[]      @relation("TeamMember")
+  webhookEndpoints WebhookEndpoint[]
 
   @@map("users")
 }
@@ -50,8 +52,8 @@ model User {
 model UserIdentity {
   id         String   @id @default(uuid())
   userId     String   @map("user_id")
-  provider   String   // "google.com" | "apple.com" | "firebase" | "phone"
-  providerId String   @map("provider_id")  // Google sub / Apple sub / Firebase UID
+  provider   String
+  providerId String   @map("provider_id")
   createdAt  DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -61,17 +63,16 @@ model UserIdentity {
   @@map("user_identities")
 }
 
-
 model RefreshToken {
   id        String    @id @default(uuid())
   userId    String    @map("user_id")
-  tokenHash String    @unique @map("token_hash") //SHA-256 hash
-  family    String    // token rotation
+  tokenHash String    @unique @map("token_hash")
+  family    String
   expiresAt DateTime  @map("expires_at")
-  revokedAt DateTime? @map("revoked_at")         // null = still valid
+  revokedAt DateTime? @map("revoked_at")
   createdAt DateTime  @default(now()) @map("created_at")
-  userAgent String?   @map("user_agent")          
-  ip        String?   //hash
+  userAgent String?   @map("user_agent")
+  ip        String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -83,13 +84,13 @@ model RefreshToken {
 }
 
 model PlatformLink {
-  id           String     @id @default(uuid())
-  userId       String     @map("user_id")
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
   platform     String
   username     String
   url          String
-  displayOrder Int        @default(0) @map("display_order")
-  createdAt    DateTime   @default(now()) @map("created_at")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   cardLinks CardLink[]
@@ -170,12 +171,12 @@ model CardView {
   viewerId    String?  @map("viewer_id")     // null = anonymous web viewer
   viewerIp    String?  @map("viewer_ip")     //hashed
   viewerAgent String?  @map("viewer_agent")
-  source      String   @default("qr")        // "qr" | "link" | "web" | "app"
+  source      String   @default("qr")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  card    Card? @relation(fields: [cardId], references: [id], onDelete: SetNull)
-  owner   User  @relation("cardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  viewer  User? @relation("cardViewer", fields: [viewerId], references: [id], onDelete: SetNull)
+  card   Card? @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  owner  User  @relation("cardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  viewer User? @relation("cardViewer", fields: [viewerId], references: [id], onDelete: SetNull)
 
   @@map("card_views")
   @@index([cardId])
@@ -187,8 +188,8 @@ model FollowLog {
   followerId     String   @map("follower_id")
   targetUsername String   @map("target_username")
   platform       String
-  status         String   @default("success")    // "success" | "error"
-  layer          String                          // "api" | "webview" | "link"
+  status         String   @default("success")
+  layer          String
   createdAt      DateTime @default(now()) @map("created_at")
 
   follower User @relation(fields: [followerId], references: [id], onDelete: Cascade)
@@ -197,31 +198,71 @@ model FollowLog {
 }
 
 model Event {
-  id      String @id @default(uuid())
-  name    String
-  slug    String @unique
-  location String
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  location    String
   description String?
-  organizerId String 
-  startDate DateTime 
-  endDate DateTime
-  isPublic Boolean @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  attendees EventAttendee[]
+  organizerId String
+  startDate   DateTime
+  endDate     DateTime
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  organizer User @relation(fields: [organizerId], references: [id])
+  attendees EventAttendee[]
+  organizer User            @relation(fields: [organizerId], references: [id])
+
+  @@map("events")
 }
 
 model EventAttendee {
-  id    String @id @default(uuid())
-  userId String  
-  eventId String   
-  joinedAt DateTime 
+  id       String   @id @default(uuid())
+  userId   String
+  eventId  String
+  joinedAt DateTime
 
-  event Event @relation(fields: [eventId] , references: [id])
-  user User @relation(fields: [userId],references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
 
   @@unique([userId, eventId])
+  @@map("event_attendees")
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  url       String
+  secret    String
+  events    String[]
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([userId])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id           String    @id @default(uuid())
+  endpointId   String    @map("endpoint_id")
+  eventType    String    @map("event_type")
+  payload      Json
+  status       String    @default("pending")
+  responseCode Int?      @map("response_code")
+  attempts     Int       @default(0)
+  nextRetryAt  DateTime? @map("next_retry_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  errorMessage String?   @map("error_message")
+  deliveredAt  DateTime? @map("delivered_at")
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId])
+  @@index([status, nextRetryAt])
+  @@map("webhook_deliveries")
 }
 
 enum TeamRole {
@@ -230,32 +271,32 @@ enum TeamRole {
   MEMBER
 }
 
-model Team{
-  id String @id @default(uuid())
-  name String 
-  slug String @unique
-  description String? 
-  avatarUrl String? 
-  ownerId String 
-  createdAt DateTime @default(now()) 
-  updatedAt DateTime @updatedAt
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  avatarUrl   String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  owner User @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner   User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members TeamMember[] @relation("TeamMember")
 
-  @@map("teams")
   @@index([slug])
+  @@map("teams")
 }
 
-model TeamMember{
-  id String @id @default(uuid())
-  teamId String
-  userId String
-  role TeamRole
-  joinedAt DateTime 
+model TeamMember {
+  id       String   @id @default(uuid())
+  teamId   String
+  userId   String
+  role     TeamRole
+  joinedAt DateTime
 
-  team Team @relation("TeamMember",fields: [teamId] , references: [id], onDelete: Cascade)
-  user User @relation("TeamMember",fields: [userId] , references: [id])
+  team Team @relation("TeamMember", fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation("TeamMember", fields: [userId], references: [id])
 
   @@unique([userId, teamId])
   @@index([userId])

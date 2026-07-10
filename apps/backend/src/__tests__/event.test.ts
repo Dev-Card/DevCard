@@ -1,9 +1,10 @@
-import { type PrismaClient, Prisma } from '@prisma/client';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import { eventRoutes } from '../routes/event';
 
+import type { PrismaClient } from '@prisma/client';
+import type { FastifyInstance,LightMyRequestResponse } from 'fastify';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ async function createEvent(
   app: FastifyInstance,
   body: Record<string, unknown>,
   authenticated = true,
-): Promise<Awaited<ReturnType<FastifyInstance['inject']>>> {
+): Promise<LightMyRequestResponse>  {
   return app.inject({
     method: 'POST',
     url: '/api/events',
@@ -366,10 +367,9 @@ describe('Events API', () => {
     it('409 — returns 409 when user already joined the event', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
       // Prisma unique constraint error
-      const uniqueError = new Prisma.PrismaClientKnownRequestError(
-          'Unique constraint failed',
-          { code: 'P2002', clientVersion: '6.0.0' },
-      );
+      const uniqueError = Object.assign(new Error('Unique constraint'), {
+        code: 'P2002',
+      });
       prismaMock.eventAttendee.create.mockRejectedValue(uniqueError);
 
       const res = await app.inject({
@@ -452,10 +452,9 @@ describe('Events API', () => {
     it('404 — returns 404 when user was never an attendee (P2025)', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
       // Prisma record-not-found error
-      const notFoundError = new Prisma.PrismaClientKnownRequestError(
-          'Record not found',
-          { code: 'P2025', clientVersion: '6.0.0' },
-      );
+      const notFoundError = Object.assign(new Error('Record not found'), {
+        code: 'P2025',
+      });
       prismaMock.eventAttendee.delete.mockRejectedValue(notFoundError);
 
       const res = await app.inject({
@@ -489,13 +488,13 @@ describe('Events API', () => {
     /** Builds a raw EventAttendee row as Prisma returns it (with nested user) */
     function makeAttendeeRow(
       profile: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE,
-    ): {
-      id: string;
-      userId: string;
-      eventId: string;
-      joinedAt: Date;
-      user: typeof profile;
-    } {
+          ) : {
+        id: string;
+        userId: string;
+        eventId: string;
+        joinedAt: Date;
+        user: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE;
+      }  {
       return {
         id: `attendee-${profile.id}`,
         userId: profile.id,

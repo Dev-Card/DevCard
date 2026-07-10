@@ -24,20 +24,28 @@
     "issues": 7
   },
   {
+    "login": "Srejoye",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/177326090?v=4",
+    "profileUrl": "https://github.com/Srejoye",
+    "mergedPrs": 5,
+    "openPrs": 2,
+    "issues": 6
+  },
+  {
+    "login": "yachikadev",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/275992250?v=4",
+    "profileUrl": "https://github.com/yachikadev",
+    "mergedPrs": 5,
+    "openPrs": 0,
+    "issues": 3
+  },
+  {
     "login": "anshul23102",
     "avatarUrl": "https://avatars.githubusercontent.com/u/167362756?v=4",
     "profileUrl": "https://github.com/anshul23102",
     "mergedPrs": 4,
     "openPrs": 1,
-    "issues": 8
-  },
-  {
-    "login": "Srejoye",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/177326090?v=4",
-    "profileUrl": "https://github.com/Srejoye",
-    "mergedPrs": 4,
-    "openPrs": 3,
-    "issues": 6
+    "issues": 13
   },
   {
     "login": "roshankumar0036singh",
@@ -46,14 +54,6 @@
     "mergedPrs": 4,
     "openPrs": 0,
     "issues": 6
-  },
-  {
-    "login": "yachikadev",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/275992250?v=4",
-    "profileUrl": "https://github.com/yachikadev",
-    "mergedPrs": 4,
-    "openPrs": 0,
-    "issues": 3
   },
   {
     "login": "ramnnn2006",
@@ -88,9 +88,33 @@
     "issues": 0
   },
   {
+    "login": "github-actions[bot]",
+    "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+    "profileUrl": "https://github.com/apps/github-actions",
+    "mergedPrs": 3,
+    "openPrs": 1,
+    "issues": 0
+  },
+  {
+    "login": "Dipti45sktech",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/263665627?v=4",
+    "profileUrl": "https://github.com/Dipti45sktech",
+    "mergedPrs": 3,
+    "openPrs": 0,
+    "issues": 0
+  },
+  {
     "login": "nazneen-p1",
     "avatarUrl": "https://avatars.githubusercontent.com/u/186559888?v=4",
     "profileUrl": "https://github.com/nazneen-p1",
+    "mergedPrs": 3,
+    "openPrs": 0,
+    "issues": 0
+  },
+  {
+    "login": "pari7maheshwari",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/235702143?v=4",
+    "profileUrl": "https://github.com/pari7maheshwari",
     "mergedPrs": 3,
     "openPrs": 0,
     "issues": 0
@@ -136,17 +160,17 @@
     "issues": 2
   },
   {
-    "login": "Satvik-art-creator",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/67773620?v=4",
-    "profileUrl": "https://github.com/Satvik-art-creator",
+    "login": "Jai-Shankar1033",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/218094488?v=4",
+    "profileUrl": "https://github.com/Jai-Shankar1033",
     "mergedPrs": 2,
-    "openPrs": 2,
+    "openPrs": 1,
     "issues": 0
   },
   {
-    "login": "Dipti45sktech",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/263665627?v=4",
-    "profileUrl": "https://github.com/Dipti45sktech",
+    "login": "Satvik-art-creator",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/67773620?v=4",
+    "profileUrl": "https://github.com/Satvik-art-creator",
     "mergedPrs": 2,
     "openPrs": 1,
     "issues": 0
@@ -160,28 +184,12 @@
     "issues": 0
   },
   {
-    "login": "Jai-Shankar1033",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/218094488?v=4",
-    "profileUrl": "https://github.com/Jai-Shankar1033",
-    "mergedPrs": 2,
-    "openPrs": 0,
-    "issues": 0
-  },
-  {
-    "login": "pari7maheshwari",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/235702143?v=4",
-    "profileUrl": "https://github.com/pari7maheshwari",
-    "mergedPrs": 2,
-    "openPrs": 0,
-    "issues": 0
-  },
-  {
-    "login": "Pcmhacker-piro",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/181658297?v=4",
-    "profileUrl": "https://github.com/Pcmhacker-piro",
+    "login": "Nareshkumawat-star",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/207768679?v=4",
+    "profileUrl": "https://github.com/Nareshkumawat-star",
     "mergedPrs": 1,
-    "openPrs": 2,
-    "issues": 9
+    "openPrs": 1,
+    "issues": 11
   },
   {
     "login": "Kartikeyji17",
@@ -320,6 +328,14 @@
     "issues": 0
   },
   {
+    "login": "keerthana266",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/206133186?v=4",
+    "profileUrl": "https://github.com/keerthana266",
+    "mergedPrs": 1,
+    "openPrs": 0,
+    "issues": 0
+  },
+  {
     "login": "namansharmapvt04-dot",
     "avatarUrl": "https://avatars.githubusercontent.com/u/234912697?v=4",
     "profileUrl": "https://github.com/namansharmapvt04-dot",
@@ -390,14 +406,6 @@
     "mergedPrs": 1,
     "openPrs": 0,
     "issues": 0
-  },
-  {
-    "login": "Nareshkumawat-star",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/207768679?v=4",
-    "profileUrl": "https://github.com/Nareshkumawat-star",
-    "mergedPrs": 0,
-    "openPrs": 2,
-    "issues": 11
   },
   {
     "login": "kavin553",
@@ -475,6 +483,14 @@
     "login": "SagarSingh01",
     "avatarUrl": "https://avatars.githubusercontent.com/u/263024399?v=4",
     "profileUrl": "https://github.com/SagarSingh01",
+    "mergedPrs": 0,
+    "openPrs": 1,
+    "issues": 1
+  },
+  {
+    "login": "traitor09",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/204142630?v=4",
+    "profileUrl": "https://github.com/traitor09",
     "mergedPrs": 0,
     "openPrs": 1,
     "issues": 1
@@ -747,14 +763,6 @@
     "login": "dangzitou",
     "avatarUrl": "https://avatars.githubusercontent.com/u/153048246?v=4",
     "profileUrl": "https://github.com/dangzitou",
-    "mergedPrs": 0,
-    "openPrs": 1,
-    "issues": 0
-  },
-  {
-    "login": "keerthana266",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/206133186?v=4",
-    "profileUrl": "https://github.com/keerthana266",
     "mergedPrs": 0,
     "openPrs": 1,
     "issues": 0
