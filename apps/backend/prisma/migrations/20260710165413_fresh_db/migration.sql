@@ -1,0 +1,356 @@
+-- CreateEnum
+CREATE TYPE "Role" AS ENUM ('SUPERADMIN', 'ADMIN', 'USER');
+
+-- CreateEnum
+CREATE TYPE "CardVisibility" AS ENUM ('PUBLIC', 'UNLISTED', 'PRIVATE');
+
+-- CreateEnum
+CREATE TYPE "TeamRole" AS ENUM ('OWNER', 'ADMIN', 'MEMBER');
+
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "display_name" TEXT NOT NULL,
+    "bio" TEXT,
+    "pronouns" TEXT,
+    "role" TEXT,
+    "authRole" "Role" NOT NULL DEFAULT 'USER',
+    "company" TEXT,
+    "avatar_url" TEXT,
+    "accent_color" TEXT NOT NULL DEFAULT '#6366f1',
+    "email_verified" BOOLEAN NOT NULL DEFAULT false,
+    "phone_number" TEXT,
+    "last_sign_in_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT false,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_identities" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "provider_id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "user_identities_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "refresh_tokens" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "token_hash" TEXT NOT NULL,
+    "family" TEXT NOT NULL,
+    "expires_at" TIMESTAMP(3) NOT NULL,
+    "revoked_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "user_agent" TEXT,
+    "ip" TEXT,
+
+    CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "platform_links" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "platform" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "platform_links_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cards" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "slug" TEXT NOT NULL,
+    "visibility" "CardVisibility" NOT NULL DEFAULT 'PUBLIC',
+    "qrEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "viewCount" INTEGER NOT NULL DEFAULT 0,
+    "is_default" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cards_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "card_links" (
+    "id" TEXT NOT NULL,
+    "card_id" TEXT NOT NULL,
+    "platform_link_id" TEXT NOT NULL,
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "card_links_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "oauth_tokens" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "platform" TEXT NOT NULL,
+    "access_token" TEXT NOT NULL,
+    "refresh_token" TEXT,
+    "scopes" TEXT NOT NULL,
+    "expires_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "oauth_tokens_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "card_views" (
+    "id" TEXT NOT NULL,
+    "card_id" TEXT,
+    "owner_id" TEXT NOT NULL,
+    "viewer_id" TEXT,
+    "viewer_ip" TEXT,
+    "viewer_agent" TEXT,
+    "source" TEXT NOT NULL DEFAULT 'qr',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "card_views_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "follow_logs" (
+    "id" TEXT NOT NULL,
+    "follower_id" TEXT NOT NULL,
+    "target_username" TEXT NOT NULL,
+    "platform" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'success',
+    "layer" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "follow_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "events" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "location" TEXT NOT NULL,
+    "description" TEXT,
+    "organizerId" TEXT NOT NULL,
+    "startDate" TIMESTAMP(3) NOT NULL,
+    "endDate" TIMESTAMP(3) NOT NULL,
+    "isPublic" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "events_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "event_attendees" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "eventId" TEXT NOT NULL,
+    "joinedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "event_attendees_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "webhook_endpoints" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "secret" TEXT NOT NULL,
+    "events" TEXT[],
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "webhook_endpoints_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "webhook_deliveries" (
+    "id" TEXT NOT NULL,
+    "endpoint_id" TEXT NOT NULL,
+    "event_type" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "response_code" INTEGER,
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "next_retry_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "error_message" TEXT,
+    "delivered_at" TIMESTAMP(3),
+
+    CONSTRAINT "webhook_deliveries_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "teams" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "description" TEXT,
+    "avatarUrl" TEXT,
+    "ownerId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "teams_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "team_members" (
+    "id" TEXT NOT NULL,
+    "teamId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "role" "TeamRole" NOT NULL,
+    "joinedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "team_members_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_phone_number_key" ON "users"("phone_number");
+
+-- CreateIndex
+CREATE INDEX "user_identities_user_id_idx" ON "user_identities"("user_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_identities_provider_provider_id_key" ON "user_identities"("provider", "provider_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "refresh_tokens_token_hash_key" ON "refresh_tokens"("token_hash");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_user_id_idx" ON "refresh_tokens"("user_id");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_family_idx" ON "refresh_tokens"("family");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_expires_at_idx" ON "refresh_tokens"("expires_at");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_revoked_at_idx" ON "refresh_tokens"("revoked_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cards_slug_key" ON "cards"("slug");
+
+-- CreateIndex
+CREATE INDEX "cards_user_id_idx" ON "cards"("user_id");
+
+-- CreateIndex
+CREATE INDEX "cards_viewCount_idx" ON "cards"("viewCount");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "card_links_card_id_platform_link_id_key" ON "card_links"("card_id", "platform_link_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "oauth_tokens_user_id_platform_key" ON "oauth_tokens"("user_id", "platform");
+
+-- CreateIndex
+CREATE INDEX "card_views_card_id_idx" ON "card_views"("card_id");
+
+-- CreateIndex
+CREATE INDEX "card_views_owner_id_idx" ON "card_views"("owner_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "events_slug_key" ON "events"("slug");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "event_attendees_userId_eventId_key" ON "event_attendees"("userId", "eventId");
+
+-- CreateIndex
+CREATE INDEX "webhook_endpoints_user_id_idx" ON "webhook_endpoints"("user_id");
+
+-- CreateIndex
+CREATE INDEX "webhook_deliveries_endpoint_id_idx" ON "webhook_deliveries"("endpoint_id");
+
+-- CreateIndex
+CREATE INDEX "webhook_deliveries_status_next_retry_at_idx" ON "webhook_deliveries"("status", "next_retry_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "teams_slug_key" ON "teams"("slug");
+
+-- CreateIndex
+CREATE INDEX "teams_slug_idx" ON "teams"("slug");
+
+-- CreateIndex
+CREATE INDEX "team_members_userId_idx" ON "team_members"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "team_members_userId_teamId_key" ON "team_members"("userId", "teamId");
+
+-- AddForeignKey
+ALTER TABLE "user_identities" ADD CONSTRAINT "user_identities_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "platform_links" ADD CONSTRAINT "platform_links_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cards" ADD CONSTRAINT "cards_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "card_links" ADD CONSTRAINT "card_links_card_id_fkey" FOREIGN KEY ("card_id") REFERENCES "cards"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "card_links" ADD CONSTRAINT "card_links_platform_link_id_fkey" FOREIGN KEY ("platform_link_id") REFERENCES "platform_links"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "oauth_tokens" ADD CONSTRAINT "oauth_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "card_views" ADD CONSTRAINT "card_views_card_id_fkey" FOREIGN KEY ("card_id") REFERENCES "cards"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "card_views" ADD CONSTRAINT "card_views_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "card_views" ADD CONSTRAINT "card_views_viewer_id_fkey" FOREIGN KEY ("viewer_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "follow_logs" ADD CONSTRAINT "follow_logs_follower_id_fkey" FOREIGN KEY ("follower_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "events" ADD CONSTRAINT "events_organizerId_fkey" FOREIGN KEY ("organizerId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "event_attendees" ADD CONSTRAINT "event_attendees_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "events"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "event_attendees" ADD CONSTRAINT "event_attendees_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "webhook_endpoints" ADD CONSTRAINT "webhook_endpoints_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "webhook_deliveries" ADD CONSTRAINT "webhook_deliveries_endpoint_id_fkey" FOREIGN KEY ("endpoint_id") REFERENCES "webhook_endpoints"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "teams" ADD CONSTRAINT "teams_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "team_members" ADD CONSTRAINT "team_members_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "teams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "team_members" ADD CONSTRAINT "team_members_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
