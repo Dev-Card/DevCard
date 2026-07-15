@@ -428,6 +428,46 @@ describe(
         );
 
         it(
+          '200 — clamps non-numeric page to 1',
+          async () => {
+            prismaMock.cardView.count.mockResolvedValue(0);
+            prismaMock.cardView.findMany.mockResolvedValue([]);
+
+            const res = await app.inject({
+              method: 'GET',
+              url: '/api/analytics/views?page=abc',
+              headers: authHeader(),
+            });
+
+            expect(res.statusCode).toBe(200);
+            expect(
+              prismaMock.cardView.findMany.mock.calls[0][0]
+            ).toMatchObject({ skip: 0, take: 20 });
+            expect(res.json().meta.page).toBe(1);
+          }
+        );
+
+        it(
+          '200 — clamps negative page to 1',
+          async () => {
+            prismaMock.cardView.count.mockResolvedValue(0);
+            prismaMock.cardView.findMany.mockResolvedValue([]);
+
+            const res = await app.inject({
+              method: 'GET',
+              url: '/api/analytics/views?page=-5',
+              headers: authHeader(),
+            });
+
+            expect(res.statusCode).toBe(200);
+            expect(
+              prismaMock.cardView.findMany.mock.calls[0][0]
+            ).toMatchObject({ skip: 0, take: 20 });
+            expect(res.json().meta.page).toBe(1);
+          }
+        );
+
+        it(
           '401 — rejects unauthenticated request',
           async () => {
             mockJwtVerify.mockRejectedValue(
