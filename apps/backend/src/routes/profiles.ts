@@ -1,15 +1,10 @@
+import { Prisma } from '@prisma/client';
+
+import * as profileService from '../services/profileService.js';
+import { updateProfileSchema, createLinkSchema, reorderLinksSchema } from '../utils/validators.js';
+
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getProfileUrl } from '@devcard/shared';
-import {
-  updateProfileSchema,
-  createLinkSchema,
-  reorderLinksSchema,
-} from '../utils/validators.js';
-
-// ── Response types ────────────────────────────────────────────────────────────
-// Declared explicitly so the API contract is visible without tracing through
-// Prisma's generic return types.  Follows the convention in public.ts.
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type ProfileUpdateResponse = {
   id: string;
   email: string;
@@ -23,44 +18,40 @@ type ProfileUpdateResponse = {
   accentColor: string;
 };
 
-export async function profileRoutes(app: FastifyInstance) {
+export async function profileRoutes(app: FastifyInstance): Promise<void> {
   // All profile routes require auth
-  app.addHook('preHandler', app.authenticate);
+  app.addHook('preHandler', async (request, reply) => {
+    const server = request.server;
+    if (typeof server?.authenticate === 'function') {
+      await server.authenticate(request, reply);
+      return;
+    }
+    if (typeof app.authenticate === 'function') {
+      await app.authenticate(request, reply);
+      return;
+    }
+    try {
+      await request.jwtVerify();
+    } catch (_e) {
+      reply.status(401).send({ error: 'Unauthorized' });
+    }
+  });
 
   // ─── Get Own Profile ───
 
   app.get('/me', async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
-
-    const user = await app.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        platformLinks: {
-          orderBy: { displayOrder: 'asc' },
-        },
-        cards: {
-          where: { isDefault: true },
-          select: { id: true },
-          take: 1,
-        },
-      },
-    });
-
+    const userId = request.user.id;
+    const user = await profileService.getOwnProfile(app, userId)
     if (!user) {
       return reply.status(404).send({ error: 'User not found' });
     }
-
-    const { provider, providerId, ...profileData } = user;
-    return {
-      ...profileData,
-      defaultCardId: user.cards[0]?.id || null,
-    };
+    return user
   });
 
   // ─── Update Profile ───
 
   app.put('/me', async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const parsed = updateProfileSchema.safeParse(request.body);
 
     if (!parsed.success) {
@@ -85,139 +76,90 @@ export async function profileRoutes(app: FastifyInstance) {
     }
 
     try {
-      const response: ProfileUpdateResponse = await app.prisma.user.update({
-        where: { id: userId },
-        data: parsed.data,
-        select: {
-          id: true,
-          email: true,
-          username: true,
-          displayName: true,
-          bio: true,
-          pronouns: true,
-          role: true,
-          company: true,
-          avatarUrl: true,
-          accentColor: true,
-        },
-      });
-
-      return response;
-    } catch (error: any) {
-      // Unique constraint violation — two concurrent requests raced through the
-      // findFirst check above and both attempted the write. The DB constraint
-      // fires on the losing request; surface it as a deterministic 409 rather
-      // than leaking a raw Prisma error as a 500.
-      if (error?.code === 'P2002') {
+      const response = await profileService.updateProfile(app, userId, parsed.data)
+      return response
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         return reply.status(409).send({ error: 'Username already taken' });
       }
-      app.log.error({ error }, 'DB error in PUT /profiles/me');
-      return reply.status(500).send({ error: 'Internal server error' });
+      app.log.error({ err }, 'DB error in PUT /profiles/me')
+      return reply.status(500).send({ error: 'Internal server error' })
     }
   });
 
   // ─── Add Platform Link ───
 
   app.post('/me/links', async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const parsed = createLinkSchema.safeParse(request.body);
 
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
     }
 
-    // Auto-generate URL from platform registry if not provided
-    const url = parsed.data.url || getProfileUrl(parsed.data.platform, parsed.data.username);
-
-    // Get next display order
-    const maxOrder = await app.prisma.platformLink.aggregate({
-      where: { userId },
-      _max: { displayOrder: true },
-    });
-
-    const link = await app.prisma.platformLink.create({
-      data: {
-        userId,
-        platform: parsed.data.platform,
-        username: parsed.data.username,
-        url,
-        displayOrder: (maxOrder._max.displayOrder ?? -1) + 1,
-      },
-    });
-
-    return reply.status(201).send(link);
+    try {
+      const link = await profileService.createPlatformLink(app, userId, parsed.data)
+      return reply.status(201).send(link)
+    } catch (err: unknown) {
+      app.log.error({ err }, 'Failed to create platform link')
+      return reply.status(500).send({ error: 'Internal server error' })
+    }
   });
 
   // ─── Update Platform Link ───
 
   app.put('/me/links/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const { id } = request.params;
 
-    const existing = await app.prisma.platformLink.findFirst({
-      where: { id, userId },
-    });
-
-    if (!existing) {
-      return reply.status(404).send({ error: 'Link not found' });
+    const parsedReq = createLinkSchema.safeParse(request.body)
+    if (!parsedReq.success) {
+      return reply.status(400).send({ error: 'Validation failed', details: parsedReq.error.flatten() });
     }
-
-    const parsed = createLinkSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
+    try {
+      const updated = await profileService.updatePlatformLink(app, userId, id, parsedReq.data)
+      if (!updated) {
+        return reply.status(404).send({ error: 'Link not found' });
+      }
+      return updated
+    } catch (err: unknown) {
+      app.log.error({ err }, 'Failed to update platform link')
+      return reply.status(500).send({ error: 'Internal server error' })
     }
-
-    const url = parsed.data.url || getProfileUrl(parsed.data.platform, parsed.data.username);
-
-    const updated = await app.prisma.platformLink.update({
-      where: { id },
-      data: {
-        platform: parsed.data.platform,
-        username: parsed.data.username,
-        url,
-      },
-    });
-
-    return updated;
   });
 
   // ─── Delete Platform Link ───
 
   app.delete('/me/links/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const { id } = request.params;
 
-    const existing = await app.prisma.platformLink.findFirst({
-      where: { id, userId },
-    });
-
-    if (!existing) {
-      return reply.status(404).send({ error: 'Link not found' });
+    try {
+      const deleted = await profileService.deletePlatformLink(app, userId, id)
+      if (!deleted) {
+        return reply.status(404).send({ error: 'Link not found' });
+      }
+      return reply.status(204).send()
+    } catch (err: unknown) {
+      app.log.error({ err }, 'Failed to delete platform link')
+      return reply.status(500).send({ error: 'Internal server error' })
     }
-
-    await app.prisma.platformLink.delete({ where: { id } });
-    return reply.status(204).send();
   });
 
   // ─── Reorder Links ───
 
   app.put('/me/links/reorder', async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
-    const parsed = reorderLinksSchema.safeParse(request.body);
-
-    if (!parsed.success) {
-      return reply.status(400).send({ error: 'Validation failed', details: parsed.error.flatten() });
+    const userId = request.user.id;
+    const parsedReq = reorderLinksSchema.safeParse(request.body)
+    if (!parsedReq.success) {
+      return reply.status(400).send({ error: 'Validation failed', details: parsedReq.error.flatten() });
     }
-
-    await app.prisma.$transaction(
-      parsed.data.links.map((link) =>
-        app.prisma.platformLink.updateMany({
-          where: { id: link.id, userId },
-          data: { displayOrder: link.displayOrder },
-        })
-      )
-    );
-
-    return { message: 'Links reordered' };
+    try {
+      const resp = await profileService.reorderLinks(app, userId, parsedReq.data.links)
+      return resp
+    } catch (err: unknown) {
+      app.log.error({ err }, 'Failed to reorder links')
+      return reply.status(500).send({ error: 'Internal server error' })
+    }
   });
 }

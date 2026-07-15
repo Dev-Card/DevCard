@@ -1,6 +1,10 @@
+import { randomBytes } from 'node:crypto';
+
+import { decrypt, encrypt } from '../utils/encryption.js';
+import { getErrorMessage, isGitHubTokenError } from '../utils/error.util.js';
+
+import type { GitHubTokenErrorResponse, GitHubTokenResponse } from '../utils/error.util.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { randomBytes } from 'crypto';
-import { encrypt } from '../utils/encryption.js';
 
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -11,6 +15,7 @@ const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 // the same OAuthToken record.  Whichever flow runs last can no longer
 // silently overwrite the other's access token.
 const GITHUB_FOLLOW_PLATFORM = 'github_follow';
+const GITHUB_AUTODISCOVER_CACHE_TTL = 3600;
 
 interface OAuthCallbackQuery {
   code: string;
@@ -22,13 +27,14 @@ interface ParsedOAuthState {
   nonce: string;
 }
 
-export async function connectRoutes(app: FastifyInstance) {
+export async function connectRoutes(app: FastifyInstance): Promise<void> {
   // ─── Status ───
 
   app.get('/status', {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     preHandler: [app.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+  }, async (request: FastifyRequest, _reply: FastifyReply) => {
+    const userId = request.user.id;
 
     const tokens = await app.prisma.oAuthToken.findMany({
       where: { userId },
@@ -41,9 +47,10 @@ export async function connectRoutes(app: FastifyInstance) {
   // ─── GitHub Connect ───
 
   app.get('/github', {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const nonce = generateState();
 
     // Store nonce in Redis with 10-minute TTL.
@@ -68,9 +75,7 @@ export async function connectRoutes(app: FastifyInstance) {
     return reply.redirect(`${GITHUB_AUTH_URL}?${params}`);
   });
 
-  app.get('/github/callback', {
-    preHandler: [app.authenticate],
-  }, async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
+  app.get('/github/callback', async (request: FastifyRequest<{ Querystring: OAuthCallbackQuery }>, reply: FastifyReply) => {
     const { code, state } = request.query;
 
     if (!code || !state) {
@@ -86,15 +91,17 @@ export async function connectRoutes(app: FastifyInstance) {
       }
 
       // Verify nonce was issued by this server -- prevents CSRF
-      const storedUserId = await app.redis.get(`oauth:nonce:${decodedState.nonce}`);
+      const storedUserId = app.redis ? await app.redis.get(`oauth:nonce:${decodedState.nonce}`) : null;
 
-      if (!storedUserId || storedUserId !== decodedState.userId) {
+      if (app.redis && (!storedUserId || storedUserId !== decodedState.userId)) {
         app.log.warn({ nonce: decodedState.nonce }, 'OAuth CSRF check failed: nonce mismatch');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=invalid_state`);
       }
 
-      // Consume the nonce -- one-time use only
-      await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+      // Consume the nonce -- one-time use only (if redis configured)
+      if (app.redis) {
+        await app.redis.del(`oauth:nonce:${decodedState.nonce}`);
+      }
 
       const userId = decodedState.userId;
 
@@ -113,10 +120,10 @@ export async function connectRoutes(app: FastifyInstance) {
         }),
       });
 
-      const tokenData = (await tokenRes.json()) as any;
+      const tokenData = (await tokenRes.json()) as GitHubTokenResponse | GitHubTokenErrorResponse;
 
-      if (tokenData.error) {
-        app.log.error('GitHub connect token error:', tokenData);
+      if (isGitHubTokenError(tokenData)) {
+        app.log.error(tokenData, 'GitHub connect token error:');
         return reply.redirect(`${process.env.PUBLIC_APP_URL}/settings?error=connect_failed`);
       }
 
@@ -159,13 +166,96 @@ export async function connectRoutes(app: FastifyInstance) {
     }
   });
 
+  app.get('/github/autodiscover', {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    preHandler: [app.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.user.id;
+    const cacheKey = `github:autodiscover:${userId}`;
+
+    if (app.redis) {
+      try {
+        const cached = await app.redis.get(cacheKey);
+        if (cached) {
+          try {
+            return reply.send(JSON.parse(cached));
+          } catch (err: unknown) {
+            app.log.warn(`Redis cache parse failed for ${cacheKey}: ${getErrorMessage(err)}`);
+          }
+        }
+      } catch (err: unknown) {
+        app.log.warn(`Redis cache read failed for ${cacheKey}: ${getErrorMessage(err)}`);
+      }
+    }
+
+    const oauthToken = await app.prisma.oAuthToken.findUnique({
+      where: {
+        userId_platform: {
+          userId,
+          platform: GITHUB_FOLLOW_PLATFORM,
+        },
+      },
+      select: { accessToken: true },
+    });
+
+    if (!oauthToken) {
+      return reply.status(400).send({ error: 'Not connected to GitHub. Please connect GitHub first.', requiresAuth: true });
+    }
+
+    let accessToken: string;
+    try {
+      accessToken = decrypt(oauthToken.accessToken);
+    } catch (err: unknown) {
+      app.log.error({ err, userId }, 'GitHub follow token decrypt failed');
+      return reply.status(500).send({ error: 'Failed to access GitHub connection' });
+    }
+
+    let response: Response;
+    try {
+      response = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      });
+    } catch (error: unknown) {
+      app.log.error({ userId, error: getErrorMessage(error) }, 'GitHub autodiscovery failed');
+      return reply.status(502).send({ error: 'Failed to fetch GitHub profile' });
+    }
+
+    if (response.status === 401) {
+      if (app.redis) {
+        void Promise.resolve(app.redis.del(cacheKey))
+          .catch((err: unknown) => app.log.warn(`Redis cache delete failed for ${cacheKey}: ${getErrorMessage(err)}`));
+      }
+      return reply.status(401).send({ error: 'GitHub token expired or revoked', requiresAuth: true });
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      app.log.error({ status: response.status, body, userId }, 'GitHub user API request failed');
+      return reply.status(502).send({ error: 'Failed to fetch GitHub profile' });
+    }
+
+    const githubUser = await response.json() as { twitter_username?: string | null; blog?: string | null; company?: string | null; bio?: string | null; html_url?: string | null };
+    const suggestions = buildGitHubDiscoverySuggestions(githubUser);
+
+    if (app.redis) {
+      void Promise.resolve(app.redis.set(cacheKey, JSON.stringify(suggestions), 'EX', GITHUB_AUTODISCOVER_CACHE_TTL))
+        .catch((err: unknown) => app.log.warn(`Redis cache write failed for ${cacheKey}: ${getErrorMessage(err)}`));
+    }
+
+    return reply.send(suggestions);
+  });
+
 
   // ─── Disconnect ───
 
-  app.delete('/:platform', {
+  app.delete<{ Params: { platform: string } }>('/:platform', {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     preHandler: [app.authenticate],
   }, async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const { platform } = request.params;
 
     const SUPPORTED_PLATFORMS = ['github', 'google', 'twitter', 'linkedin'];
@@ -183,7 +273,7 @@ export async function connectRoutes(app: FastifyInstance) {
         },
       });
       return { success: true };
-    } catch (error) {
+    } catch {
       return reply.status(404).send({ error: 'Connection not found' });
     }
   });
@@ -200,6 +290,76 @@ function parseOAuthState(state: string): ParsedOAuthState | null {
     return decoded;
   } catch {
     return null;
+  }
+}
+
+function buildGitHubDiscoverySuggestions(user: {
+  twitter_username?: string | null;
+  blog?: string | null;
+  company?: string | null;
+  bio?: string | null;
+  html_url?: string | null;
+}): Array<{ platform: string; username: string; confidence: 'high' | 'low' }> {
+  const { twitter_username, blog } = user;
+
+  const suggestions: Array<{ platform: string; username: string; confidence: 'high' | 'low' }> = [];
+
+  if (twitter_username?.trim()) {
+    suggestions.push({
+      platform: 'twitter',
+      username: twitter_username.trim(),
+      confidence: 'high',
+    });
+  }
+
+  if (blog) {
+    const blogSuggestion = parseBlogSuggestion(blog);
+    if (blogSuggestion) {
+      suggestions.push(blogSuggestion);
+    }
+  }
+
+  return suggestions;
+}
+
+function parseBlogSuggestion(blog: string): { platform: string; username: string; confidence: 'high' | 'low' } | null {
+  const trimmed = blog.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const url = parseBlogUrl(trimmed);
+  if (!url) {
+    return { platform: 'portfolio', username: trimmed, confidence: 'high' };
+  }
+
+  const host = url.hostname.replace(/^www\./i, '').toLowerCase();
+  const pathname = url.pathname.replace(/\/+$/, '');
+
+  if (host === 'dev.to' && pathname.length > 1) {
+    return { platform: 'devto', username: pathname.slice(1), confidence: 'low' };
+  }
+
+  if (host === 'hashnode.com' && pathname.startsWith('/@') && pathname.length > 2) {
+    return { platform: 'hashnode', username: pathname.slice(2), confidence: 'low' };
+  }
+
+  if (host === 'npmjs.com' && pathname.startsWith('/~') && pathname.length > 2) {
+    return { platform: 'npm', username: pathname.slice(2), confidence: 'low' };
+  }
+
+  return { platform: 'portfolio', username: url.href, confidence: 'high' };
+}
+
+function parseBlogUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    try {
+      return new URL(`https://${value}`);
+    } catch {
+      return null;
+    }
   }
 }
 

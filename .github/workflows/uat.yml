@@ -1,0 +1,135 @@
+name: UAT Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+
+  backend-deploy:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: Checkout infra repo
+        uses: actions/checkout@v4
+        with:
+          repository: Dev-Card/devcard-infra
+          path: infra
+          token: ${{ secrets.INFRA_REPO_TOKEN }}
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker asia-south1-docker.pkg.dev
+
+      - name: Set image tag
+        id: tag
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/backend
+        run: npm ci
+
+      # TODO: Once tests are fixed, uncomment the following lines
+      # - name: Run tests
+      #   working-directory: apps/backend
+      #   run: npm test
+
+      - name: Build and push Docker image
+        run: |
+          docker build \
+            -f docker/backend.Dockerfile \
+            -t asia-south1-docker.pkg.dev/devcard-prod/devcard/backend:${{ steps.tag.outputs.sha }} \
+            .
+          docker push asia-south1-docker.pkg.dev/devcard-prod/devcard/backend:${{ steps.tag.outputs.sha }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: devcard-cluster
+          location: asia-south1
+
+      - name: Run Prisma migrations
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: prisma-migrate-${{ steps.tag.outputs.sha }}
+            namespace: uat
+          spec:
+            ttlSecondsAfterFinished: 300
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: migrate
+                    image: asia-south1-docker.pkg.dev/devcard-prod/devcard/backend:${{ steps.tag.outputs.sha }}
+                    command: ["npx", "prisma", "migrate", "deploy"]
+                    env:
+                      - name: DATABASE_URL
+                        valueFrom:
+                          secretKeyRef:
+                            name: devcard-secret
+                            key: database-url
+          EOF
+          kubectl wait --for=condition=complete \
+            job/prisma-migrate-${{ steps.tag.outputs.sha }} \
+            -n uat --timeout=120s
+
+      - name: Update image tag in kustomize
+        run: |
+          cd infra/k8s/overlays/uat
+          kustomize edit set image IMAGE_TAG_PLACEHOLDER=asia-south1-docker.pkg.dev/devcard-prod/devcard/backend:${{ steps.tag.outputs.sha }}
+
+      - name: Commit and push image tag to infra repo
+        run: |
+          cd infra
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/uat/kustomization.yaml
+          git commit -m "chore: update uat backend image to ${{ steps.tag.outputs.sha }}"
+          git push
+
+      - name: Deploy to UAT
+        run: kubectl apply -k infra/k8s/overlays/uat
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/backend \
+            -n uat --timeout=5m

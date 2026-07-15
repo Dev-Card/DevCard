@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import type {
   FastifyInstance,
   FastifyRequest,
@@ -18,7 +19,8 @@ export async function analyticsRoutes(
       request: FastifyRequest,
       _reply: FastifyReply
     ) => {
-      const userId = (request.user as any).id;
+      const userId = request.user.id;
+      const username = request.user.username;
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -40,7 +42,7 @@ export async function analyticsRoutes(
         // Follows performed BY this user
         app.prisma.followLog.count({
           where: {
-            followerId: userId,
+            targetUsername: username,
             status: 'success',
           },
         }),
@@ -69,13 +71,14 @@ export async function analyticsRoutes(
       // Count unique viewers
       // In raw SQL this is `SELECT COUNT(DISTINCT viewer_id) FROM card_views WHERE owner_id = ?`
       // Prisma group-by as workaround:
-      const uniqueViewersQuery =
-        await app.prisma.cardView.groupBy({
-          by: ['viewerId', 'viewerIp'],
-          where: { ownerId: userId },
-        });
+      const uniqueViewersQuery = await app.prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(DISTINCT viewer_id) AS count
+        FROM card_views
+        WHERE owner_id = ${userId}
+        AND viewer_id IS NOT NULL
+      `;
 
-      const uniqueViewers = uniqueViewersQuery.length;
+      const uniqueViewers = Number(uniqueViewersQuery[0]?.count ?? 0);
 
       return {
         totalViews,
@@ -107,12 +110,12 @@ export async function analyticsRoutes(
       }>,
       _reply: FastifyReply
     ) => {
-      const userId = (request.user as any).id;
+      const userId = request.user.id;
       const page = Math.max(1, parseInt(request.query.page || '1', 10) || 1);
       const limit = 20;
       const skip = (page - 1) * limit;
 
-      const whereClause: any = { ownerId: userId };
+      const whereClause: Prisma.CardViewWhereInput = { ownerId: userId };
 
       if (request.query.cardId) {
         whereClause.cardId = request.query.cardId;

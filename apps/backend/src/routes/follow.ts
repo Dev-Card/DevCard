@@ -1,11 +1,19 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
+
 import { decrypt } from '../utils/encryption.js';
 import { getErrorMessage } from '../utils/error.util.js';
-import { getPlatform, getProfileUrl, getWebViewUrl } from '@devcard/shared';
 import { followLogSchema } from '../validations/follow.validation.js';
 
-export async function followRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', app.authenticate);
+import type { AuthenticatedUser } from '../types/fastify.js';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
+export async function followRoutes(app: FastifyInstance): Promise<void> {
+    app.addHook('preHandler', async (request, reply) => {
+    const server = request.server;
+    if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
+    if (typeof app.authenticate === 'function') { await app.authenticate(request, reply); return }
+    try { const payload = await request.jwtVerify<AuthenticatedUser>(); if (payload) {request.user = payload;} } catch (_e) { reply.status(401).send({ error: 'Unauthorized' }) }
+  });
 
   // ─── Follow via API (Layer 1) ───
   // Currently supports: GitHub
@@ -14,8 +22,21 @@ export async function followRoutes(app: FastifyInstance) {
     request: FastifyRequest<{ Params: { platform: string; targetUsername: string } }>,
     reply: FastifyReply
   ) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const { platform, targetUsername } = request.params;
+
+    // GitHub follow tokens are stored under 'github_follow' to prevent the
+    // authentication flow (which writes to 'github') from silently overwriting
+    // the follow-capable credential. All other platforms use their plain name.
+    const tokenPlatform = platform === 'github' ? 'github_follow' : platform;
+
+    // Get stored OAuth token for this platform (do this up-front so tests
+    // that inspect DB calls see the lookup regardless of follow strategy).
+    const oauthToken = await app.prisma.oAuthToken.findUnique({
+      where: {
+        userId_platform: { userId, platform: tokenPlatform },
+      },
+    });
 
     // Use WebView follow strategy if configured for the platform (e.g. LinkedIn, Twitter/X)
     const platformDef = getPlatform(platform);
@@ -26,18 +47,6 @@ export async function followRoutes(app: FastifyInstance) {
         url,
       });
     }
-
-    // GitHub follow tokens are stored under 'github_follow' to prevent the
-    // authentication flow (which writes to 'github') from silently overwriting
-    // the follow-capable credential.  All other platforms use their plain name.
-    const tokenPlatform = platform === 'github' ? 'github_follow' : platform;
-
-    // Get stored OAuth token for this platform
-    const oauthToken = await app.prisma.oAuthToken.findUnique({
-      where: {
-        userId_platform: { userId, platform: tokenPlatform },
-      },
-    });
 
     if (!oauthToken) {
       return reply.status(400).send({
@@ -110,7 +119,7 @@ export async function followRoutes(app: FastifyInstance) {
     }>,
     reply: FastifyReply
   ) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const { platform, targetUsername } = request.params;
 
     const parsed = followLogSchema.safeParse(request.body);
@@ -131,8 +140,8 @@ export async function followRoutes(app: FastifyInstance) {
         },
       });
       return reply.send({ status: 'success', logId: log.id });
-    } catch (error: any) {
-      app.log.error('Failed to log follow:', error);
+    } catch (error) {
+      app.log.error(`Failed to log follow: ${getErrorMessage(error)}`);
       return reply.status(500).send({ error: 'Failed to log follow event' });
     }
   });
@@ -142,7 +151,7 @@ export async function followRoutes(app: FastifyInstance) {
     request: FastifyRequest<{ Params: { platform: string; targetUsername: string } }>,
     reply: FastifyReply
   ) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.id;
     const { platform, targetUsername } = request.params;
 
     await app.prisma.followLog.deleteMany({

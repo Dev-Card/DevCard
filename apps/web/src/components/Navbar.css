@@ -1,0 +1,71 @@
+.navbar {
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-primary);
+  z-index: 100;
+  padding: 0.875rem 1.5rem;
+  position: sticky;
+  top: 0;
+}
+
+.nav-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.logo {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.logo-text {
+  letter-spacing: -0.02em;
+}
+
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--text-muted);
+  outline-offset: 2px;
+}
+
+.theme-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle-icon.hiding {
+  animation: icon-hide 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.theme-toggle-icon.showing {
+  animation: icon-show 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
