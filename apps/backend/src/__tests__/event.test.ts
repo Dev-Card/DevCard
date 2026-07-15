@@ -1,9 +1,10 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import { eventRoutes } from '../routes/event';
 
 import type { PrismaClient } from '@prisma/client';
+import type { FastifyInstance,LightMyRequestResponse } from 'fastify';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -79,16 +80,14 @@ async function buildApp(): Promise<FastifyInstance> {
   app.decorateRequest('jwtVerify', function () {
     return mockJwtVerify();
   });
-
-  app.decorate('authenticate', async function (request: any, reply: any) {
-    try {
-      const user = await request.jwtVerify();
-      request.user = user;
-    } catch (err: any) {
-      return reply.status(401).send({ error: err.message || 'Unauthorized' });
+  app.decorate('authenticate', async function (request, reply) {
+  try {
+    const payload = await request.jwtVerify();
+    if (payload) { request.user = payload as typeof request.user; }
+    } catch {
+    return reply.status(401).send({ error: 'Unauthorized' });
     }
   });
-
   // Register with the same prefix used in production (app.ts) so that
   // tests exercise routes at their real paths — /api/events, /api/events/:slug, etc.
   await app.register(eventRoutes, { prefix: '/api/events' });
@@ -264,10 +263,6 @@ describe('Events API', () => {
         ...MOCK_EVENT,
         organizer: { username: 'johndoe', displayName: 'John Doe' },
         _count: { attendees: 42 },
-        organizer: {
-          username: 'johndoe',
-          displayName: 'John Doe',
-        },
       });
 
       const res = await app.inject({
@@ -303,10 +298,6 @@ describe('Events API', () => {
         ...MOCK_EVENT,
         organizer: { username: 'johndoe', displayName: 'John Doe' },
         _count: { attendees: 0 },
-        organizer: {
-          username: 'johndoe',
-          displayName: 'John Doe',
-        },
       });
 
       const res = await app.inject({
@@ -521,7 +512,6 @@ describe('Events API', () => {
 
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
-        _count: { attendees: 2 },
         attendees: attendeeRows,
         _count: { attendees: 2 },  
       });
@@ -551,7 +541,6 @@ describe('Events API', () => {
     it('200 — respects custom page and limit query params', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
-        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_OTHER_USER_PROFILE)],
         _count: { attendees: 1 },
       });
@@ -575,7 +564,6 @@ describe('Events API', () => {
     it('200 — caps limit at 50 even if higher value is requested', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
-        _count: { attendees: 0 },
         attendees: [],
         _count: { attendees: 0 },
       });
@@ -593,7 +581,6 @@ describe('Events API', () => {
     it('200 — treats page < 1 as page 1', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
-        _count: { attendees: 0 },
         attendees: [],
         _count: { attendees: 0 },
       });
@@ -611,7 +598,6 @@ describe('Events API', () => {
     it('200 — returns empty attendees list for event with no attendees', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
-        _count: { attendees: 0 },
         attendees: [],
         _count: { attendees: 0 }, 
       });
@@ -630,7 +616,6 @@ describe('Events API', () => {
     it('200 — public profiles do not leak sensitive fields', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
-        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
         _count: { attendees: 1 },
       });
@@ -670,7 +655,6 @@ describe('Events API', () => {
     it('200 — attendees are ordered by joinedAt desc (latest first)', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
-        _count: { attendees: 0 },
         attendees: [],
       });
 

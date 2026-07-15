@@ -45,6 +45,7 @@ model User {
   ownedTeams    Team[]         @relation("TeamOwner")
   teamMemberships TeamMember[] @relation("TeamMember")
   usernameRedirects UsernameRedirect[]
+  webhookEndpoints  WebhookEndpoint[]
 
   @@map("users")
 }

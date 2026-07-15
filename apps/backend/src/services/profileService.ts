@@ -33,7 +33,7 @@ export async function updateProfile(app: FastifyInstance, userId: string, data: 
   try {
     const isUsernameChanging = data.username && currentUser && data.username !== currentUser.username;
 
-    const response = await app.prisma.$transaction(async (tx) => {
+    const response = await app.prisma.$transaction(async (tx: any) => {
       if (isUsernameChanging) {
         // Delete any existing redirects where the oldUsername is the new username
         await tx.usernameRedirect.deleteMany({

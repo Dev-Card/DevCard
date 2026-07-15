@@ -24,16 +24,11 @@ type TeamProfile = {
   members: TeamMember[];
 }
 
-export async function teamRoutes(app:FastifyInstance){
-        app.post('/', { preHandler: [async (request, reply) => {
-            const server = request.server as any;
-            if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-            if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-            try { const payload = await request.jwtVerify(); if (payload) {(request as any).user = payload;} } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
-        }] }, async(request:FastifyRequest<{
-        Body: {name: string, description? : string, avatarUrl?: string }
-    }>, reply: FastifyReply) => {
-        const userId = (request.user as any).id;
+export async function teamRoutes(app: FastifyInstance): Promise<void> {
+        app.post<{
+            Body: {name: string, description? : string, avatarUrl?: string }
+        }>('/',{ preHandler: [app.authenticate] }, async (request, reply): Promise<void> => {
+        const userId = request.user.id;
         const parsed = createTeamScehma.safeParse(request.body); 
         if(!parsed.success){
             return reply.status(400).send({error: 'Bad request'})
@@ -47,8 +42,8 @@ export async function teamRoutes(app:FastifyInstance){
         })
 
         try {
-            const team = await app.prisma.$transaction(async (tx: any) => {
-                const team = await tx.team.create({
+            const team = await app.prisma.$transaction(async (tx) => {
+                const createdTeam = await tx.team.create({
                     data: {
                         name, 
                         slug: finalSlug, 
@@ -70,7 +65,7 @@ export async function teamRoutes(app:FastifyInstance){
             })   
             return reply.status(201).send(team)
 
-        }catch (error: any) {
+        }catch (error) {
             if (error instanceof Prisma.PrismaClientKnownRequestError) {
                 switch (error.code) {
                 case 'P2002':
@@ -116,7 +111,7 @@ export async function teamRoutes(app:FastifyInstance){
                 return reply.status(404).send({error: 'Team not found'})
             }
 
-            const members =  details.members.map((tm: any): TeamMember => ({
+            const members =  details.members.map((tm): TeamMember => ({
                 username: tm.user.username,
                 displayName: tm.user.displayName,
                 bio: tm.user.bio,
@@ -157,12 +152,7 @@ export async function teamRoutes(app:FastifyInstance){
 
     })
 
-        app.post('/:slug/members', { preHandler: [async (request, reply) => {
-            const server = request.server as any;
-            if (typeof server?.authenticate === 'function') { await server.authenticate(request, reply); return }
-            if (typeof (app as any).authenticate === 'function') { await (app as any).authenticate(request, reply); return }
-            try { const payload = await request.jwtVerify(); if (payload) {(request as any).user = payload;} } catch (e) { reply.status(401).send({ error: 'Unauthorized' }) }
-        }] }, async(request: FastifyRequest<{Params: {slug:string}, Body:{username:string}}>, reply: FastifyReply) => {
+        app.post<{Params: {slug:string}, Body:{username:string}}>('/:slug/members', { preHandler: [app.authenticate] }, async (request, reply): Promise<void> => {
         const paramsSlug = request.params.slug; 
         const userId = request.user.id;
         const parsed = inviteMembers.safeParse(request.body); 
@@ -191,7 +181,7 @@ export async function teamRoutes(app:FastifyInstance){
                 return reply.status(403).send('Forbidden')
             }
 
-            const alreadyMember = teamDetails.members.find((u: any) => u.user.username === username) 
+            const alreadyMember = teamDetails.members.find((u) => u.user.username === username) 
 
             //Check invited username is not a member and owner; 
             if(alreadyMember || teamDetails.owner.username === username){
@@ -243,7 +233,7 @@ export async function teamRoutes(app:FastifyInstance){
             return reply.status(404).send({error: 'Team not found'})
         }
 
-        const isMember = teamDetails.members.find((m: any) => paramsUserId === m.user.id)
+        const isMember = teamDetails.members.find((m) => paramsUserId === m.user.id)
 
         if(!isMember){
             return reply.status(404).send({

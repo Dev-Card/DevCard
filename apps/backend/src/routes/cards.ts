@@ -163,7 +163,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   });
 
   //Add platform-link
-  app.put('/:id/platform-link', async(request: FastifyRequest<{Params:{id: string}, Body: {platformLinkId: string}}>, reply: FastifyReply) => {
+  app.put('/:id/platform-link', { preHandler: [(req, reply) => app.authenticate(req, reply)] }, async(request: FastifyRequest<{Params:{id: string}, Body: {platformLinkId: string}}>, reply: FastifyReply) => {
     const cardId = request.params.id; 
     const userId = request.user.id; 
     const parsed = addPlatformLinkSchema.safeParse(request.body); 
@@ -203,7 +203,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   })
 
   //Share card
-  app.post('/:id/share',async(request: FastifyRequest<{Params: {id: string}}>, reply:FastifyReply) => {
+  app.post('/:id/share', { preHandler: [(req, reply) => app.authenticate(req, reply)] }, async(request: FastifyRequest<{Params: {id: string}}>, reply:FastifyReply) => {
     const cardId = request.params.id; 
     const userId = request.user.id; 
 
@@ -233,8 +233,11 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   // so source should not be hardcoded to "link".
   //Get shared card
   app.get('/share/:slug', async(request: FastifyRequest<{Params: {slug: string}}>, reply: FastifyReply) => {
+    try {
+      await request.jwtVerify();
+    } catch (_e) {}
     const paramsSlug = request.params.slug; 
-    const userId = request.user.id
+    const userId = request.user?.id
     const ip = hashIp(request.ip); 
     const userAgent = request.headers['user-agent'] ?? 'unknown';
 
@@ -279,7 +282,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   })
 
   //Generates qr
-  app.get('/:id/qr', async(request: FastifyRequest<{Params: {id: string}}>, reply:FastifyReply) => {
+  app.get('/:id/qr', { preHandler: [(req, reply) => app.authenticate(req, reply)] }, async(request: FastifyRequest<{Params: {id: string}}>, reply:FastifyReply) => {
     const cardId = request.params.id
     const userId = request.user.id
 
@@ -313,7 +316,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   })
 
   //Get analytics
-  app.get('/:id/analytics', async(request:FastifyRequest<{Params: {id:string}}>, reply: FastifyReply) => {
+  app.get('/:id/analytics', { preHandler: [(req, reply) => app.authenticate(req, reply)] }, async(request:FastifyRequest<{Params: {id:string}}>, reply: FastifyReply) => {
     const cardId = request.params.id
     const userId = request.user.id
 
