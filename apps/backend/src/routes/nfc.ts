@@ -1,5 +1,6 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 type NfcPayloadResponse = {
   type: 'URI';
@@ -10,22 +11,22 @@ const nfcQuerySchema = z.object({
   card: z.string().uuid('Invalid card ID format').optional(),
 });
 
-export async function nfcRoutes(app: FastifyInstance) {
+export async function nfcRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', async (request, reply) => {
-        const server = request.server as any;
-        if (typeof server?.authenticate === 'function') {
-          await server.authenticate(request, reply);
-          return;
-        }
-        if (typeof (app as any).authenticate === 'function') {
-          await (app as any).authenticate(request, reply);
-          return;
-        }
-        try {
-          await request.jwtVerify();
-        } catch (e) {
-          reply.status(401).send({ error: 'Unauthorized' });
-        }
+    const server = request.server as any;
+    if (typeof server?.authenticate === 'function') {
+      await server.authenticate(request, reply);
+      return;
+    }
+    if (typeof (app as any).authenticate === 'function') {
+      await (app as any).authenticate(request, reply);
+      return;
+    }
+    try {
+      await request.jwtVerify();
+    } catch {
+      reply.status(401).send({ error: 'Unauthorized' });
+    }
   });
 
   // GET /api/nfc/payload — returns NDEF URI payload for user's default DevCard URL
@@ -99,10 +100,10 @@ export async function nfcRoutes(app: FastifyInstance) {
         }
       }
 
-const safeUsername = encodeURIComponent(username);
-const payloadUrl = `${process.env.PUBLIC_APP_URL}/${safeUsername}${
-  cardId ? `?card=${encodeURIComponent(cardId)}` : ''
-}`;
+      const safeUsername = encodeURIComponent(username);
+      const payloadUrl = `${process.env.PUBLIC_APP_URL}/${safeUsername}${
+        cardId ? `?card=${encodeURIComponent(cardId)}` : ''
+      }`;
       const response: NfcPayloadResponse = {
         type: 'URI',
         payload: payloadUrl,

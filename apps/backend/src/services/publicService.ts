@@ -52,7 +52,7 @@ export async function getPublicProfile(
     app.redis.set(cacheKey, JSON.stringify(entry), 'EX', PROFILE_CACHE_TTL).catch((err: unknown) => app.log.warn(`Redis cache write failed for ${cacheKey}: ${getErrorMessage(err)}`))
   }
 
-  const response = { username: user.username, displayName: user.displayName, bio: user.bio, pronouns: user.pronouns, role: user.role, company: user.company, avatarUrl: user.avatarUrl, accentColor: user.accentColor, links: baseLinks.map((link) => ({ ...link, followed: followedLinkIds.includes(link.id) })) }
+  const response = { username: user.username, displayName: user.displayName, bio: user.bio, pronouns: user.pronouns, role: user.role, company: user.company, avatarUrl: user.avatarUrl, accentColor: user.accentColor, links: baseLinks.map((link: any) => ({ ...link, followed: followedLinkIds.includes(link.id) })) }
 
   return { cached: false, data: response, cacheKey }
 }

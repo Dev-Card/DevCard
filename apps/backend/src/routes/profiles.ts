@@ -1,5 +1,3 @@
-import { Prisma } from '@prisma/client';
-
 import * as profileService from '../services/profileService';
 import { updateProfileSchema, createLinkSchema, reorderLinksSchema } from '../utils/validators.js';
 
@@ -79,7 +77,7 @@ export async function profileRoutes(app: FastifyInstance): Promise<void> {
       const response = await profileService.updateProfile(app, userId, parsed.data)
       return response
     } catch (err: unknown) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      if (err && typeof err === 'object' && 'code' in err && (err as any).code === 'P2002') {
         return reply.status(409).send({ error: 'Username already taken' });
       }
       app.log.error({ err }, 'DB error in PUT /profiles/me')

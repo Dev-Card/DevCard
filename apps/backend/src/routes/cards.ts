@@ -110,6 +110,9 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       if (!updated) {return reply.status(404).send({ error: 'Card not found' })}
       return updated
     } catch (error) {
+      if (hasErrorCode(error, 'NOT_FOUND')) {
+        return reply.status(404).send({ error: 'Card not found' });
+      }
       if (hasErrorCode(error, 'OWNERSHIP')) {return reply.status(403).send({ error: 'One or more links do not belong to your account' })}
       return handleDbError(error, request, reply)
     }

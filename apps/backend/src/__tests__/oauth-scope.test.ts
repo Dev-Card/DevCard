@@ -45,6 +45,7 @@ function makeConnectState(userId: string): string {
 function buildConnectApp(mockPrisma: Partial<PrismaClient>) {
   const app = Fastify({ logger: false });
   app.decorate('prisma', mockPrisma as PrismaClient);
+  // eslint-disable-next-line no-param-reassign
   app.decorate('authenticate', async (req: any) => { req.user = { id: USER_ID }; });
   app.register(connectRoutes, { prefix: '/api/connect' });
   return app.ready().then(() => app);
@@ -55,6 +56,7 @@ function buildConnectApp(mockPrisma: Partial<PrismaClient>) {
 function buildFollowApp(mockPrisma: Partial<PrismaClient>) {
   const app = Fastify({ logger: false });
   app.decorate('prisma', mockPrisma as PrismaClient);
+  // eslint-disable-next-line no-param-reassign
   app.decorate('authenticate', async (req: any) => { req.user = { id: USER_ID }; });
   app.register(followRoutes, { prefix: '/api/follow' });
   return app.ready().then(() => app);

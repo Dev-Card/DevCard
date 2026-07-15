@@ -72,7 +72,7 @@ export async function createCard(app: FastifyInstance, userId: string, body: Cre
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const card = (await app.prisma.$transaction(
-        async (tx: Prisma.TransactionClient) => {
+        async (tx: any) => {
           const cardCount = await tx.card.count({ where: { userId } });
 
           return tx.card.create({
@@ -145,7 +145,7 @@ export async function updateCard(
 
 //Delete card service
 export async function deleteCard(app: FastifyInstance, userId: string, id: string): Promise<null> {
-  return await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  return await app.prisma.$transaction(async (tx: any) => {
     const existing = await tx.card.findFirst({ where: { id, userId } });
     if (!existing) {
       throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' });
@@ -180,7 +180,7 @@ export async function setDefaultCard(app: FastifyInstance, userId: string, id: s
       throw Object.assign(new Error('NotFound'), { code: 'NOT_FOUND' });
     }
 
-  await app.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  await app.prisma.$transaction(async (tx: any) => {
     await tx.card.updateMany({ where: { userId }, data: { isDefault: false } });
     await tx.card.update({ where: { id }, data: { isDefault: true } });
   });

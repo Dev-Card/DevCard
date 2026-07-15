@@ -262,7 +262,7 @@ describe('PUT /api/cards/:id/update — card metadata', () => {
     const app = await buildApp();
     const res = await app.inject({
       method: 'PUT',
-      url: `/api/cards/${CARD_ID}/update`,
+      url: `/api/cards/${CARD_ID}`,
       payload: { title: 'Renamed', visibility: 'UNLISTED', qrEnabled: false },
     });
 
@@ -280,7 +280,7 @@ describe('PUT /api/cards/:id/update — card metadata', () => {
     const app = await buildApp();
     const res = await app.inject({
       method: 'PUT',
-      url: `/api/cards/${CARD_ID}/update`,
+      url: `/api/cards/${CARD_ID}`,
       payload: { title: 'Renamed' },
     });
 
@@ -292,7 +292,7 @@ describe('PUT /api/cards/:id/update — card metadata', () => {
     const app = await buildApp();
     const res = await app.inject({
       method: 'PUT',
-      url: `/api/cards/${CARD_ID}/update`,
+      url: `/api/cards/${CARD_ID}`,
       payload: {},
     });
 
@@ -308,7 +308,7 @@ describe('PUT /api/cards/:id/update — card metadata', () => {
     const app = await buildApp();
     const res = await app.inject({
       method: 'PUT',
-      url: `/api/cards/${CARD_ID}/update`,
+      url: `/api/cards/${CARD_ID}`,
       payload: { title: 'Renamed' },
     });
 
@@ -420,7 +420,7 @@ describe('DELETE /api/cards/:id/delete', () => {
     mockPrisma.card.delete.mockResolvedValue(mockCard);
 
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}/delete` });
+    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}` });
 
     expect(res.statusCode).toBe(204);
     expect(mockPrisma.card.delete).toHaveBeenCalledWith({ where: { id: CARD_ID } });
@@ -439,7 +439,7 @@ describe('DELETE /api/cards/:id/delete', () => {
     mockPrisma.card.delete.mockResolvedValue(mockCard);
 
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}/delete` });
+    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}` });
 
     expect(res.statusCode).toBe(204);
     expect(mockPrisma.card.update).toHaveBeenCalledWith({
@@ -453,7 +453,7 @@ describe('DELETE /api/cards/:id/delete', () => {
     mockPrisma.card.findFirst.mockResolvedValue(null);
 
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}/delete` });
+    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}` });
 
     expect(res.statusCode).toBe(404);
     expect(mockPrisma.card.delete).not.toHaveBeenCalled();
@@ -464,7 +464,7 @@ describe('DELETE /api/cards/:id/delete', () => {
     mockPrisma.card.count.mockResolvedValue(1);
 
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}/delete` });
+    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}` });
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Cannot delete the last remaining card. A user must have at least one card.');
@@ -477,7 +477,7 @@ describe('DELETE /api/cards/:id/delete', () => {
     mockPrisma.card.delete.mockRejectedValue(new Error('Deadlock detected'));
 
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}/delete` });
+    const res = await app.inject({ method: 'DELETE', url: `/api/cards/${CARD_ID}` });
 
     expect(res.statusCode).toBe(500);
   });

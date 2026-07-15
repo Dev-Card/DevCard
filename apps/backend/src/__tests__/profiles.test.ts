@@ -28,6 +28,16 @@ const mockPrisma = {
     findFirst: vi.fn(),
     update: vi.fn(),
   },
+  usernameRedirect: {
+    create: vi.fn(),
+    deleteMany: vi.fn(),
+  },
+  $transaction: vi.fn(async (cb: any) => {
+    if (typeof cb === 'function') {
+      return cb(mockPrisma);
+    }
+    return cb;
+  }),
 };
 
 async function buildApp():Promise<FastifyInstance> {

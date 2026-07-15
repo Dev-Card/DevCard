@@ -1,3 +1,6 @@
+import Fastify, {
+  type FastifyInstance,
+} from 'fastify';
 import {
   describe,
   it,
@@ -7,13 +10,11 @@ import {
   vi,
 } from 'vitest';
 
-import Fastify, {
-  type FastifyInstance,
-} from 'fastify';
+
+import { analyticsRoutes } from '../routes/analytics';
 
 import type { PrismaClient } from '@prisma/client';
 
-import { analyticsRoutes } from '../routes/analytics';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -30,11 +31,12 @@ const prismaMock = {
   followLog: {
     count: vi.fn(),
   },
+  $queryRaw: vi.fn(),
 };
 
 // ─── App factory ─────────────────────────────────────────────────────────────
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -157,22 +159,9 @@ describe(
               ]
             );
 
-            prismaMock.cardView.groupBy.mockResolvedValue(
-              [
-                {
-                  viewerId:
-                    'u1',
-                  viewerIp:
-                    null,
-                },
-                {
-                  viewerId:
-                    'u2',
-                  viewerIp:
-                    null,
-                },
-              ]
-            );
+            prismaMock.$queryRaw.mockResolvedValue([
+              { count: 2n }
+            ]);
 
             const res =
               await app.inject(

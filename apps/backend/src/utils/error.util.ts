@@ -36,19 +36,20 @@ export function handleDbError(error: unknown, request: FastifyRequest, reply: Fa
   request.log.error(error);
   
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const dbErr = error as Prisma.PrismaClientKnownRequestError;
     // P2002: Unique constraint failed
-    if (error.code === 'P2002') {
+    if (dbErr.code === 'P2002') {
       return reply.status(409).send({ error: 'Conflict: Record already exists or violates unique constraint' });
     }
     // P2025: Record to update not found
-    if (error.code === 'P2025') {
+    if (dbErr.code === 'P2025') {
       return reply.status(404).send({ error: 'Not Found: Record does not exist' });
     }
     // P2003: Foreign key constraint failed
-    if (error.code === 'P2003') {
+    if (dbErr.code === 'P2003') {
       return reply.status(400).send({ error: 'Constraint failed: Related record not found or invalid' });
     }
-    return reply.status(400).send({ error: `Database error: ${error.message}` });
+    return reply.status(400).send({ error: `Database error: ${dbErr.message}` });
   }
   
   if (error instanceof Prisma.PrismaClientValidationError) {

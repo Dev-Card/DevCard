@@ -20,6 +20,10 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
 
     const { username } = params;
 
+    if (!app.prisma.usernameRedirect) {
+      return;
+    }
+
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 

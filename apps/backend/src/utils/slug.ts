@@ -10,9 +10,9 @@ export async function generateUniqueSlug(name: string,
     while(true){
         const exists = await slugExists(finalSlug)
 
-        if(!exists) break; 
+        if(!exists) {break;} 
 
-        const randomSuffix  = Math.random().toString(36).substring(2,6); 
+        const randomSuffix  = Math.random().toString(36).slice(2,6); 
         finalSlug = `${cleanSlug}-${randomSuffix}` 
     }
     return finalSlug; 

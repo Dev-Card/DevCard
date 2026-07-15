@@ -1,6 +1,8 @@
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify from 'fastify';
+
 import { publicRoutes } from '../routes/public.js';
+
 import type { PrismaClient } from '@prisma/client';
 
 const mockPrisma = {
@@ -18,7 +20,7 @@ const mockPrisma = {
   },
 };
 
-async function buildApp() {
+async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify();
   app.decorate('prisma', mockPrisma as unknown as PrismaClient);
   app.register(publicRoutes, { prefix: '/api/public' });

@@ -1,7 +1,9 @@
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Fastify, { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+
 import { eventRoutes } from '../routes/event';
+
+import type { PrismaClient } from '@prisma/client';
 
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
@@ -64,7 +66,7 @@ const prismaMock = {
 //
 // This mirrors the real app setup without touching a real DB or real JWT keys.
 
-let mockJwtVerify = vi.fn();
+const mockJwtVerify = vi.fn();
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
@@ -76,6 +78,15 @@ async function buildApp(): Promise<FastifyInstance> {
   // to whatever the current test wants.
   app.decorateRequest('jwtVerify', function () {
     return mockJwtVerify();
+  });
+
+  app.decorate('authenticate', async function (request: any, reply: any) {
+    try {
+      const user = await request.jwtVerify();
+      request.user = user;
+    } catch (err: any) {
+      return reply.status(401).send({ error: err.message || 'Unauthorized' });
+    }
   });
 
   // Register with the same prefix used in production (app.ts) so that
@@ -252,6 +263,10 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         _count: { attendees: 42 },
+        organizer: {
+          username: 'johndoe',
+          displayName: 'John Doe',
+        },
       });
 
       const res = await app.inject({
@@ -286,6 +301,10 @@ describe('Events API', () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
         _count: { attendees: 0 },
+        organizer: {
+          username: 'johndoe',
+          displayName: 'John Doe',
+        },
       });
 
       const res = await app.inject({
@@ -494,6 +513,7 @@ describe('Events API', () => {
 
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 2 },
         attendees: attendeeRows,
       });
 
@@ -522,6 +542,7 @@ describe('Events API', () => {
     it('200 — respects custom page and limit query params', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_OTHER_USER_PROFILE)],
       });
 
@@ -544,6 +565,7 @@ describe('Events API', () => {
     it('200 — caps limit at 50 even if higher value is requested', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 0 },
         attendees: [],
       });
 
@@ -560,6 +582,7 @@ describe('Events API', () => {
     it('200 — treats page < 1 as page 1', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 0 },
         attendees: [],
       });
 
@@ -576,6 +599,7 @@ describe('Events API', () => {
     it('200 — returns empty attendees list for event with no attendees', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 0 },
         attendees: [],
       });
 
@@ -593,6 +617,7 @@ describe('Events API', () => {
     it('200 — public profiles do not leak sensitive fields', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
       });
 
@@ -631,6 +656,7 @@ describe('Events API', () => {
     it('200 — attendees are ordered by joinedAt desc (latest first)', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        _count: { attendees: 0 },
         attendees: [],
       });
 
