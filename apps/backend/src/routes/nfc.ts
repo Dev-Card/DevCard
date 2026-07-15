@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 
 type NfcPayloadResponse = {
   type: 'URI';
