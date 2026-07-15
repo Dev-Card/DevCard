@@ -58,7 +58,12 @@ jobs:
 
       - name: Install backend dependencies
         run: npm --prefix apps/backend install
+      - name: Install shared dependencies
+        run: npm --prefix packages/shared install
 
+      - name: Build shared package
+        run: npm --prefix packages/shared run build
+        
       - name: DB migration check
         if: needs.detect-changes.outputs.dbFiles != '' 
         continue-on-error: true
@@ -113,7 +118,8 @@ jobs:
         run: npm --prefix apps/web run build
 
       - name: Fail job if any check failed
-        if: steps.web_build.outcome == 'failure'
+        if: >
+          steps.web_build.outcome == 'failure'
         run: exit 1
 
   mobile-ci:

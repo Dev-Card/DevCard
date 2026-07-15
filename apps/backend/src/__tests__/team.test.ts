@@ -128,7 +128,7 @@ async function createTeam(
   app: FastifyInstance,
   body: Record<string, unknown>,
   authenticated = true,
-) {
+): Promise<Awaited<ReturnType<typeof app.inject>>> {
   return app.inject({
     method: 'POST',
     url: '/',

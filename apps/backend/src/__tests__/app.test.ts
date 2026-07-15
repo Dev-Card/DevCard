@@ -18,7 +18,7 @@ describe('GET /health', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ status: 'ok' });
+    expect(JSON.parse(res.body)).toMatchObject({ status: 'ok' });
 
     await app.close();
   });

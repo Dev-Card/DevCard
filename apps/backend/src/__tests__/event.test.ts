@@ -108,7 +108,7 @@ async function createEvent(
   app: FastifyInstance,
   body: Record<string, unknown>,
   authenticated = true,
-) {
+): Promise<LightMyRequestResponse>  {
   return app.inject({
     method: 'POST',
     url: '/api/events',
@@ -262,6 +262,7 @@ describe('Events API', () => {
     it('200 — returns event info with attendee count', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        organizer: { username: 'johndoe', displayName: 'John Doe' },
         _count: { attendees: 42 },
         organizer: {
           username: 'johndoe',
@@ -273,7 +274,7 @@ describe('Events API', () => {
         method: 'GET',
         url: '/api/events/devcard-conf-2025',
       });
-
+      console.log(JSON.stringify(res.json(), null, 2));
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.slug).toBe('devcard-conf-2025');
@@ -290,7 +291,7 @@ describe('Events API', () => {
         method: 'GET',
         url: '/api/events/ghost-event',
       });
-
+      
       expect(res.statusCode).toBe(404);
       expect(res.json()).toMatchObject({ error: 'Event not found' });
     });
@@ -300,6 +301,7 @@ describe('Events API', () => {
       mockJwtVerify.mockRejectedValue(new Error('Should not be called'));
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
+        organizer: { username: 'johndoe', displayName: 'John Doe' },
         _count: { attendees: 0 },
         organizer: {
           username: 'johndoe',
@@ -495,7 +497,13 @@ describe('Events API', () => {
     /** Builds a raw EventAttendee row as Prisma returns it (with nested user) */
     function makeAttendeeRow(
       profile: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE,
-    ) {
+          ) : {
+        id: string;
+        userId: string;
+        eventId: string;
+        joinedAt: Date;
+        user: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE;
+      }  {
       return {
         id: `attendee-${profile.id}`,
         userId: profile.id,
@@ -515,6 +523,7 @@ describe('Events API', () => {
         ...MOCK_EVENT,
         _count: { attendees: 2 },
         attendees: attendeeRows,
+        _count: { attendees: 2 },  
       });
 
       const res = await app.inject({
@@ -544,6 +553,7 @@ describe('Events API', () => {
         ...MOCK_EVENT,
         _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_OTHER_USER_PROFILE)],
+        _count: { attendees: 1 },
       });
 
       const res = await app.inject({
@@ -567,6 +577,7 @@ describe('Events API', () => {
         ...MOCK_EVENT,
         _count: { attendees: 0 },
         attendees: [],
+        _count: { attendees: 0 },
       });
 
       const res = await app.inject({
@@ -584,6 +595,7 @@ describe('Events API', () => {
         ...MOCK_EVENT,
         _count: { attendees: 0 },
         attendees: [],
+        _count: { attendees: 0 },
       });
 
       const res = await app.inject({
@@ -601,6 +613,7 @@ describe('Events API', () => {
         ...MOCK_EVENT,
         _count: { attendees: 0 },
         attendees: [],
+        _count: { attendees: 0 }, 
       });
 
       const res = await app.inject({
@@ -619,6 +632,7 @@ describe('Events API', () => {
         ...MOCK_EVENT,
         _count: { attendees: 1 },
         attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
+        _count: { attendees: 1 },
       });
 
       const res = await app.inject({

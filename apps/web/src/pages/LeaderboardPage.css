@@ -1,0 +1,145 @@
+.leaderboard {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 7rem 1.5rem 4rem;
+}
+
+.leaderboard-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.leaderboard-header h1 {
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  font-weight: 900;
+  font-family: 'Outfit', sans-serif;
+  margin: 1rem 0 0.75rem;
+}
+
+.leaderboard-subtitle {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.leaderboard-state {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+}
+
+.leaderboard-state.error {
+  color: #ef4444;
+}
+
+.leaderboard-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+}
+
+.rank {
+  font-weight: 800;
+  font-size: 1.1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.rank-1 { color: #f5c518; }
+.rank-2 { color: #c0c5ce; }
+.rank-3 { color: #cd7f32; }
+
+.contributor {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  text-decoration: none;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.contributor-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--border-glass);
+  flex-shrink: 0;
+}
+
+.contributor-name {
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contributor:hover .contributor-name {
+  color: var(--primary);
+}
+
+.stats {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 3.5rem;
+}
+
+.stat-value {
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--text-primary);
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.leaderboard-footer {
+  text-align: center;
+  margin-top: 2.5rem;
+}
+
+.leaderboard-footer a {
+  text-decoration: none;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .leaderboard-row {
+    grid-template-columns: 2rem 1fr;
+    grid-template-areas:
+      'rank contributor'
+      'stats stats';
+    row-gap: 0.85rem;
+  }
+  .rank { grid-area: rank; }
+  .contributor { grid-area: contributor; }
+  .stats {
+    grid-area: stats;
+    justify-content: space-around;
+    width: 100%;
+  }
+}
