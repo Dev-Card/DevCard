@@ -23,6 +23,41 @@ export interface UpdateCardBody{
   qrEnabled?: boolean; 
 }
 
+export interface SavedCardResponse {
+  id: string;
+  userId: string;
+  cardId: string;
+  savedAt: Date;
+  card: {
+    id: string;
+    userId: string;
+    title: string;
+    description: string | null;
+    slug: string;
+    visibility: CardVisibility;
+    qrEnabled: boolean;
+    viewCount: number;
+    isDefault: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    cardLinks: {
+      id: string;
+      cardId: string;
+      platformLinkId: string;
+      displayOrder: number;
+      platformLink: {
+        id: string;
+        userId: string;
+        platform: string;
+        username: string;
+        url: string;
+        displayOrder: number;
+        createdAt: Date;
+      };
+    }[];
+  };
+}
+
 
 function mapCard(card: RawCard): CardResponse {
   return {
@@ -380,4 +415,67 @@ export async function cardAnalytics(app: FastifyInstance, userId:string, id: str
   }
 
   return card
+}
+
+export async function saveCard(app:FastifyInstance, userId:string, id: string):Promise<void>{
+  const card = await app.prisma.card.findUnique({
+    where: {
+      id
+    }
+  })
+
+  if (!card) {
+    throw Object.assign(
+      new Error('Card not found'),
+      { code: 'CARD_NOT_FOUND' }
+    );
+  }
+
+  if(card.visibility === 'PRIVATE'){
+    throw Object.assign(
+      new Error('Card is private'),
+      { code: 'CARD_VISIBILITY_PRIVATE' }
+    );
+  }
+  await app.prisma.savedCard.create({
+    data: {
+      userId, 
+      cardId: card.id
+    }
+  })
+}
+
+export async function viewSavedCard(app:FastifyInstance, userId:string, page: number, limit:number):Promise<SavedCardResponse[]>{
+  const skip = (page - 1 ) * limit
+  const savedCards = await app.prisma.savedCard
+  .findMany({
+    where: {
+      userId,
+    },
+    orderBy: {
+      savedAt: "desc",
+    },
+    skip,
+    take: limit,
+    include: {
+      card: {
+        include: {
+          cardLinks: {
+            include: {
+              platformLink: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if(savedCards.length === 0){
+    throw Object.assign(
+      new Error('No cards saved'),
+      { code: 'SAVED_CARDS_NOT_FOUND' }
+    );
+  }
+
+  return savedCards
 }
