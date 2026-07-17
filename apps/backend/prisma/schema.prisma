@@ -44,6 +44,10 @@ model User {
   attendedEvents   EventAttendee[]
   ownedTeams       Team[]            @relation("TeamOwner")
   teamMemberships  TeamMember[]      @relation("TeamMember")
+
+  initiatedConnections ConnectionEvent[] @relation("InitiatedConnections")
+  receivedConnections  ConnectionEvent[] @relation("ReceivedConnections")
+  hackathonAttendances HackathonAttendance[]
   webhookEndpoints WebhookEndpoint[]
 
   @@map("users")
@@ -301,4 +305,31 @@ model TeamMember {
   @@unique([userId, teamId])
   @@index([userId])
   @@map("team_members")
+}
+
+model ConnectionEvent {
+  id          String   @id @default(uuid())
+  initiatorId String   @map("initiator_id")
+  receiverId  String?  @map("receiver_id") // Nullable to enforce privacy rule for anonymous connections
+  connectedAt DateTime @default(now()) @map("connected_at")
+
+  initiator User  @relation("InitiatedConnections", fields: [initiatorId], references: [id], onDelete: Cascade)
+  receiver  User? @relation("ReceivedConnections", fields: [receiverId], references: [id], onDelete: SetNull)
+
+  @@index([initiatorId])
+  @@index([receiverId])
+  @@map("connection_events")
+}
+
+model HackathonAttendance {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  hackathonId String   @map("hackathon_id")
+  attendedAt  DateTime @default(now()) @map("attended_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, hackathonId])
+  @@index([userId])
+  @@map("hackathon_attendance")
 }
