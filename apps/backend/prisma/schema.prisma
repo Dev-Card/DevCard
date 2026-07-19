@@ -49,6 +49,7 @@ model User {
   receivedConnections  ConnectionEvent[] @relation("ReceivedConnections")
   hackathonAttendances HackathonAttendance[]
   webhookEndpoints WebhookEndpoint[]
+  savedCards        SavedCard[]
 
   @@map("users")
 }
@@ -131,11 +132,31 @@ model Card {
   
   cardLinks CardLink[]
   views     CardView[]
+  savedBy   SavedCard[]
   
 
   @@map("cards")
   @@index([userId])
   @@index([viewCount])
+}
+
+model SavedCard {
+  id        String   @id @default(uuid())
+
+  userId    String   @map("user_id")
+  cardId    String   @map("card_id")
+
+  savedAt DateTime @default(now()) @map("saved_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cardId], name: "saved_card_unique")
+  @@index([userId])
+  @@index([cardId])
+  @@index([userId, savedAt])
+
+  @@map("saved_cards")
 }
 
 model CardLink {

@@ -327,4 +327,48 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
       handleDbError(error , request, reply)
     }
   })
+
+  //TODO: Add zod validation for params
+  app.post('/:id/save',{preHandler: [(req, reply) => app.authenticate(req, reply)]}, async(request: FastifyRequest<{Params: {id: string}}>, reply: FastifyReply) => {
+    try {
+      const cardId = request.params.id
+      const userId = request.user.id; 
+
+      await cardService.saveCard(app, userId, cardId)
+
+      return reply.status(201).send({
+        message: 'Card saved successfully',
+      });
+    } catch (error:any) {
+      if (error.code === 'CARD_NOT_FOUND') {
+        return reply.status(404).send({ message: error.message });
+      }
+
+      if (error.code === 'CARD_VISIBILITY_PRIVATE') {
+        return reply.status(403).send({ message: error.message });
+      }
+
+      handleDbError(error, request,reply)
+    }
+  })
+
+  //TODO: Add zod valdiation for query params 
+  app.get('/saved',{preHandler: [(req, reply) => app.authenticate(req, reply)]}, async(request: FastifyRequest<{Querystring: {page:string, limit: string}}>, reply: FastifyReply) => {
+    try {
+      const page = Number(request.query.page);
+      const limit = Number(request.query.limit);
+      const userId = request.user.id; 
+
+      const savedCards = await cardService.viewSavedCard(app, userId, page, limit )
+      return reply.status(200).send(savedCards)
+    } catch (error: any) {
+      if (error.code === 'SAVED_CARDS_NOT_FOUND') {
+        return reply.status(404).send({
+          message: error.message,
+        });
+      }
+      app.log.error(error)
+      handleDbError(error, request, reply)
+    }
+  })
 }
