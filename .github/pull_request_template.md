@@ -43,10 +43,10 @@ Closes #
 
 ## Checklist
 
-- [ ] My code follows the project's coding style (`pnpm -r run lint` passes).
-- [ ] TypeScript compiles without errors (`pnpm -r run typecheck`).
+- [ ] My code follows the project's coding style (`npm run lint` passes).
+- [ ] TypeScript compiles without errors (`npm run typecheck --workspaces --if-present`).
 - [ ] I have added or updated tests for the changes I made.
-- [ ] All tests pass locally (`pnpm -r run test`).
+- [ ] All tests pass locally (`npm run test --workspaces --if-present`).
 - [ ] I have updated documentation where necessary.
 - [ ] No new `console.log` or debug statements left in the code.
 - [ ] Breaking changes are documented in this PR description.
