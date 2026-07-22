@@ -1,7 +1,15 @@
 import {generateUniqueSlug} from '../utils/slug.js'
-import { createEventSchema} from '../validations/event.validation.js';
+import { createEventSchema, joinEventSchema} from '../validations/event.validation.js';
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
+// ── Attendance spam heuristic ────────────────────────────────────────────────
+// A user who marks attendance for many events in a very short window is likely
+// spamming (marking every hackathon without attending). We record such joins
+// with `flagged = true` for moderator review, but still allow the join so that
+// normal, fast sign-ups stay frictionless. See README "Attendance spam rules".
+const SPAM_WINDOW_MINUTES = 5;
+const SPAM_MAX_JOINS = 7;
 
 
 type EventDetails = {
@@ -28,6 +36,7 @@ type AttendeePublicProfile = {
   company: string | null;
   avatarUrl: string | null;
   accentColor: string;
+  role: string;
 }
 
 
@@ -45,6 +54,7 @@ type EventWithAttendees = {
     attendees: number;
   };
   attendees: {
+    role: string;
     user: {
       id: string;
       username: string;
@@ -142,9 +152,19 @@ export async function eventRoutes(app:FastifyInstance): Promise<void> {
         return response; 
     })
 
-     app.post<{ Params: { slug: string } }>('/:slug/join', {preHandler: [(req, reply) => app.authenticate(req, reply)]}, async(request, reply) => {
+     app.post<{ Params: { slug: string }; Body: { role?: string } }>('/:slug/join', {
+        preHandler: [(req, reply) => app.authenticate(req, reply)],
+        // Rate limit (block): fast-reject scripted mass-marking on this route.
+        config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    }, async(request, reply) => {
         const userId = request.user.id;
-        const paramsSlug = request.params.slug; 
+        const paramsSlug = request.params.slug;
+
+        const parsed = joinEventSchema.safeParse(request.body ?? {});
+        if(!parsed.success){
+            return reply.status(400).send({error: 'Bad request'})
+        }
+        const { role } = parsed.data;
 
         const event = await app.prisma.event.findUnique({
             where: {
@@ -156,21 +176,36 @@ export async function eventRoutes(app:FastifyInstance): Promise<void> {
             return reply.status(404).send({error: 'Event not found'})
         }
 
+        // Heuristic (flag): count how many events this user has joined recently.
+        // Exceeding the threshold marks the record as flagged for review without
+        // blocking the join, so legitimate users are never stopped.
+        const recentJoins = await app.prisma.eventAttendee.count({
+            where: {
+                userId,
+                joinedAt: { gte: new Date(Date.now() - SPAM_WINDOW_MINUTES * 60_000) },
+            },
+        })
+        const flagged = recentJoins >= SPAM_MAX_JOINS;
+        if(flagged){
+            app.log.warn(`Attendance spam heuristic tripped: userId=${userId} eventId=${event.id} recentJoins=${recentJoins}`)
+        }
+
         try {
-            await app.prisma.eventAttendee.create({
+            const attendee = await app.prisma.eventAttendee.create({
                 data: {
-                    eventId: event.id, 
-                    userId, 
-                    joinedAt: new Date()
+                    eventId: event.id,
+                    userId,
+                    role,
+                    flagged,
                 }
             })
 
-            return reply.status(201).send({message: 'User joined successfully'})
+            return reply.status(201).send({message: 'User joined successfully', role: attendee.role, flagged: attendee.flagged})
         } catch (error:any) {
             if(error.code === "P2002" ){
                 return reply.status(409).send({error: 'Already joined'})
             }
-            app.log.error((error as Error).message); 
+            app.log.error((error as Error).message);
             return reply.status(500).send({error: 'Failed to join'})
         }
 
@@ -223,20 +258,21 @@ export async function eventRoutes(app:FastifyInstance): Promise<void> {
                     select: { attendees: true }
                 },
                 attendees : {
-                    include: {
+                    select: {
+                        role: true,
                         user: {
                             select: {
                                 id: true,
-                                username: true, 
+                                username: true,
                                 displayName:true,
                                 bio: true,
                                 pronouns: true,
-                                company: true, 
+                                company: true,
                                 avatarUrl: true,
-                                accentColor: true  
+                                accentColor: true
                             }
                         }
-                    }, 
+                    },
                     skip,
                     take: limit,
                     orderBy: {joinedAt: 'desc'}
@@ -258,6 +294,7 @@ export async function eventRoutes(app:FastifyInstance): Promise<void> {
             company: attendee.user.company,
             avatarUrl: attendee.user.avatarUrl,
             accentColor: attendee.user.accentColor,
+            role: attendee.role,
         }));
 
         const response: PaginatedAttendeesResponse = {

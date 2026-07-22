@@ -278,6 +278,39 @@ The following error cases are implemented:
 | **Set Default Card** | 404 | `{ error: 'Card not found' }` — when card ID doesn't exist or doesn't belong to authenticated user |
 | **Successful Deletion** | 204 | No content |
 
+## Events & Attendance
+
+Users can mark themselves as attending an event (hackathon) and choose a role. Reading an event and its attendee list is public; marking/leaving attendance requires authentication.
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/events/:slug` | No | Event details + attendee count |
+| `GET` | `/api/events/:slug/attendees` | No | Paginated attendee list, each with a public `role` |
+| `POST` | `/api/events/:slug/join` | Yes | Mark attendance. Body: `{ "role": "PARTICIPANT" \| "ORGANIZER" \| "MENTOR" }` (optional, defaults to `PARTICIPANT`). Returns `{ message, role, flagged }` |
+| `DELETE` | `/api/events/:slug/leave` | Yes | Remove your attendance |
+
+```jsonc
+// POST /api/events/devcard-hack-2026/join
+{ "role": "MENTOR" }
+// → 201 { "message": "User joined successfully", "role": "MENTOR", "flagged": false }
+```
+
+| Scenario | Status | Response |
+|----------|--------|----------|
+| **Join** | 400 | `{ error: 'Bad request' }` — invalid `role` |
+| **Join / Leave** | 404 | `{ error: 'Event not found' }` |
+| **Join** | 409 | `{ error: 'Already joined' }` — attendance already marked |
+| **Join** | 429 | Rate limited (see below) |
+| **Leave** | 404 | `{ error: 'User not found' }` — not currently attending |
+| **Leave** | 204 | No content |
+
+### Attendance spam rules
+
+To keep normal sign-ups frictionless while catching mass-marking ("marking every hackathon without attending"), two independent guardrails run on the join route:
+
+- **Rate limit (hard block):** the join route is capped at **10 requests/minute**; excess requests are rejected with **HTTP 429**. This stops scripted retries.
+- **Heuristic (soft flag):** if a user marks attendance for **8 or more events within a 5-minute window**, the attendee record is stored with `flagged = true` and an audit line is logged for moderator review. **The join still succeeds** — legitimate users are never blocked, and `flagged` is never exposed on the public attendee list. Both thresholds are tunable constants (`SPAM_WINDOW_MINUTES`, `SPAM_MAX_JOINS`) in `apps/backend/src/routes/event.ts`.
+
 ## Good First Issues
 
 New to open source? We've got you covered! Check out our [Good First Issues](https://github.com/Dev-Card/DevCard/issues?q=is%3Aopen+label%3A%22good-first-issue%22), these are specially curated issues that are:
