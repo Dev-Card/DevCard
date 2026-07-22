@@ -236,16 +236,25 @@ model Event {
   @@map("events")
 }
 
+enum AttendeeRole {
+  PARTICIPANT
+  ORGANIZER
+  MENTOR
+}
+
 model EventAttendee {
-  id       String   @id @default(uuid())
+  id       String       @id @default(uuid())
   userId   String
   eventId  String
-  joinedAt DateTime
+  role     AttendeeRole @default(PARTICIPANT)
+  flagged  Boolean      @default(false)
+  joinedAt DateTime     @default(now())
 
   event Event @relation(fields: [eventId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
 
   @@unique([userId, eventId])
+  @@index([userId, joinedAt])
   @@map("event_attendees")
 }
 
