@@ -40,6 +40,14 @@
     "issues": 3
   },
   {
+    "login": "github-actions[bot]",
+    "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+    "profileUrl": "https://github.com/apps/github-actions",
+    "mergedPrs": 5,
+    "openPrs": 1,
+    "issues": 0
+  },
+  {
     "login": "anshul23102",
     "avatarUrl": "https://avatars.githubusercontent.com/u/167362756?v=4",
     "profileUrl": "https://github.com/anshul23102",
@@ -54,14 +62,6 @@
     "mergedPrs": 4,
     "openPrs": 0,
     "issues": 6
-  },
-  {
-    "login": "github-actions[bot]",
-    "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
-    "profileUrl": "https://github.com/apps/github-actions",
-    "mergedPrs": 4,
-    "openPrs": 1,
-    "issues": 0
   },
   {
     "login": "ramnnn2006",
@@ -496,14 +496,6 @@
     "issues": 1
   },
   {
-    "login": "SagarSingh01",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/263024399?v=4",
-    "profileUrl": "https://github.com/SagarSingh01",
-    "mergedPrs": 0,
-    "openPrs": 1,
-    "issues": 1
-  },
-  {
     "login": "aditya-narayan007",
     "avatarUrl": "https://avatars.githubusercontent.com/u/198096415?v=4",
     "profileUrl": "https://github.com/aditya-narayan007",
@@ -563,14 +555,6 @@
     "login": "croudly-prod",
     "avatarUrl": "https://avatars.githubusercontent.com/u/279913289?v=4",
     "profileUrl": "https://github.com/croudly-prod",
-    "mergedPrs": 0,
-    "openPrs": 0,
-    "issues": 1
-  },
-  {
-    "login": "Dippp10-ally",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/276020288?v=4",
-    "profileUrl": "https://github.com/Dippp10-ally",
     "mergedPrs": 0,
     "openPrs": 0,
     "issues": 1
@@ -680,6 +664,14 @@
     "issues": 1
   },
   {
+    "login": "SagarSingh01",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/263024399?v=4",
+    "profileUrl": "https://github.com/SagarSingh01",
+    "mergedPrs": 0,
+    "openPrs": 0,
+    "issues": 1
+  },
+  {
     "login": "samarthsugandhi",
     "avatarUrl": "https://avatars.githubusercontent.com/u/227225970?v=4",
     "profileUrl": "https://github.com/samarthsugandhi",
@@ -691,6 +683,14 @@
     "login": "shruti-porwal",
     "avatarUrl": "https://avatars.githubusercontent.com/u/192584014?v=4",
     "profileUrl": "https://github.com/shruti-porwal",
+    "mergedPrs": 0,
+    "openPrs": 0,
+    "issues": 1
+  },
+  {
+    "login": "SujalMahapatra",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/159683157?v=4",
+    "profileUrl": "https://github.com/SujalMahapatra",
     "mergedPrs": 0,
     "openPrs": 0,
     "issues": 1
@@ -779,6 +779,14 @@
     "login": "openclawloulou-ai",
     "avatarUrl": "https://avatars.githubusercontent.com/u/273446467?v=4",
     "profileUrl": "https://github.com/openclawloulou-ai",
+    "mergedPrs": 0,
+    "openPrs": 1,
+    "issues": 0
+  },
+  {
+    "login": "palxsh01",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/183233630?v=4",
+    "profileUrl": "https://github.com/palxsh01",
     "mergedPrs": 0,
     "openPrs": 1,
     "issues": 0
