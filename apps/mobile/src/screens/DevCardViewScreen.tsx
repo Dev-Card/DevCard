@@ -415,7 +415,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
                 description="This DevCard profile does not have any platform links available."
               />
             </View>
-          ) : profile.links.map(link => {
+          ) : profile.(links ?? []).map(link => {
             const platform = PLATFORMS[link.platform];
             const state = followStates[link.id] || 'idle';
             const btnColor = getButtonColor(link, state);
