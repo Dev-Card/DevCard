@@ -104,7 +104,7 @@ export default function CardPage() {
                   className="card-avatar-placeholder"
                   style={{ background: card.owner.accentColor || '#6366F1' }}
                 >
-                  {card.owner.displayName.charAt(0).toUpperCase()}
+                  {card.owner.displayName[0].toUpperCase()}
                 </div>
               )}
             </div>
@@ -143,7 +143,7 @@ export default function CardPage() {
                 id={`platform-tile-${link.platform}`}
               >
                 <div className="tile-icon-card">
-                  {link.platform.charAt(0).toUpperCase()}
+                  {link.platform[0].toUpperCase()}
                 </div>
                 <div className="tile-info">
                   <span className="platform-name-card">{link.platform}</span>
