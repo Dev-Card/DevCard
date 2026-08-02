@@ -172,8 +172,8 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
   ) => {
     const userId = (request.user as any).id;
     const { id } = request.params;
-    const page = Math.max(1, parseInt((request.query as any).page || '1', 10));
-    const limit = Math.min(100, Math.max(1, parseInt((request.query as any).limit || '20', 10)));
+    const page = Math.max(1, parseInt((request.query as any, 10).page || '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt((request.query as any, 10).limit || '20', 10)));
 
     const endpoint = await app.prisma.webhookEndpoint.findFirst({
       where: { id, userId },
