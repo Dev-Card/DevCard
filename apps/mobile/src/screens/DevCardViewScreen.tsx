@@ -453,7 +453,7 @@ export default function DevCardViewScreen({ navigation, route }: Props) {
                     <Text style={styles.tileIconDoneText}>✓</Text>
                   ) : (
                     <Text style={[styles.tileIconText, { color: platform?.color || COLORS.white }]}>
-                      {PLATFORM_EMOJI[link.platform] || platform?.name.charAt(0) || '?'}
+                      {PLATFORM_EMOJI[link.platform] || platform?.name[0] || '?'}
                     </Text>
                   )}
                 </View>
