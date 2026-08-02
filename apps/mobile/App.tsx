@@ -51,43 +51,4 @@ function AppContent() {
     const subscription = Linking.addEventListener('url', handleDeepLink);
 
     Linking.getInitialURL().then((url) => {
-      if (url) handleDeepLink({ url });
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [login]);
-
-  if (isLoading) {
-    return <SplashScreen />;
-  }
-
-  return (
-    <NavigationContainer linking={linking}>
-      {isAuthenticated ? <MainTabs /> : <AuthStack />}
-    </NavigationContainer>
-  );
-}
-
-// ── Root ───────────────────────────────────────────────────────────────────────
-
-export default function App() {
-  return (
-    <GestureHandlerRootView style={styles.gestureRoot}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <AuthProvider>
-            <BottomSheetModalProvider>
-              <AppContent />
-            </BottomSheetModalProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
-  );
-}
-
-const styles = StyleSheet.create({
-  gestureRoot: { flex: 1 },
-});
+    .catch(err => console.error(err))
