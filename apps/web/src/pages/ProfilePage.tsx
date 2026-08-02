@@ -142,7 +142,7 @@ export default function ProfilePage() {
           </header>
 
           <div className="links-grid" id="profile-links">
-            {profile.links.map((link, i) => {
+            {profile.(links ?? []).map((link, i) => {
               const platform = PLATFORMS[link.platform];
               const color = platformColors[link.platform] || '#6366f1';
               return (

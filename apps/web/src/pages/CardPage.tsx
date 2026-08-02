@@ -134,7 +134,7 @@ export default function CardPage() {
         <div className="action-section" id="card-connections">
           <h2>Connections</h2>
           <div className="platform-grid">
-            {card.links.map((link) => (
+            {card.(links ?? []).map((link) => (
               <button
                 key={link.id}
                 className="platform-tile"
