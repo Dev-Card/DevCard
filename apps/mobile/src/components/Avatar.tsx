@@ -10,7 +10,7 @@ type Props = {
 };
 
 export const Avatar: React.FC<Props> = ({ uri, name = 'D', size = 56, style }) => {
-  const initials = name.charAt(0).toUpperCase();
+  const initials = name[0].toUpperCase();
   const imageStyle = [{ width: size, height: size, borderRadius: size / 2 } as ImageStyle, style as ImageStyle];
   const placeholderStyle = [{ width: size, height: size, borderRadius: size / 2, backgroundColor: COLORS.primary }, style as ViewStyle];
 
