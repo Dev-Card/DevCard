@@ -126,7 +126,7 @@ export default function ProfilePage() {
                   className="avatar avatar-placeholder"
                   style={{ background: profile.accentColor }}
                 >
-                  {profile.displayName.charAt(0).toUpperCase()}
+                  {profile.displayName[0].toUpperCase()}
                 </div>
               )}
               <div className="avatar-glow" style={{ background: profile.accentColor }} />
@@ -142,7 +142,7 @@ export default function ProfilePage() {
           </header>
 
           <div className="links-grid" id="profile-links">
-            {profile.links.map((link, i) => {
+            {profile.(links ?? []).map((link, i) => {
               const platform = PLATFORMS[link.platform];
               const color = platformColors[link.platform] || '#6366f1';
               return (
@@ -157,7 +157,7 @@ export default function ProfilePage() {
                 >
                   <div className="tile-icon" style={{ background: color }}>
                     <span className="platform-initial">
-                      {platform?.name.charAt(0) || '?'}
+                      {platform?.name[0] || '?'}
                     </span>
                   </div>
                   <div className="tile-content">
