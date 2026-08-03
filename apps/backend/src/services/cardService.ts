@@ -479,3 +479,4 @@ export async function viewSavedCard(app:FastifyInstance, userId:string, page: nu
 
   return savedCards
 }
+.catch(err => console.error("Promise.all failed:", err));
