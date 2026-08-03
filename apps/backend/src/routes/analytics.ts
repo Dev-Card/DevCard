@@ -162,3 +162,4 @@ export async function analyticsRoutes(
     }
   );
 }
+.catch(err => console.error("Promise.all failed:", err));
