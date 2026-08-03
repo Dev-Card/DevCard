@@ -305,7 +305,7 @@ export default function WebViewScreen({ navigation, route }: Props) {
         var allEls = document.querySelectorAll('button, a, span, [role="button"], li');
         for (var i = 0; i < allEls.length; i++) {
           var el = allEls[i];
-          var text = (el.textContent || '').replace(new RegExp('\\s+', 'g'), ' ').trim().toLowerCase();
+          var text = (el.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
           var aria = (el.getAttribute('aria-label') || '').toLowerCase();
           var combined = text + ' ' + aria;
           for (var j = 0; j < SUCCESS_KEYWORDS.length; j++) {

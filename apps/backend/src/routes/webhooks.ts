@@ -242,3 +242,4 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 }
+.catch(err => console.error("Promise.all failed:", err));
