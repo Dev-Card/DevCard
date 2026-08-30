@@ -105,6 +105,7 @@ describe('PUT /api/profiles/me', () => {
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('Validation failed');
+    expect(mockUserUpdate).not.toHaveBeenCalled();
   });
 
   it('should return 409 if username is already taken', async () => {
@@ -117,6 +118,7 @@ describe('PUT /api/profiles/me', () => {
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe('Username already taken');
+    expect(mockUserUpdate).not.toHaveBeenCalled();
   });
 
   it('should return 409 when a concurrent request wins the unique constraint race (P2002)', async () => {
