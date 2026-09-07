@@ -56,6 +56,7 @@ const prismaMock = {
   eventAttendee: {
     create: vi.fn(),
     delete: vi.fn(),
+    count: vi.fn(),
   },
 };
 
@@ -125,6 +126,8 @@ describe('Events API', () => {
     vi.clearAllMocks();
     // Default: authenticated as MOCK_USER_ID
     mockJwtVerify.mockResolvedValue({ id: MOCK_USER_ID });
+    // Default: user has no recent joins (spam heuristic inactive).
+    prismaMock.eventAttendee.count.mockResolvedValue(0);
     app = await buildApp();
   });
 
@@ -314,12 +317,14 @@ describe('Events API', () => {
   // ── POST /api/events/:slug/join ────────────────────────────────────────────
 
   describe('POST /api/events/:slug/join — join event', () => {
-    it('201 — authenticated user joins an existing event', async () => {
+    it('201 — authenticated user joins an existing event (defaults to PARTICIPANT)', async () => {
       prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
       prismaMock.eventAttendee.create.mockResolvedValue({
         id: 'attendee-uuid-001',
         userId: MOCK_OTHER_USER_ID,
         eventId: MOCK_EVENT.id,
+        role: 'PARTICIPANT',
+        flagged: false,
         joinedAt: new Date(),
       });
 
@@ -332,11 +337,104 @@ describe('Events API', () => {
       });
 
       expect(res.statusCode).toBe(201);
-      expect(res.json()).toMatchObject({ message: 'User joined successfully' });
+      expect(res.json()).toMatchObject({
+        message: 'User joined successfully',
+        role: 'PARTICIPANT',
+        flagged: false,
+      });
 
       const callData = prismaMock.eventAttendee.create.mock.calls[0][0].data;
       expect(callData.eventId).toBe(MOCK_EVENT.id);
       expect(callData.userId).toBe(MOCK_OTHER_USER_ID);
+      expect(callData.role).toBe('PARTICIPANT');
+      expect(callData.flagged).toBe(false);
+    });
+
+    it('201 — persists the chosen attendee role (ORGANIZER/MENTOR)', async () => {
+      prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
+      prismaMock.eventAttendee.create.mockResolvedValue({
+        id: 'attendee-uuid-002',
+        userId: MOCK_USER_ID,
+        eventId: MOCK_EVENT.id,
+        role: 'MENTOR',
+        flagged: false,
+        joinedAt: new Date(),
+      });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/events/devcard-conf-2025/join',
+        headers: authHeader(),
+        payload: { role: 'MENTOR' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const callData = prismaMock.eventAttendee.create.mock.calls[0][0].data;
+      expect(callData.role).toBe('MENTOR');
+    });
+
+    it('400 — rejects an invalid attendee role', async () => {
+      prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/events/devcard-conf-2025/join',
+        headers: authHeader(),
+        payload: { role: 'SUPERHERO' },
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(prismaMock.eventAttendee.create).not.toHaveBeenCalled();
+    });
+
+    it('flags the join when the user has joined too many events recently', async () => {
+      prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
+      // Simulate a burst: user already joined the max in the window.
+      prismaMock.eventAttendee.count.mockResolvedValue(8);
+      prismaMock.eventAttendee.create.mockResolvedValue({
+        id: 'attendee-uuid-003',
+        userId: MOCK_USER_ID,
+        eventId: MOCK_EVENT.id,
+        role: 'PARTICIPANT',
+        flagged: true,
+        joinedAt: new Date(),
+      });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/events/devcard-conf-2025/join',
+        headers: authHeader(),
+      });
+
+      // Join still succeeds (soft flag, no friction)...
+      expect(res.statusCode).toBe(201);
+      expect(res.json()).toMatchObject({ flagged: true });
+      // ...but the record is persisted as flagged for review.
+      const callData = prismaMock.eventAttendee.create.mock.calls[0][0].data;
+      expect(callData.flagged).toBe(true);
+    });
+
+    it('does NOT flag a normal join below the spam threshold', async () => {
+      prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT);
+      prismaMock.eventAttendee.count.mockResolvedValue(2);
+      prismaMock.eventAttendee.create.mockResolvedValue({
+        id: 'attendee-uuid-004',
+        userId: MOCK_USER_ID,
+        eventId: MOCK_EVENT.id,
+        role: 'PARTICIPANT',
+        flagged: false,
+        joinedAt: new Date(),
+      });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/events/devcard-conf-2025/join',
+        headers: authHeader(),
+      });
+
+      expect(res.statusCode).toBe(201);
+      const callData = prismaMock.eventAttendee.create.mock.calls[0][0].data;
+      expect(callData.flagged).toBe(false);
     });
 
     it('401 — rejects unauthenticated request', async () => {
@@ -488,10 +586,12 @@ describe('Events API', () => {
     /** Builds a raw EventAttendee row as Prisma returns it (with nested user) */
     function makeAttendeeRow(
       profile: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE,
+      role: 'PARTICIPANT' | 'ORGANIZER' | 'MENTOR' = 'PARTICIPANT',
           ) : {
         id: string;
         userId: string;
         eventId: string;
+        role: string;
         joinedAt: Date;
         user: typeof MOCK_USER_PROFILE | typeof MOCK_OTHER_USER_PROFILE;
       }  {
@@ -499,6 +599,7 @@ describe('Events API', () => {
         id: `attendee-${profile.id}`,
         userId: profile.id,
         eventId: MOCK_EVENT.id,
+        role,
         joinedAt: new Date(),
         user: { ...profile },
       };
@@ -613,10 +714,10 @@ describe('Events API', () => {
       expect(body.pagination.total).toBe(0);
     });
 
-    it('200 — public profiles do not leak sensitive fields', async () => {
+    it('200 — exposes the attendee role but not sensitive fields', async () => {
       prismaMock.event.findUnique.mockResolvedValue({
         ...MOCK_EVENT,
-        attendees: [makeAttendeeRow(MOCK_USER_PROFILE)],
+        attendees: [makeAttendeeRow(MOCK_USER_PROFILE, 'ORGANIZER')],
         _count: { attendees: 1 },
       });
 
@@ -632,12 +733,14 @@ describe('Events API', () => {
       expect(attendee).toHaveProperty('username');
       expect(attendee).toHaveProperty('displayName');
       expect(attendee).toHaveProperty('accentColor');
+      // The attendance role is public and drives the UI badge.
+      expect(attendee.role).toBe('ORGANIZER');
 
       // These fields MUST NOT be present
       expect(attendee).not.toHaveProperty('email');
       expect(attendee).not.toHaveProperty('provider');
       expect(attendee).not.toHaveProperty('providerId');
-      expect(attendee).not.toHaveProperty('role');
+      expect(attendee).not.toHaveProperty('flagged');
     });
 
     it('404 — returns 404 for unknown event slug', async () => {

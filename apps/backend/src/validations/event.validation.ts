@@ -9,4 +9,6 @@ export const createEventSchema = z.object({
     isPublic: z.boolean().default(true)
 })
 
-export const joinEventSchema = z.object({})
+export const joinEventSchema = z.object({
+    role: z.enum(['PARTICIPANT', 'ORGANIZER', 'MENTOR']).default('PARTICIPANT'),
+})

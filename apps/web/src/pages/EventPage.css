@@ -1,0 +1,210 @@
+.event-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(2rem, 6vw, 5rem) 1.25rem 3rem;
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+
+.event-container.loaded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.event-card {
+  width: 100%;
+  max-width: 620px;
+  border-radius: var(--radius-xl, 20px);
+  padding: 2.5rem 2rem;
+  box-shadow: 0 26px 60px -20px rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.96);
+}
+
+.event-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.event-name {
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  margin: 0 0 0.75rem;
+  line-height: 1.2;
+}
+
+.event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.95rem;
+}
+
+.event-organizer {
+  margin: 0.85rem 0 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+}
+
+.event-organizer a {
+  color: #818cf8;
+  text-decoration: none;
+}
+
+.event-organizer a:hover {
+  text-decoration: underline;
+}
+
+.event-description {
+  margin: 1rem 0 0;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+}
+
+/* Attendance panel */
+.attendance-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.attendee-count {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.attendee-count strong {
+  font-size: 1.35rem;
+  color: #fff;
+}
+
+.attendance-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.role-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.role-select {
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(2, 6, 23, 0.7);
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.attendance-button {
+  padding: 0.65rem 1.4rem;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.attendance-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.attendance-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.attendance-button.leave {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.attendance-message {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.attendance-message.success {
+  color: #6ee7b7;
+}
+
+.attendance-message.error {
+  color: #fca5a5;
+}
+
+/* Attendees list */
+.attendees-list {
+  margin-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1.25rem;
+}
+
+.attendees-list h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.85rem;
+}
+
+.attendees-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.attendee-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.attendee-name {
+  color: #e2e8f0;
+  text-decoration: none;
+}
+
+.attendee-name:hover {
+  text-decoration: underline;
+}
+
+.role-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.role-badge.role-organizer {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fcd34d;
+}
+
+.role-badge.role-mentor {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.4);
+  color: #c4b5fd;
+}
+
+.role-badge.role-participant {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.35);
+  color: #a5b4fc;
+}
