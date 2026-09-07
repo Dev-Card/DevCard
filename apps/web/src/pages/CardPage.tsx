@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { PublicCard } from '../shared';
-import { apiFetch } from '../lib/api';
+import { ApiError, apiFetch } from '../lib/api';
 import './CardPage.css';
 
 function getPlatformColor(platform: string): string {
@@ -30,9 +30,12 @@ export default function CardPage() {
         setCard(data);
         setError(null);
       })
-      .catch(() => {
+      .catch((error) => {
         setCard(null);
-        setError('Card not found');
+        setError(error instanceof ApiError && error.status === 404
+          ? 'Card not found'
+          : 'Unable to load card. Please try again later.'
+        );
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -42,7 +45,7 @@ export default function CardPage() {
     if (card) {
       document.title = `${card.title} | ${card.owner.displayName}`;
     } else if (error) {
-      document.title = 'Card Not Found | DevCard';
+      document.title = `${error} | DevCard`;
     }
   }, [card, error]);
 
@@ -67,8 +70,12 @@ export default function CardPage() {
         <div className="card-wrapper">
           <div className="error-glass glass">
             <div className="error-emoji">😕</div>
-            <h1>Card not found</h1>
-            <p>This DevCard doesn't exist or has been removed.</p>
+            <h1>{error}</h1>
+            <p>
+              {error === 'Card not found'
+                ? "This DevCard doesn't exist or has been removed."
+                : 'There was a problem connecting to the server.'}
+            </p>
             <Link to="/" className="btn-primary">Return Home</Link>
           </div>
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { PLATFORMS, getProfileUrl } from '../shared';
 import type { PublicProfile } from '../shared';
-import { apiFetch } from '../lib/api';
+import { ApiError, apiFetch } from '../lib/api';
 import './ProfilePage.css';
 
 const platformColors: Record<string, string> = {
@@ -34,9 +34,12 @@ export default function ProfilePage() {
         setProfile(data);
         setError(null);
       })
-      .catch(() => {
+      .catch((error) => {
         setProfile(null);
-        setError('User not found');
+        setError(error instanceof ApiError && error.status === 404
+          ? 'User not found'
+          : 'Unable to load profile. Please try again later.'
+        );
       })
       .finally(() => setLoading(false));
   }, [username]);
@@ -63,7 +66,7 @@ export default function ProfilePage() {
     if (profile) {
       document.title = `${profile.displayName} | DevCard`;
     } else if (error) {
-      document.title = 'User Not Found | DevCard';
+      document.title = `${error} | DevCard`;
     }
   }, [profile, error]);
 
@@ -92,8 +95,12 @@ export default function ProfilePage() {
         <main className="profile-container loaded">
           <div className="error-glass glass">
             <div className="error-emoji">😕</div>
-            <h1>Profile not found</h1>
-            <p>This DevCard has vanished into the digital void.</p>
+            <h1>{error}</h1>
+            <p>
+              {error === 'User not found'
+                ? 'This DevCard has vanished into the digital void.'
+                : 'There was a problem connecting to the server.'}
+            </p>
             <Link to="/" className="btn-primary">Return Home</Link>
           </div>
         </main>
