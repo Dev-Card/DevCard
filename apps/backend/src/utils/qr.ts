@@ -4,6 +4,7 @@ export interface QROptions {
   format?: 'png' | 'svg';
   width?: number;
   margin?: number;
+  errorCorrection?: 'L' | 'M' | 'Q' | 'H';
   color?: {
     dark?: string;
     light?: string;
@@ -12,6 +13,7 @@ export interface QROptions {
 
 /**
  * Generate a QR code as a data URL (base64 PNG).
+ * Uses error correction level H by default for better readability when printed small.
  */
 export async function generateQRDataUrl(
   text: string,
@@ -20,6 +22,7 @@ export async function generateQRDataUrl(
   return QRCode.toDataURL(text, {
     width: options.width || 400,
     margin: options.margin || 2,
+    errorCorrectionLevel: options.errorCorrection || 'H',
     color: {
       dark: options.color?.dark || '#000000',
       light: options.color?.light || '#ffffff',
@@ -29,6 +32,7 @@ export async function generateQRDataUrl(
 
 /**
  * Generate a QR code as a PNG buffer.
+ * Uses error correction level H by default for better readability when printed small.
  */
 export async function generateQRBuffer(
   text: string,
@@ -37,6 +41,7 @@ export async function generateQRBuffer(
   return QRCode.toBuffer(text, {
     width: options.width || 400,
     margin: options.margin || 2,
+    errorCorrectionLevel: options.errorCorrection || 'H',
     color: {
       dark: options.color?.dark || '#000000',
       light: options.color?.light || '#ffffff',
@@ -46,6 +51,7 @@ export async function generateQRBuffer(
 
 /**
  * Generate a QR code as SVG string.
+ * Uses error correction level H by default for better readability when printed small.
  */
 export async function generateQRSvg(
   text: string,
@@ -55,6 +61,7 @@ export async function generateQRSvg(
     type: 'svg',
     width: options.width || 400,
     margin: options.margin || 2,
+    errorCorrectionLevel: options.errorCorrection || 'H',
     color: {
       dark: options.color?.dark || '#000000',
       light: options.color?.light || '#ffffff',
